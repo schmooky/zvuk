@@ -1,0 +1,57 @@
+---
+const tags = [
+  'lazy AudioContext', 'mixer buses', 'sidechain ducking', 'snapshots',
+  'parameters', 'audio sprites', 'voice limits', 'spatializer',
+  'webm/opus first', 'iOS Safari ready', '<12kb gzipped',
+  'ESM-only', 'tree-shakable', 'TypeScript-strict',
+];
+---
+<section class="relative overflow-hidden border-b border-border/60 pb-16 pt-24">
+  <div class="grid-bg absolute inset-0 opacity-50 pointer-events-none"></div>
+  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"></div>
+
+  <div class="container relative">
+    <div class="mx-auto max-w-3xl text-center">
+      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
+        <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse-slow"></span>
+        v0.0.1 · MIT · Web Audio API · ESM
+      </div>
+
+      <h1 class="text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
+        Audio Engine <br />
+        <span class="gradient-text">for the Web.</span>
+      </h1>
+
+      <p class="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
+        Wwise-grade routing, sprite-loading, sidechain ducking — in a tiny ESM package.
+        Lazy <code class="text-primary font-mono text-base">AudioContext</code>, mixer buses, snapshots, parameters,
+        and codec-aware loading. Built for slot games. Useful everywhere sound matters.
+      </p>
+
+      <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
+        <a
+          href="/docs/quickstart/"
+          class="inline-flex h-11 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent px-6 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 hover:-translate-y-[1px]"
+        >
+          pnpm add zvuk
+        </a>
+        <a
+          href="/concepts/engine/"
+          class="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-card/50 px-6 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
+        >
+          See the engine →
+        </a>
+      </div>
+    </div>
+
+    <div class="relative mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]">
+      <div class="inline-flex items-center gap-8 whitespace-nowrap animate-marquee py-2">
+        {[...tags, ...tags].map((t) => (
+          <span class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground/70">
+            <span class="text-primary/80">◆</span>{t}
+          </span>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,66 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const construct = `import { Ducker } from 'zvuk';
+
+const ducker = new Ducker(engine.context, engine.bus('voice'), {
+  amount: 0.6,        // 60% drop at peak
+  attack: 80,         // ms — how fast we duck
+  release: 400,       // ms — how slow we recover
+  threshold: 0.05,    // RMS amplitude on source to trigger
+});
+
+engine.bus('music').addFx(ducker);`;
+
+const live = `ducker.setAmount(0.8);     // duck harder during boss VO
+ducker.setThreshold(0.02); // more sensitive — duck even on quiet whispers`;
+---
+<Docs
+  title="Sidechain ducking"
+  description="Drop the music when the VO speaks. Smoothly. Without writing your own envelope follower."
+  eyebrow="Guide"
+>
+  <h2>The shape</h2>
+  <p>
+    A <strong>Ducker</strong> lives on the <em>target</em> bus (the one being
+    ducked) and listens to a <em>source</em> bus (the one whose loudness drives
+    the duck). When the source's RMS exceeds the threshold, the target's
+    output gain drops over <code>attack</code> ms; when the source quiets, gain
+    recovers over <code>release</code> ms.
+  </p>
+
+  <h2>Wiring</h2>
+  <Snippet code={construct} lang="ts" />
+
+  <h2>Live tuning</h2>
+  <Snippet code={live} lang="ts" />
+
+  <h2>Why not just use DynamicsCompressorNode?</h2>
+  <p>
+    Web Audio's compressor is internally-keyed only — it compresses based on
+    its own input. To get true sidechain (key from a different bus) you need
+    an envelope follower on the source bus driving a gain on the target. The
+    <code>Ducker</code> is exactly that, packaged.
+  </p>
+
+  <h2>Latency</h2>
+  <p>
+    The follower runs on the main thread at ~60 Hz. That's <em>perfectly fine</em>
+    for speech ducking, where the smallest meaningful event (a syllable) is ~100
+    ms. For sample-accurate audio-rate sidechain (e.g. compressing a kick under
+    a snare), use a custom AudioWorklet — that's planned for a future release.
+  </p>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't set <code>attack</code> below ~20 ms for VO.</div>
+    Voice transients are spiky; a too-fast attack creates pumping artifacts.
+    80 ms is a good default; 40 ms for very urgent VO.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't duck the music bus that <em>plays</em> the VO.</div>
+    Place the Ducker on a different bus (music, ambience). The source bus
+    you key from must contain only the trigger material.
+  </div>
+</Docs>

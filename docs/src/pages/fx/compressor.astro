@@ -1,0 +1,100 @@
+---
+import CompressorPlayground from '../../components/demos/CompressorPlayground.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Compressor implements FxInsert {
+  readonly input: GainNode;
+  readonly output: GainNode;
+
+  bypassed: boolean;                  // graph-swap, not a parameter
+
+  applyConfig(c: CompressorConfig): void;
+  get reduction(): number;            // live gain reduction (negative dB)
+  dispose(): void;
+}
+
+interface CompressorConfig {
+  threshold?: number;                 // dB, default -24
+  knee?:      number;                 // dB,   default 30
+  ratio?:     number;                 // n:1,  default 12
+  attack?:    number;                 // s,    default 0.003
+  release?:   number;                 // s,    default 0.25
+  makeupGain?: number;                // dB,   default 0
+}`;
+
+const usage = `import { Compressor } from 'zvuk';
+
+const comp = new Compressor(engine.context, {
+  threshold: -18,
+  ratio: 4,
+  attack: 0.005,
+  release: 0.18,
+  makeupGain: 6,
+});
+
+engine.bus('voice').addFx(comp);
+
+// Live tweaks:
+comp.applyConfig({ threshold: -22, ratio: 6 });
+comp.bypassed = true;                 // a/b test`;
+
+const meter = `setInterval(() => {
+  console.log('reduction:', comp.reduction.toFixed(2), 'dB');
+}, 33);`;
+---
+<Docs
+  title="Compressor"
+  description="Dynamic range compression as a bus FX insert. Wraps DynamicsCompressorNode + makeup gain. Bypass is a graph swap — no parameter latency."
+  eyebrow="FX"
+>
+
+  <h2>TL;DR</h2>
+  <p>
+    Compresses the dynamic range of whatever you route through it. Use it on a
+    voice bus to even out dialogue, on a music bus for glue, or on the master
+    as a limiter (with <code>ratio: 20</code> and a fast attack).
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Compressor + CompressorConfig" />
+
+  <h2>Live demo</h2>
+  <p>
+    Five knobs and a live reduction meter. Toggle bypass to A/B against the
+    dry signal — the meter goes to zero when bypassed.
+  </p>
+  <CompressorPlayground client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Voice bus glue</h3>
+  <Snippet code={usage} lang="ts" />
+
+  <h3>Read live gain reduction</h3>
+  <Snippet code={meter} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't compress music to mush.</div>
+    Ratios above 8:1 on music sound pumpy. Reserve heavy ratios for voice or
+    SFX glue; for music sit at 2:1–4:1 with a soft knee.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't dial makeupGain to compensate fully.</div>
+    Match the bypassed level by ear, not by math. The compressor is doing
+    work; trust the meter, not the knob.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't put a Compressor on every bus.</div>
+    Each bus's compressor is independent. Stacking them makes your mix breathe
+    in unpredictable ways. Pick the bus where the dynamics actually matter.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/fx/">FX index</a></li>
+    <li><a href="/guides/ducking/">Sidechain ducking</a> — Ducker is a compressor keyed from another bus.</li>
+    <li><a href="/concepts/bus/">Bus</a> — where FX inserts live.</li>
+  </ul>
+</Docs>

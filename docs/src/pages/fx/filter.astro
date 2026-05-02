@@ -1,0 +1,99 @@
+---
+import FilterSweep from '../../components/demos/FilterSweep.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Filter implements FxInsert {
+  readonly input: BiquadFilterNode;
+  readonly output: BiquadFilterNode;
+  bypassed: boolean;
+
+  setType(t: FilterKind): void;
+  setFrequency(hz: number): void;
+  setQ(q: number): void;
+  dispose(): void;
+}
+
+type FilterKind = 'lowpass' | 'highpass' | 'bandpass' | 'notch' | 'peaking' | 'allpass';
+
+interface FilterConfig {
+  type?: FilterKind;
+  frequency?: number;                 // Hz
+  q?: number;
+  gain?: number;                      // dB — peaking only
+}`;
+
+const usage = `import { Filter } from 'zvuk';
+
+const fx = new Filter(engine.context, {
+  type: 'lowpass',
+  frequency: 800,
+  q: 1.2,
+});
+engine.bus('music').addFx(fx);
+
+// Live sweep
+fx.setFrequency(2000);
+fx.setQ(0.7);`;
+
+const sweep = `// Sweep a filter from a Parameter for "underwater" / "muffled" effects.
+const muffle = engine.parameter('muffle', 0);
+muffle.bindTo((v) => fx.setFrequency(v), { from: 20000, to: 400, curve: 'easeIn' });
+
+muffle.set(1);   // fully underwater`;
+---
+<Docs
+  title="Filter"
+  description="Biquad filter as a bus FX insert. Lowpass for muffles, highpass for radios, bandpass for telephone, peaking for EQ."
+  eyebrow="FX"
+>
+
+  <h2>TL;DR</h2>
+  <p>
+    A single <code>BiquadFilterNode</code> wrapped in the FX-insert contract.
+    Pick a type, a frequency, a Q. Drive it from a <a href="/concepts/parameter/">Parameter</a>
+    for cinematic transitions.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Filter + FilterConfig" />
+
+  <h2>Live demo</h2>
+  <p>Type, frequency, Q. Try lowpass at 400 Hz with high Q for a wah.</p>
+  <FilterSweep client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Insert + live tweak</h3>
+  <Snippet code={usage} lang="ts" />
+
+  <h3>"Underwater" sweep from a Parameter</h3>
+  <Snippet code={sweep} lang="ts" />
+
+  <h2>Common starting points</h2>
+  <table>
+    <thead>
+      <tr><th>Effect</th><th>Type</th><th>Frequency</th><th>Q</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Muffled / underwater</td><td>lowpass</td><td>400–800 Hz</td><td>1</td></tr>
+      <tr><td>Tinny radio / phone</td><td>bandpass</td><td>1500 Hz</td><td>2</td></tr>
+      <tr><td>Subwoofer cut</td><td>highpass</td><td>120 Hz</td><td>1</td></tr>
+      <tr><td>De-hiss</td><td>lowpass</td><td>10 kHz</td><td>0.7</td></tr>
+      <tr><td>Wah</td><td>bandpass</td><td>swept</td><td>4–8</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't push Q to extremes.</div>
+    Q above 10 starts ringing. On music, that's a feedback howl. Stay under
+    5 unless you're sweeping for a deliberate effect.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/fx/">FX index</a></li>
+    <li><a href="/concepts/parameter/">Parameter</a> — drive freq from a knob.</li>
+  </ul>
+</Docs>

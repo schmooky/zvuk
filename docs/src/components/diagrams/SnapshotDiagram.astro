@@ -1,0 +1,37 @@
+---
+---
+<svg viewBox="0 0 720 240" class="block w-full max-w-2xl mx-auto" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="sn-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="hsl(186, 85%, 55%)" opacity="0.7" />
+    </marker>
+  </defs>
+
+  <g font-family="JetBrains Mono, ui-monospace, monospace" font-size="11">
+    <!-- Three preset snapshots -->
+    {[
+      { x: 30,  name: 'menu',     levels: [0.8, 0.4, 0.7] },
+      { x: 250, name: 'gameplay', levels: [0.6, 1.0, 0.7] },
+      { x: 470, name: 'boss',     levels: [1.0, 1.0, 0.4] },
+    ].map(({ x, name, levels }) => (
+      <g transform={`translate(${x}, 30)`}>
+        <rect width="200" height="180" rx="10" fill="hsl(220, 26%, 13%)" stroke="hsl(186, 85%, 55%)" stroke-opacity="0.45" />
+        <text x="100" y="26" text-anchor="middle" fill="hsl(38, 95%, 60%)" font-size="10" font-weight="600">SNAPSHOT</text>
+        <text x="100" y="46" text-anchor="middle" fill="hsl(186, 85%, 55%)" font-weight="700" font-size="13">{name}</text>
+        {(['music', 'sfx', 'ui'] as const).map((bus, i) => (
+          <g transform={`translate(20, ${72 + i * 32})`}>
+            <text x="0" y="10" fill="hsl(215, 12%, 70%)" font-size="9">{bus}</text>
+            <rect x="50" y="0" width="120" height="14" rx="3" fill="hsl(220, 30%, 8%)" stroke="hsl(215, 12%, 25%)" />
+            <rect x="50" y="0" width={120 * (levels[i] ?? 0)} height="14" rx="3" fill="hsl(186, 85%, 55%)" fill-opacity="0.6" />
+          </g>
+        ))}
+      </g>
+    ))}
+
+    <!-- Crossfade arrow -->
+    <g transform="translate(0, 220)">
+      <path d="M120,0 Q360,18 600,0" fill="none" stroke="hsl(38, 95%, 60%)" stroke-opacity="0.5" stroke-width="1.5" marker-end="url(#sn-arrow)" />
+      <text x="360" y="14" text-anchor="middle" fill="hsl(38, 95%, 60%)" font-size="9">.apply({'{ fadeMs: 250 }'}) crossfades the entire mix</text>
+    </g>
+  </g>
+</svg>

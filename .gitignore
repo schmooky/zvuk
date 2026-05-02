@@ -1,0 +1,11 @@
+node_modules
+dist
+.DS_Store
+*.log
+coverage
+.turbo
+.cache
+.vite
+docs/dist
+docs/.astro
+docs/node_modules

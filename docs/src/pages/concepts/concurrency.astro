@@ -1,0 +1,89 @@
+---
+import VoiceLimit from '../../components/demos/VoiceLimit.tsx';
+import ConcurrencyDiagram from '../../components/diagrams/ConcurrencyDiagram.astro';
+import Frame from '../../components/diagrams/Frame.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const declare = `createEngine({
+  buses: {
+    sfx: { concurrency: { max: 32, steal: 'oldest' } },
+    voice: { concurrency: { max: 1, steal: 'lowest-priority' } },
+  },
+});`;
+
+const live = `engine.bus('sfx').setConcurrency({ max: 8, steal: 'lowest-priority' });`;
+
+const priority = `// Hero hit — protected from stealing.
+engine.sound('player-hit').play({ priority: 10 });
+
+// Footstep — cheap, expendable.
+engine.sound('footstep').play({ priority: 0 });`;
+---
+<Docs
+  title="Concurrency"
+  description="Voice limits with a steal strategy. Keeps polyphony bounded; chooses which voice dies when the limit is hit."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A bus can cap how many voices play simultaneously. When the cap is reached
+    and a new voice arrives, a <em>steal strategy</em> picks an existing voice
+    to terminate so the new one can play. This is what keeps
+    <code>spam-button × 50ms × 30s</code> from burning your CPU.
+  </p>
+
+  <h2>Mental model</h2>
+  <Frame caption="Slots are bounded. When full, the steal strategy picks a victim — synchronously — before play() returns.">
+    <ConcurrencyDiagram />
+  </Frame>
+
+  <h2>Strategies</h2>
+  <ul>
+    <li><strong>oldest</strong> — kill the voice that started first. Default. Best for SFX rain.</li>
+    <li><strong>lowest-priority</strong> — kill the voice with the smallest <code>priority</code>. Best when you have a hierarchy (hero attack &gt; footstep &gt; ambience tick).</li>
+    <li><strong>quietest</strong> — kill the voice with the lowest perceived loudness. Falls back to <code>oldest</code> when meters aren't available.</li>
+    <li><strong>none</strong> — reject the new voice. The returned <code>Voice</code> is already <code>ended</code>.</li>
+  </ul>
+
+  <h2>API</h2>
+  <Snippet code={declare} lang="ts" title="At construction" />
+  <Snippet code={live} lang="ts" title="Live tuning" />
+
+  <h2>Live demo</h2>
+  <p>
+    Twiddle <code>max</code> and <code>steal</code>; mash "Fire voice" — watch slots fill,
+    then the steal logic in action when you exceed the cap.
+  </p>
+  <VoiceLimit client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Protect important voices</h3>
+  <Snippet code={priority} lang="ts" />
+  <p>
+    With <code>steal: 'lowest-priority'</code>, the player-hit voice
+    survives until either it ends naturally or another priority-10 voice
+    arrives.
+  </p>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't use <code>steal: 'none'</code> for SFX.</div>
+    Rejecting voices makes the player notice missing sounds in dense
+    moments — far worse than stealing one. Reserve <code>'none'</code> for
+    "voice" or "alarm" buses where you want the existing announcement to
+    finish uninterrupted.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't set max too low for sprites.</div>
+    A cascading match-3 can fire 12+ SFX in one frame; <code>max: 4</code>
+    will sound chopped. Profile real gameplay before clamping.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/voice/">Voice</a> — <code>priority</code> on play.</li>
+    <li><a href="/concepts/bus/">Bus</a> — where concurrency lives.</li>
+  </ul>
+</Docs>

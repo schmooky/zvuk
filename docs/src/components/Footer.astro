@@ -1,0 +1,35 @@
+---
+import { SITE } from '../lib/seo';
+---
+<footer class="mt-24 border-t border-border/60">
+  <div class="container grid gap-10 py-10 md:grid-cols-3">
+    <div>
+      <div class="flex items-center gap-2 font-mono text-sm font-semibold">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-accent text-[11px] text-primary-foreground font-bold">Z</span>
+        {SITE.name}
+      </div>
+      <p class="mt-3 text-sm text-muted-foreground max-w-sm">{SITE.description}</p>
+    </div>
+    <div>
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">Docs</div>
+      <ul class="space-y-1.5 text-sm">
+        <li><a href="/docs/quickstart/" class="text-muted-foreground hover:text-foreground">Quickstart</a></li>
+        <li><a href="/concepts/" class="text-muted-foreground hover:text-foreground">Concepts</a></li>
+        <li><a href="/fx/" class="text-muted-foreground hover:text-foreground">FX</a></li>
+        <li><a href="/recipes/" class="text-muted-foreground hover:text-foreground">Recipes</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">Project</div>
+      <ul class="space-y-1.5 text-sm">
+        <li><a href="/roadmap/" class="text-muted-foreground hover:text-foreground">Roadmap</a></li>
+        <li><a href={SITE.github} class="text-muted-foreground hover:text-foreground" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="https://www.npmjs.com/package/zvuk" class="text-muted-foreground hover:text-foreground" target="_blank" rel="noopener">npm</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="container border-t border-border/40 py-6 text-xs text-muted-foreground/70 flex flex-col md:flex-row justify-between gap-2">
+    <div>MIT licensed · Built on the Web Audio API</div>
+    <div class="font-mono">© zvuk contributors</div>
+  </div>
+</footer>

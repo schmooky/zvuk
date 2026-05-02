@@ -1,0 +1,89 @@
+---
+import SpatialPanner from '../../components/demos/SpatialPanner.tsx';
+import Frame from '../../components/diagrams/Frame.astro';
+import SpatialDiagram from '../../components/diagrams/SpatialDiagram.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const pan2d = `engine.sound('footstep').play({
+  spatializer: { pan: -0.6 },              // [-1, 1] stereo
+});`;
+
+const pos3d = `engine.sound('footstep').play({
+  spatializer: { position: [x, y, z] },    // world-space coords
+});`;
+
+const dynamic = `import { Spatializer } from 'zvuk';
+
+const sp = new Spatializer(engine.context, { position: [0, 0, 0] });
+sp.connectInto(engine.bus('sfx').input);
+sp.setPosition(playerX, playerY, playerZ);    // each frame
+
+// when done:
+sp.dispose();`;
+---
+<Docs
+  title="Spatializer"
+  description="Stereo pan or full 3D positional audio. PannerNode wrapped, HRTF on by default."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    Pass <code>spatializer</code> in <code>play()</code> to insert a
+    <code>StereoPannerNode</code> (2D) or <code>PannerNode</code> (3D HRTF)
+    between the voice and its bus. For positions that change over time —
+    e.g. a moving NPC — construct a <code>Spatializer</code> manually so
+    you can hold its reference and update it per frame.
+  </p>
+
+  <h2>Mental model</h2>
+  <Frame caption="2D pan is cheap (StereoPannerNode). 3D uses PannerNode in HRTF mode — one node per voice.">
+    <SpatialDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={`interface SpatialOptions {
+  pan?: number;                       // [-1, 1] — 2D
+  position?: [number, number, number]; // x, y, z  — 3D
+}
+
+class Spatializer {
+  setPan(pan: number): void;          // 2D only
+  setPosition(x: number, y: number, z: number): void;  // 3D only
+  connectInto(dest: AudioNode): AudioNode;
+  dispose(): void;
+}`} lang="ts" title="Spatializer + SpatialOptions" />
+
+  <h2>Live demo</h2>
+  <p>Drag the puck to pan a looping sound. Best with headphones.</p>
+  <SpatialPanner client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>2D pan from play()</h3>
+  <Snippet code={pan2d} lang="ts" />
+
+  <h3>3D position from play()</h3>
+  <Snippet code={pos3d} lang="ts" />
+
+  <h3>Dynamic position — moving source</h3>
+  <Snippet code={dynamic} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't 3D-spatialize music.</div>
+    Music wants to feel "wide", not "located." HRTF on a stereo music bus is
+    a noticeable downgrade. Pan it manually if you want a side-bias.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't construct a Spatializer per frame.</div>
+    HRTF nodes are cheap-ish but not free. Hold one per emitter and
+    <code>setPosition</code> it.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/voice/">Voice</a> — the spatialized voice.</li>
+    <li><a href="/concepts/bus/">Bus</a> — what spatializers route into.</li>
+  </ul>
+</Docs>

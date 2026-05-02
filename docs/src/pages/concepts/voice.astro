@@ -1,0 +1,89 @@
+---
+import VoiceJitter from '../../components/demos/VoiceJitter.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Voice {
+  readonly id: number;
+  readonly priority: number;
+  readonly bus: string | undefined;
+  readonly startedAt: number;             // engine.now at spawn
+
+  readonly ended: Promise<void>;          // resolves on natural end, stop, or abort
+
+  fade(opts: { to: number; ms: number; curve?: FadeCurve }): Promise<void>;
+  stop(): void;
+  cues(): AsyncIterableIterator<'started' | 'paused' | 'ended'>;
+}`;
+
+const jitter = `// Stacked SFX with variation so they don't sound robotic.
+for (let i = 0; i < 6; i++) {
+  engine.sound('hit').play({
+    pitch:  { jitter: 0.08 },        // ±8% playback rate
+    volume: { jitter: 0.05 },        // ±5% gain
+  });
+}`;
+
+const cues = `const v = engine.sound('intro').play();
+for await (const cue of v.cues()) {
+  if (cue === 'started') analytics.send('intro:start');
+  if (cue === 'ended')   ui.advance();
+}`;
+
+const abortable = `const ac = new AbortController();
+const v = engine.sound('alert').play({ signal: ac.signal });
+
+// Anywhere — close a modal, route change, etc.
+ac.abort();
+await v.ended;                       // resolves immediately`;
+---
+<Docs
+  title="Voice"
+  description="One playback instance. What sound.play() returns."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A <code>Voice</code> is a single, live playback. It owns its own gain stage
+    and source node, fires lifecycle cues, can be faded or stopped at any time,
+    and tears itself down on natural end. You don't construct it; you receive it
+    from <code>sound.play()</code>.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Voice — public interface" />
+
+  <h2>Live demo</h2>
+  <p>Hit the button repeatedly. Random pitch + volume jitter on every voice.</p>
+  <VoiceJitter client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Random pitch + volume jitter</h3>
+  <Snippet code={jitter} lang="ts" />
+
+  <h3>Async iterator for cues</h3>
+  <Snippet code={cues} lang="ts" />
+
+  <h3>AbortSignal cancellation</h3>
+  <Snippet code={abortable} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't hold a Voice ref past <code>ended</code>.</div>
+    Once <code>ended</code> resolves, the source/gain are disconnected. Calling
+    <code>stop()</code> is a no-op; <code>fade()</code> resolves immediately.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't expect <code>cues()</code> to fire <code>paused</code> in v0.</div>
+    The current implementation emits <code>started</code> and <code>ended</code>;
+    <code>paused</code> is reserved for the upcoming pause/resume API.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/sound/">Sound</a> — what spawned this voice.</li>
+    <li><a href="/concepts/concurrency/">Concurrency</a> — voice limits + stealing.</li>
+    <li><a href="/concepts/spatializer/">Spatializer</a> — pan / 3D position.</li>
+  </ul>
+</Docs>

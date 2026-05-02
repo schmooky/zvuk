@@ -1,0 +1,29 @@
+---
+import DocsSidebar from '../components/DocsSidebar.astro';
+import { DOCS_NAV } from '../content/nav';
+import { SITE } from '../lib/seo';
+import Base from './Base.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  eyebrow?: string;
+}
+const { title = SITE.name, description = SITE.description, eyebrow } = Astro.props as Props;
+const pathname = Astro.url.pathname;
+---
+<Base title={`${title} · ${SITE.name}`} description={description}>
+  <div class="container grid gap-10 py-12 md:grid-cols-[240px_minmax(0,1fr)]">
+    <DocsSidebar nav={DOCS_NAV} pathname={pathname} />
+    <article class="prose-docs min-w-0 max-w-3xl animate-fade-in">
+      {eyebrow && (
+        <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+          {eyebrow}
+        </div>
+      )}
+      <h1 class="mb-6 text-4xl font-semibold tracking-tight">{title}</h1>
+      {description && <p class="mb-8 text-lg text-muted-foreground">{description}</p>}
+      <slot />
+    </article>
+  </div>
+</Base>

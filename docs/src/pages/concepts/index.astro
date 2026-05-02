@@ -1,0 +1,38 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const concepts = [
+  { slug: 'engine',       label: 'Engine',       blurb: 'The root object. Lifecycle, unlock, scheduler.' },
+  { slug: 'mixer',        label: 'Mixer',        blurb: 'The named bus graph. Routing made declarative.' },
+  { slug: 'bus',          label: 'Bus',          blurb: 'A mix bucket — level, fade, FX, voice limit.' },
+  { slug: 'sound',        label: 'Sound',        blurb: 'A loaded sample. Spawns Voices on play.' },
+  { slug: 'voice',        label: 'Voice',        blurb: 'One playback instance. Cues, fades, abort.' },
+  { slug: 'concurrency',  label: 'Concurrency',  blurb: 'Voice limits + steal strategies.' },
+  { slug: 'snapshot',     label: 'Snapshot',     blurb: 'Capture the mix; crossfade between presets.' },
+  { slug: 'parameter',    label: 'Parameter',    blurb: 'A named knob. Bind it to anything.' },
+  { slug: 'spatializer',  label: 'Spatializer',  blurb: 'Stereo pan or 3D position per voice.' },
+];
+---
+<Docs
+  title="Concepts"
+  description="The vocabulary you need to think in zvuk."
+  eyebrow="Reference"
+>
+  <p>
+    Read in any order — the pages cross-link. Or run through the
+    <a href="/recipes/">recipes</a> first if you'd rather click than read.
+  </p>
+
+  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
+    {concepts.map(({ slug, label, blurb }) => (
+      <a
+        href={`/concepts/${slug}/`}
+        class="rounded-xl border border-border bg-card/40 p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"
+      >
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">/concepts/{slug}/</div>
+        <div class="mt-1 font-semibold">{label}</div>
+        <div class="mt-1 text-sm text-muted-foreground">{blurb}</div>
+      </a>
+    ))}
+  </div>
+</Docs>

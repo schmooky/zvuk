@@ -1,0 +1,90 @@
+{
+  "name": "zvuk",
+  "version": "0.0.1",
+  "description": "Audio Engine for the Web — Wwise-grade routing, sprites, sidechain ducking. Tiny, ESM-only, type-safe.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schmooky/zvuk.git"
+  },
+  "homepage": "https://zvuk.dev",
+  "bugs": {
+    "url": "https://github.com/schmooky/zvuk/issues"
+  },
+  "keywords": [
+    "audio",
+    "web-audio",
+    "audio-engine",
+    "mixer",
+    "wwise",
+    "fmod",
+    "spatial-audio",
+    "ducking",
+    "sidechain",
+    "game-audio",
+    "slot",
+    "casino"
+  ],
+  "author": "zvuk contributors",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.18.2",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src test",
+    "lint:fix": "biome check --write src test",
+    "docs:dev": "pnpm --dir docs dev",
+    "docs:build": "pnpm --dir docs build",
+    "docs:preview": "pnpm --dir docs preview",
+    "changeset": "changeset",
+    "version-packages": "changeset version && pnpm install --lockfile-only",
+    "release": "pnpm build && changeset publish"
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "@changesets/changelog-github": "^0.5.0",
+    "@changesets/cli": "^2.27.10",
+    "@types/node": "^22.10.0",
+    "happy-dom": "^15.11.6",
+    "tsup": "^8.3.5",
+    "typescript": "^5.9.0",
+    "vitest": "^2.1.8"
+  }
+}

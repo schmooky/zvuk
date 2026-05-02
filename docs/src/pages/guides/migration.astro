@@ -1,0 +1,88 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const before = `import { Howl, Howler } from 'howler';
+
+Howler.volume(0.8);
+const coin = new Howl({ src: ['/sfx/coin.mp3'], volume: 0.6 });
+coin.play();
+coin.fade(0.6, 0, 800);`;
+
+const after = `import { createEngine } from 'zvuk';
+
+const engine = createEngine({
+  buses: { sfx: { level: 0.8 } },
+});
+
+await engine.unlock();
+await engine.loadSound('coin', ['/sfx/coin.webm', '/sfx/coin.m4a'], { bus: 'sfx' });
+
+const v = engine.sound('coin').play({ volume: 0.6 });
+await v.fade({ to: 0, ms: 800 });`;
+---
+<Docs
+  title="Migrating from Howler"
+  description="If your codebase calls Howl + Howler.volume directly, here's the shape of the port."
+  eyebrow="Guide"
+>
+
+  <h2>Mental shift</h2>
+  <p>
+    Howler thinks in terms of one Howl per asset, with that Howl owning playback.
+    zvuk separates the asset (<code>Sound</code>) from the playback instance
+    (<code>Voice</code>), and routes every voice through a named bus. That gives
+    you per-bus volumes, fades, and FX for free.
+  </p>
+
+  <h2>Side-by-side</h2>
+  <Snippet code={before} lang="ts" title="Howler" />
+  <Snippet code={after} lang="ts" title="zvuk" />
+
+  <h2>Mapping table</h2>
+  <table>
+    <thead>
+      <tr><th>Howler</th><th>zvuk</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>new Howl({'{ src }'})</code></td><td><code>engine.loadSound(name, urls, opts)</code></td></tr>
+      <tr><td><code>howl.play()</code></td><td><code>engine.sound(name).play()</code></td></tr>
+      <tr><td><code>howl.volume(0.5)</code></td><td><code>voice.fade({'{ to: 0.5, ms: 0 }'})</code></td></tr>
+      <tr><td><code>howl.fade(from, to, ms)</code></td><td><code>voice.fade({'{ to, ms, curve }'})</code></td></tr>
+      <tr><td><code>Howler.volume(0.8)</code></td><td><code>engine.bus('master')</code> — or just lower headroom</td></tr>
+      <tr><td><code>howl.on('end', fn)</code></td><td><code>await voice.ended</code> or <code>for await of voice.cues()</code></td></tr>
+      <tr><td><code>howl.stop()</code></td><td><code>voice.stop()</code></td></tr>
+      <tr><td><code>howl.unload()</code></td><td>internal; <code>engine.close()</code> tears down the entire context</td></tr>
+    </tbody>
+  </table>
+
+  <h2>What you gain</h2>
+  <ul>
+    <li>Real bus model — group volumes, mute, fade <em>per bus</em>, not per Howl.</li>
+    <li>Snapshots — crossfade your whole mix between gameplay states.</li>
+    <li>Parameters — drive multiple values from one knob, with curves.</li>
+    <li>Concurrency policies — bound polyphony per bus.</li>
+    <li>Codec-aware loading — webm/m4a array out of the box.</li>
+    <li>Strict TypeScript — no Howler-style any-typed events.</li>
+  </ul>
+
+  <h2>What you lose</h2>
+  <ul>
+    <li>HTML5 mode — zvuk is Web Audio only. For very long music files, use
+      a future <code>Stream</code> source (planned).</li>
+    <li>Spatial audio with Howler's simple <code>pos()</code> — zvuk's
+      Spatializer is more capable but slightly more verbose.</li>
+  </ul>
+
+  <h2>Step-by-step migration</h2>
+  <ol>
+    <li>Replace your <code>Howl</code> instantiation with a single
+      <code>createEngine</code> call.</li>
+    <li>Convert each <code>Howl</code> name to a <code>loadSound</code> entry.</li>
+    <li>Replace <code>howl.play()</code> with <code>engine.sound('name').play()</code>.</li>
+    <li>Convert <code>Howler.volume</code> calls to bus level changes.</li>
+    <li>Convert <code>howl.on('end', fn)</code> to <code>v.ended.then(fn)</code>.</li>
+    <li>Add <code>await engine.unlock()</code> to your first user-gesture handler.</li>
+    <li>Add <code>await engine.close()</code> to your teardown path.</li>
+  </ol>
+</Docs>

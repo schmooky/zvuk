@@ -1,0 +1,46 @@
+---
+---
+<svg viewBox="0 0 720 260" class="block w-full max-w-2xl mx-auto" xmlns="http://www.w3.org/2000/svg">
+  <g font-family="JetBrains Mono, ui-monospace, monospace" font-size="10">
+    <!-- 2D pan strip -->
+    <text x="60" y="30" fill="hsl(215, 12%, 60%)" font-size="9" font-weight="600">2D — pan: -1 ↔ 1</text>
+    <line x1="60" y1="60" x2="660" y2="60" stroke="hsl(220, 22%, 22%)" stroke-width="2" />
+    <text x="60" y="80" fill="hsl(215, 12%, 60%)" font-size="9">L</text>
+    <text x="660" y="80" fill="hsl(215, 12%, 60%)" font-size="9" text-anchor="end">R</text>
+    {[
+      { x: 60, label: '-1' },
+      { x: 360, label: '0' },
+      { x: 660, label: '+1' },
+    ].map(({ x, label }) => (
+      <g>
+        <line x1={x} y1="55" x2={x} y2="65" stroke="hsl(186, 85%, 55%)" stroke-width="2" />
+        <text x={x} y="50" fill="hsl(186, 85%, 55%)" font-size="9" text-anchor="middle">{label}</text>
+      </g>
+    ))}
+    <circle cx="490" cy="60" r="9" fill="hsl(38, 95%, 60%)" />
+    <text x="490" y="100" fill="hsl(38, 95%, 60%)" font-size="9" text-anchor="middle">voice @ 0.43</text>
+
+    <!-- 3D top-down -->
+    <text x="60" y="142" fill="hsl(215, 12%, 60%)" font-size="9" font-weight="600">3D — position: [x, y, z] · listener at origin</text>
+    <g transform="translate(60, 158)">
+      <rect width="600" height="90" rx="8" fill="hsl(220, 30%, 8%)" stroke="hsl(220, 22%, 22%)" />
+      <line x1="300" y1="0" x2="300" y2="90" stroke="hsl(186, 85%, 55%)" stroke-opacity="0.2" stroke-dasharray="2 4" />
+      <line x1="0" y1="45" x2="600" y2="45" stroke="hsl(186, 85%, 55%)" stroke-opacity="0.2" stroke-dasharray="2 4" />
+      <!-- listener -->
+      <circle cx="300" cy="45" r="8" fill="none" stroke="hsl(186, 85%, 55%)" stroke-width="2" />
+      <circle cx="300" cy="45" r="3" fill="hsl(186, 85%, 55%)" />
+      <text x="300" y="22" text-anchor="middle" fill="hsl(186, 85%, 55%)" font-size="9">listener</text>
+      <!-- sources -->
+      {[
+        { x: 90, y: 25, label: 'A' },
+        { x: 510, y: 70, label: 'B' },
+        { x: 230, y: 70, label: 'C' },
+      ].map(({ x, y, label }) => (
+        <g>
+          <circle cx={x} cy={y} r="6" fill="hsl(38, 95%, 60%)" />
+          <text x={x + 10} y={y + 4} fill="hsl(38, 95%, 60%)" font-size="9">{label}</text>
+        </g>
+      ))}
+    </g>
+  </g>
+</svg>

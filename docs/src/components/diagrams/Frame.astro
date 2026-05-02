@@ -1,0 +1,22 @@
+---
+interface Props {
+  title?: string;
+  caption?: string;
+}
+const { title, caption } = Astro.props as Props;
+---
+<figure class="not-prose my-6 overflow-hidden rounded-xl border border-border/60 bg-card/40">
+  {title && (
+    <header class="border-b border-border/40 bg-[hsl(220_30%_8%)]/40 px-4 py-2 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+      {title}
+    </header>
+  )}
+  <div class="px-3 py-4">
+    <slot />
+  </div>
+  {caption && (
+    <figcaption class="border-t border-border/40 px-4 py-2 text-xs text-muted-foreground">
+      {caption}
+    </figcaption>
+  )}
+</figure>

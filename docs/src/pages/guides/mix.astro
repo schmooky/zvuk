@@ -1,0 +1,89 @@
+---
+import MixerDashboard from '../../components/demos/MixerDashboard.tsx';
+import BusGraphDiagram from '../../components/diagrams/BusGraphDiagram.astro';
+import Frame from '../../components/diagrams/Frame.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const bare = `createEngine({
+  buses: {
+    music:    { level: 0.7 },
+    sfx:      { level: 1.0, concurrency: { max: 32 } },
+    voice:    { level: 1.0, concurrency: { max: 1, steal: 'none' } },
+    ambience: { level: 0.4 },
+    ui:       { level: 0.6 },
+  },
+  master: { headroom: -3 },
+});`;
+
+const fx = `import { Compressor, Reverb } from 'zvuk';
+
+engine.bus('music').addFx(new Reverb(engine.context, { wet: 0.2 }));
+engine.bus('voice').addFx(new Compressor(engine.context, {
+  threshold: -18, ratio: 4, attack: 0.005, release: 0.15,
+}));`;
+
+const headroom = `// Master gets -3 dB of headroom. Lifts the ceiling for transient SFX
+// without clipping. If you hear pumping or clicks, drop to -6.
+createEngine({ master: { headroom: -3 } });`;
+---
+<Docs
+  title="Building your mix"
+  description="The shape of a five-bus production mix. Pick the buses, declare them at construction, route everything through them."
+  eyebrow="Guide"
+>
+
+  <h2>Pick your buses up front</h2>
+  <p>
+    Most game-style apps land on the same five-or-six buses. Don't over-think this
+    on day one — you can always rename later.
+  </p>
+  <ul>
+    <li><strong>music</strong> — looped background tracks; one voice at a time, occasionally crossfaded.</li>
+    <li><strong>sfx</strong> — gameplay one-shots, dense, polyphonic.</li>
+    <li><strong>voice</strong> — VO, dialogue, alerts; usually exclusive (one at a time).</li>
+    <li><strong>ambience</strong> — looped environmental textures.</li>
+    <li><strong>ui</strong> — clicks, hovers, modal opens.</li>
+  </ul>
+
+  <h2>Bare-bones declaration</h2>
+  <Snippet code={bare} lang="ts" />
+
+  <h2>What it looks like</h2>
+  <Frame title="bus graph">
+    <BusGraphDiagram />
+  </Frame>
+
+  <h2>Add FX inserts</h2>
+  <Snippet code={fx} lang="ts" />
+  <p>
+    Reverb on music is for atmosphere. Compressor on voice levels out
+    dialogue without losing presence. Don't put reverb on SFX —
+    individual hits sound smeared.
+  </p>
+
+  <h2>Master headroom</h2>
+  <Snippet code={headroom} lang="ts" />
+
+  <h2>Live mixer</h2>
+  <MixerDashboard client:visible />
+
+  <h2>What about ducking?</h2>
+  <p>
+    Sidechain a target bus from a source bus — when the source is loud, the target
+    dips. See the <a href="/guides/ducking/">ducking guide</a>.
+  </p>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't declare buses you don't use.</div>
+    Each bus is two GainNodes. Negligible cost individually, but ten unused
+    buses is a yard sale.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't expose the master gain to UI.</div>
+    Master is for mix headroom and mute (e.g. tab visibility). User volume
+    belongs on a bus or a parameter — most users want a music slider, not
+    a global knob.
+  </div>
+</Docs>

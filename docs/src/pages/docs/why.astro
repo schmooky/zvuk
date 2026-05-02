@@ -1,0 +1,56 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs
+  title="Why another audio lib?"
+  description="Howler exists. Tone.js exists. Raw Web Audio exists. Here's the gap zvuk fills."
+  eyebrow="Background"
+>
+  <h2>The problem</h2>
+  <p>
+    Game audio on the web has three failure modes:
+  </p>
+  <ol>
+    <li><strong>Autoplay & iOS Safari.</strong> Half the bug reports.</li>
+    <li><strong>Polyphony.</strong> Spam a slot reel-stop SFX 30 times — the second one cuts off the first
+      because the same <code>HTMLAudioElement</code> is being recycled.</li>
+    <li><strong>Mix discipline.</strong> Ducking music under VO. Crossfading menu states. Putting reverb on
+      ambience but not SFX. Web Audio gives you nodes; nobody gives you the routing model.</li>
+  </ol>
+
+  <h2>Where existing libs sit</h2>
+  <ul>
+    <li><strong>Howler</strong> — battle-tested, but built around the
+      <code>HTMLAudioElement</code>/Web Audio split, no first-class mixer model, no parameters,
+      no snapshots.</li>
+    <li><strong>Tone.js</strong> — gorgeous for music synthesis, oversized for game SFX, opinionated
+      around the transport.</li>
+    <li><strong>Raw Web Audio</strong> — perfect, also a swamp.</li>
+  </ul>
+
+  <h2>What zvuk adds</h2>
+  <ul>
+    <li>An <strong>Engine</strong> object with an explicit state machine
+      (<code>cold → unlocking → live → closed</code>).</li>
+    <li>A <strong>Mixer</strong> built declaratively from <code>createEngine</code> config,
+      with named Buses and click-free fades.</li>
+    <li>A <strong>Voice</strong> per <code>play()</code> call — abort signals, lifecycle promises,
+      async iterators of cues.</li>
+    <li>A <strong>codec ladder</strong> (<code>['sfx.webm', 'sfx.m4a']</code>) so you ship Opus
+      to the world and AAC only to old iOS.</li>
+    <li>An iOS-Safari resume dance that survived production slot games.</li>
+  </ul>
+
+  <h2>What zvuk is not</h2>
+  <ul>
+    <li>Not a synthesis framework. No oscillator graph, no Tone.js Transport. Use Tone for that.</li>
+    <li>Not a music-streaming player. <code>Stream</code> wraps <code>&lt;audio&gt;</code> for long files; it's not a queue.</li>
+    <li>Not a cross-platform native bridge. v1 is browser-only.</li>
+  </ul>
+
+  <p>
+    If you are shipping a slot game, an arcade game, a casual mobile-web title, an interactive
+    explainer with sound — anything where you need a real mix, not just "play this clip" —
+    that's the zvuk-shaped hole.
+  </p>
+</Docs>

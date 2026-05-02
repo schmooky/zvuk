@@ -1,0 +1,88 @@
+---
+import BusFader from '../../components/demos/BusFader.tsx';
+import Frame from '../../components/diagrams/Frame.astro';
+import SignalFlowDiagram from '../../components/diagrams/SignalFlowDiagram.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Bus {
+  readonly name: string;
+  readonly input: GainNode;          // connect voices/sources here
+  readonly output: GainNode;         // connected to master
+
+  level: number;                     // setter ramps over 10ms (click-free)
+  muted: boolean;                    // setter ramps over 10ms
+
+  fadeTo(target: number, ms: number, curve?: FadeCurve): Promise<void>;
+
+  voiceCount: number;
+  voices(): readonly Voice[];
+
+  concurrency: ConcurrencyConfig | null;
+  setConcurrency(c: ConcurrencyConfig | null): void;
+
+  addFx(fx: FxInsert): void;
+  removeFx(fx: FxInsert): void;
+  fx(): readonly FxInsert[];
+}`;
+
+const fade = `// Smooth fade — won't pop because of the 10ms internal ramp on direct writes,
+// or use fadeTo() with a curve for longer transitions.
+engine.bus('music').level = 0.5;
+await engine.bus('music').fadeTo(0, 1200, 'equal-power');`;
+
+const enumerate = `const bus = engine.bus('sfx');
+console.log('voices on this bus:', bus.voiceCount);
+for (const v of bus.voices()) v.fade({ to: 0, ms: 200 });`;
+---
+<Docs
+  title="Bus"
+  description="A named mix bucket with its own gain stage, FX chain, voice limit, and (optional) sidechain key."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A Bus is the routing target for one or more sounds. You declare it once
+    in <code>createEngine</code>, then talk to it by name. Level changes and
+    mutes ramp over 10ms internally so you never get a click. <code>fadeTo</code>
+    accepts a curve for longer transitions.
+  </p>
+
+  <h2>Mental model</h2>
+  <Frame caption="A bus has three nodes: input → fxInput (FX chain head) → output. Voices target input; master takes output.">
+    <SignalFlowDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Bus — public interface" />
+
+  <h2>Live demo</h2>
+  <p>Slam the slider — no click. Try the fade buttons for curve-based transitions.</p>
+  <BusFader client:visible />
+
+  <h2>Recipes</h2>
+  <h3>Direct level vs. fadeTo</h3>
+  <Snippet code={fade} lang="ts" />
+
+  <h3>Enumerate active voices on a bus</h3>
+  <Snippet code={enumerate} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't write to <code>output.gain.value</code> directly.</div>
+    The Bus class wraps that with a 10ms ramp. Bypassing it produces audible clicks
+    in Chrome and Firefox.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't share an FxInsert between buses.</div>
+    Each FX node has its own internal connections. Construct one per bus, dispose
+    when removed.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/concurrency/">Concurrency</a> — voice-limit policies.</li>
+    <li><a href="/concepts/mixer/">Mixer</a> — the wider bus graph.</li>
+    <li><a href="/guides/ducking/">Ducking</a> — sidechain a bus from another.</li>
+  </ul>
+</Docs>

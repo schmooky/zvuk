@@ -1,0 +1,121 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const ladder = `await engine.loadSound('coin', [
+  '/sfx/coin.webm',  // Opus — Chrome, Firefox, Edge, Safari 17+
+  '/sfx/coin.m4a',   // AAC  — iOS Safari ≤16, older macOS Safari
+], { bus: 'sfx' });`;
+
+const ffmpeg = `# Music / ambience — stereo, higher bitrate
+ffmpeg -i src.wav -c:a libopus -b:a 96k -vn out.webm
+ffmpeg -i src.wav -c:a aac     -b:a 128k -vn -movflags +faststart out.m4a
+
+# SFX — mono, lower bitrate
+ffmpeg -i src.wav -ac 1 -c:a libopus -b:a 64k -vn out.webm
+ffmpeg -i src.wav -ac 1 -c:a aac     -b:a 96k -vn -movflags +faststart out.m4a`;
+
+const bulk = `#!/usr/bin/env bash
+# transcode all .wav in raw/ → .webm + .m4a in public/audio/
+set -euo pipefail
+shopt -s nullglob
+for src in raw/*.wav; do
+  name="$(basename "\${src%.wav}")"
+  ffmpeg -y -i "$src" -ac 1 -c:a libopus -b:a 64k -vn \\
+    "public/audio/\${name}.webm" -loglevel error
+  ffmpeg -y -i "$src" -ac 1 -c:a aac -b:a 96k -vn -movflags +faststart \\
+    "public/audio/\${name}.m4a" -loglevel error
+done`;
+
+const helpers = `import { pickSource, canPlay } from 'zvuk';
+
+const url = pickSource(['/sfx/coin.webm', '/sfx/coin.m4a']);
+// returns the first URL the browser advertises canPlayType > '' for.
+
+if (canPlay('audio/webm; codecs="opus"')) {
+  // safe to ship Opus exclusively to this user
+}`;
+---
+<Docs
+  title="Asset formats"
+  description="The encoding pipeline you want: WebM/Opus first, M4A/AAC fallback for older iOS Safari."
+  eyebrow="Guide"
+>
+
+  <h2>The recommendation, in one line</h2>
+  <p>
+    Ship every sound as <strong>two files</strong>:
+    a <code>.webm</code> with the <strong>Opus</strong> codec (primary), and an <code>.m4a</code> with
+    the <strong>AAC LC</strong> codec (fallback for iOS Safari ≤16). Pass them as an array — zvuk
+    picks the one your browser can decode.
+  </p>
+  <Snippet code={ladder} lang="ts" />
+
+  <h2>Why Opus, why AAC, why not just MP3</h2>
+  <table>
+    <thead>
+      <tr><th>Codec</th><th>Size at "good"</th><th>Quality</th><th>Browser support</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Opus (in WebM)</td><td>~50% of MP3</td><td>Excellent</td><td>All except old iOS Safari</td></tr>
+      <tr><td>AAC LC (in M4A)</td><td>~75% of MP3</td><td>Great</td><td>Everywhere</td></tr>
+      <tr><td>MP3</td><td>baseline</td><td>OK</td><td>Everywhere</td></tr>
+      <tr><td>OGG Vorbis</td><td>~70% of MP3</td><td>Good</td><td>No Safari at all</td></tr>
+      <tr><td>WAV</td><td>~10× MP3</td><td>Lossless</td><td>Everywhere</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    For SFX (short, dense, high-frequency), Opus around 64–96 kbps is indistinguishable from
+    source. AAC needs 96–128 kbps to match. Both are dramatically smaller than MP3 — and the
+    Opus/AAC pair covers 100% of browsers.
+  </p>
+
+  <h2>Encoding pipeline (ffmpeg)</h2>
+  <p>From source <code>.wav</code> or <code>.flac</code>:</p>
+  <Snippet code={ffmpeg} lang="bash" />
+
+  <p>
+    The <code>-movflags +faststart</code> flag moves the M4A index to the head of the file so
+    decoding starts before the entire payload is downloaded. Always include it.
+  </p>
+
+  <h2>Bulk transcode script</h2>
+  <Snippet code={bulk} lang="bash" />
+
+  <h2>What about MP3?</h2>
+  <p>
+    MP3 is fine — it ships everywhere — but it's strictly larger than the Opus/AAC pair at
+    equivalent quality. The only reason to use it is licensing paranoia, which expired in 2017.
+    Skip it.
+  </p>
+
+  <h2>What about FLAC / WAV?</h2>
+  <p>
+    For UI clicks under ~50ms, an uncompressed <code>.wav</code> can be smaller than the codec
+    headers + footers of a compressed file, and the decoder is free. Ship those as <code>.wav</code>.
+  </p>
+
+  <h2>Picking the right URL yourself</h2>
+  <p>
+    <code>loadSound</code> picks for you, but the helper is exported if you want to drive
+    <code>&lt;audio&gt;</code> tags or your own loader:
+  </p>
+  <Snippet code={helpers} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't ship .ogg as your only source.</div>
+    Safari does not decode OGG. Many free SFX packs ship .ogg — transcode to webm/m4a before serving.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't forget faststart for M4A.</div>
+    Without <code>-movflags +faststart</code>, decode waits for the entire file to download.
+    On a slow connection this turns "play on click" into "play in 4 seconds".
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't ship 320 kbps for a 200ms click.</div>
+    SFX rarely benefit beyond 64 kbps Opus / 96 kbps AAC. Stereo doubles size for the same
+    perceived quality on a mono click. Use <code>-ac 1</code>.
+  </div>
+</Docs>

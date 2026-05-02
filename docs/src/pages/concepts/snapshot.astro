@@ -1,0 +1,86 @@
+---
+import SnapshotCrossfade from '../../components/demos/SnapshotCrossfade.tsx';
+import Frame from '../../components/diagrams/Frame.astro';
+import SnapshotDiagram from '../../components/diagrams/SnapshotDiagram.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const capture = `// Set the mix to a known-good "menu" state, then capture it.
+engine.bus('music').level = 0.8;
+engine.bus('sfx').level   = 0.3;
+const menu = engine.captureSnapshot('menu');`;
+
+const explicit = `// Build a snapshot from explicit state — no need to mutate the live engine.
+const boss = engine.snapshot('boss', {
+  buses: {
+    music: { level: 1.0, muted: false },
+    sfx:   { level: 0.8, muted: false },
+  },
+  parameters: { intensity: 1.0 },
+});`;
+
+const apply = `await menu.apply({ fadeMs: 250 });        // crossfade everything in 250ms
+await boss.apply({ fadeMs: 800 });`;
+---
+<Docs
+  title="Snapshot"
+  description="Capture a mix state. Apply it later with a smooth crossfade. Your menu/gameplay/boss switcher in one call."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A <code>Snapshot</code> is an immutable record of bus levels, mutes, and
+    parameter values. Capture once when the mix is right, then re-apply
+    later with <code>fadeMs</code> to crossfade the whole mix in one call.
+    No more orchestrating ten <code>fadeTo</code> calls by hand.
+  </p>
+
+  <h2>Mental model</h2>
+  <Frame caption="Three named snapshots. apply() ramps every bus level (and parameter) in lockstep.">
+    <SnapshotDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={`engine.captureSnapshot(name): Snapshot
+engine.snapshot(name, state): Snapshot
+
+class Snapshot {
+  readonly name: string;
+  readonly state: SnapshotState;
+  apply(options?: { fadeMs?: number }): Promise<void>;
+}`} lang="ts" title="Snapshot" />
+
+  <h2>Live demo</h2>
+  <p>Three presets, 800 ms crossfade between mixes.</p>
+  <SnapshotCrossfade client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Capture from the live engine</h3>
+  <Snippet code={capture} lang="ts" />
+
+  <h3>Build from explicit state</h3>
+  <Snippet code={explicit} lang="ts" />
+
+  <h3>Switch with crossfade</h3>
+  <Snippet code={apply} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Snapshots don't include voices.</div>
+    They restore the <em>mix</em>, not what's playing on it. If you need a
+    "boss music starts" effect, trigger the boss music yourself <em>then</em>
+    apply the snapshot.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Capturing twice does not snapshot motion.</div>
+    A snapshot is a single moment. To animate a fade-in over time, drive a
+    <a href="/concepts/parameter/">Parameter</a> instead.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/parameter/">Parameter</a> — for continuous values.</li>
+    <li><a href="/concepts/mixer/">Mixer</a> — the bus state being captured.</li>
+  </ul>
+</Docs>

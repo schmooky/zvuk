@@ -1,0 +1,91 @@
+---
+import SoundCard from '../../components/demos/SoundCard.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const load = `const sword = await engine.loadSound('sword', '/sfx/sword.webm', { bus: 'sfx' });
+console.log(sword.duration);   // seconds`;
+
+const ladder = `// Codec ladder — first decodable wins. Opus everywhere except old iOS, AAC there.
+await engine.loadSound('coin', [
+  '/sfx/coin.webm',
+  '/sfx/coin.m4a',
+], { bus: 'sfx' });`;
+
+const reuse = `// One Sound, many Voices — buffer is shared, each play() is independent.
+const coin = engine.sound('coin');
+for (let i = 0; i < 8; i++) coin.play({ pitch: { jitter: 0.05 } });`;
+
+const cleanup = `const ac = new AbortController();
+const v = engine.sound('coin').play({ signal: ac.signal });
+// later, e.g. on unmount:
+ac.abort();`;
+---
+<Docs
+  title="Sound"
+  description="A loaded sample. Owns one decoded AudioBuffer and spawns Voices on play()."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A <code>Sound</code> is the immutable, decoded representation of an audio
+    asset. Each call to <code>sound.play()</code> spawns a fresh <code>Voice</code>
+    attached to the sound's default bus (or an override). The buffer is shared;
+    voices are not.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={`class Sound {
+  readonly name: string;
+  readonly duration: number;          // seconds
+
+  play(options?: PlayOptions): Voice;
+}
+
+interface PlayOptions {
+  volume?: number | { jitter?: number };
+  pitch?:  number | { jitter?: number };
+  loop?:   boolean;
+  bus?:    string;
+  priority?: number;
+  signal?: AbortSignal;
+  spatializer?: { pan?: number; position?: [number, number, number] };
+}`} lang="ts" title="Sound + PlayOptions" />
+
+  <h2>Live demo</h2>
+  <SoundCard client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Load + play</h3>
+  <Snippet code={load} lang="ts" />
+
+  <h3>Codec ladder for cross-browser</h3>
+  <Snippet code={ladder} lang="ts" />
+  <p>See the <a href="/guides/asset-formats/">asset-formats guide</a> for the encoding pipeline.</p>
+
+  <h3>Spawn many voices from one sound</h3>
+  <Snippet code={reuse} lang="ts" />
+
+  <h3>Tie playback to an AbortSignal</h3>
+  <Snippet code={cleanup} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't store the AudioBuffer yourself.</div>
+    The Sound owns it. If you read raw bytes for visualization, copy them out and
+    let the Sound stay the source of truth.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't await sound.play().</div>
+    <code>play()</code> is synchronous and returns the Voice. Awaiting waits forever
+    (it's not a Promise). Use <code>v.ended</code> to await completion.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/voice/">Voice</a> — what <code>play()</code> returns.</li>
+    <li><a href="/guides/loading/">Loading sounds</a> — bulk load patterns.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> — the codec ladder.</li>
+  </ul>
+</Docs>

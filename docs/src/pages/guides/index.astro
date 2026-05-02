@@ -1,0 +1,29 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+const guides = [
+  { slug: 'asset-formats', label: 'Asset formats',     blurb: 'WebM/Opus + M4A/AAC, the why and the ffmpeg.' },
+  { slug: 'loading',       label: 'Loading sounds',    blurb: 'Single, bulk, progress, AbortSignal.' },
+  { slug: 'mix',           label: 'Building your mix', blurb: 'Pick the buses. Declare them. Route everything.' },
+  { slug: 'ducking',       label: 'Sidechain ducking', blurb: 'Drop the music when the VO speaks.' },
+  { slug: 'migration',     label: 'Migrating from Howler', blurb: 'API mapping + step-by-step port.' },
+];
+---
+<Docs
+  title="Guides"
+  description="Practical walkthroughs that reach across multiple concepts."
+  eyebrow="Reference"
+>
+  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
+    {guides.map(({ slug, label, blurb }) => (
+      <a
+        href={`/guides/${slug}/`}
+        class="rounded-xl border border-border bg-card/40 p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"
+      >
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">/guides/{slug}/</div>
+        <div class="mt-1 font-semibold">{label}</div>
+        <div class="mt-1 text-sm text-muted-foreground">{blurb}</div>
+      </a>
+    ))}
+  </div>
+</Docs>

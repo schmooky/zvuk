@@ -1,0 +1,5 @@
+---
+interface Props { lang?: string; }
+const { lang = 'ts' } = Astro.props as Props;
+---
+<pre class="rounded-lg border border-code-border bg-[var(--color-code-bg)] px-4 py-3 overflow-x-auto text-sm leading-7"><code class={`language-${lang}`}><slot /></code></pre>

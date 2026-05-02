@@ -1,0 +1,95 @@
+---
+import BusFader from '../../components/demos/BusFader.tsx';
+import ParameterModulator from '../../components/demos/ParameterModulator.tsx';
+import SlotReel from '../../components/demos/SlotReel.tsx';
+import SnapshotCrossfade from '../../components/demos/SnapshotCrossfade.tsx';
+import VoiceJitter from '../../components/demos/VoiceJitter.tsx';
+import VoiceLimit from '../../components/demos/VoiceLimit.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const slotCode = `engine.scheduleAt(engine.now, () => engine.sound('reel-spin').play());
+
+// Tick during spin
+for (let t = 0; t < 1.6; t += 0.12) {
+  engine.scheduleAt(engine.now + t, () => engine.sound('reel-tick').play({ volume: 0.5 }));
+}
+
+// Stagger the three reel-stops
+[1.0, 1.4, 1.8].forEach((delay) => {
+  engine.scheduleAt(engine.now + delay, () => engine.sound('reel-stop').play({ pitch: { jitter: 0.06 } }));
+});
+
+// Win sting on top
+engine.scheduleAt(engine.now + 2.1, () => engine.sound('win-sting').play({ volume: 0.9 }));`;
+
+const jitterCode = `for (let i = 0; i < 6; i++) {
+  engine.sound('hit').play({
+    pitch:  { jitter: 0.08 },
+    volume: { jitter: 0.05 },
+  });
+}`;
+
+const fadeCode = `engine.bus('music').fadeTo(0, 1200, 'equal-power');`;
+
+const limitCode = `engine.bus('sfx').setConcurrency({ max: 8, steal: 'lowest-priority' });
+engine.sound('hero-attack').play({ priority: 10 });
+engine.sound('footstep').play({ priority: 0 });`;
+
+const snapCode = `const menu = engine.snapshot('menu', {
+  buses: { music: { level: 0.8, muted: false }, sfx: { level: 0.3, muted: false } },
+  parameters: {},
+});
+await menu.apply({ fadeMs: 800 });`;
+
+const paramCode = `const intensity = engine.parameter('intensity', 0.3);
+intensity.bindTo((v) => engine.bus('music').level = v, { from: 0.3, to: 1, curve: 'easeInOut' });
+intensity.set(0.7);`;
+---
+<Docs
+  title="Recipes"
+  description="Click. Hear. Copy. Paste. Six clickable patterns covering most of the engine."
+  eyebrow="Recipes"
+>
+
+  <p>
+    Every recipe below is a live React island running the actual engine. Click
+    the buttons; hear the result; copy the snippet next to it into your project.
+  </p>
+
+  <hr />
+
+  <h2 id="slot-reel">1. Slot reel — layered SFX with sample-accurate scheduling</h2>
+  <SlotReel client:visible />
+  <Snippet code={slotCode} lang="ts" />
+
+  <hr />
+
+  <h2 id="jitter">2. Random pitch / volume jitter — make stacked SFX feel organic</h2>
+  <VoiceJitter client:visible />
+  <Snippet code={jitterCode} lang="ts" />
+
+  <hr />
+
+  <h2 id="bus-fade">3. Bus crossfade — click-free with curve</h2>
+  <BusFader client:visible />
+  <Snippet code={fadeCode} lang="ts" />
+
+  <hr />
+
+  <h2 id="voice-limits">4. Voice limit + steal strategy</h2>
+  <VoiceLimit client:visible />
+  <Snippet code={limitCode} lang="ts" />
+
+  <hr />
+
+  <h2 id="snapshot">5. Snapshot crossfade — switch the whole mix</h2>
+  <SnapshotCrossfade client:visible />
+  <Snippet code={snapCode} lang="ts" />
+
+  <hr />
+
+  <h2 id="parameter">6. Parameter modulator — one knob, many targets</h2>
+  <ParameterModulator client:visible />
+  <Snippet code={paramCode} lang="ts" />
+</Docs>

@@ -1,0 +1,150 @@
+---
+import MixerDashboard from '../../components/demos/MixerDashboard.tsx';
+import Frame from '../../components/diagrams/Frame.astro';
+import SignalFlowDiagram from '../../components/diagrams/SignalFlowDiagram.astro';
+import StateMachineDiagram from '../../components/diagrams/StateMachineDiagram.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const create = `import { createEngine } from 'zvuk';
+
+const engine = createEngine({
+  buses: {
+    music: { level: 0.8 },
+    sfx:   { level: 1.0 },
+    voice: { level: 1.0 },
+  },
+  master: { headroom: -3 },
+});`;
+
+const lifecycle = `await engine.unlock();          // call from a user gesture
+engine.state;                    // 'cold' | 'unlocking' | 'live' | 'closed'
+
+await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });
+engine.sound('coin').play();
+
+await engine.close();            // terminal — construct a new engine if needed`;
+
+const observe = `const off = engine.onStateChange((s) => {
+  if (s === 'live') console.log('audio is live; ctx time:', engine.now);
+});
+// later: off();`;
+
+const schedule = `const beat = engine.now + 0.25;          // 250 ms ahead in audio time
+engine.scheduleAt(beat, () => engine.sound('downbeat').play());`;
+
+const teardown = `// React example
+useEffect(() => () => { void engine.close(); }, []);
+
+// Vue example
+onBeforeUnmount(() => { void engine.close(); });
+
+// Plain SPA
+router.beforeEach(async () => { await engine.close(); });`;
+
+const surface = `interface Engine {
+  readonly state: 'cold' | 'unlocking' | 'live' | 'closed';
+  readonly now: number;
+  readonly context: AudioContext;
+
+  unlock(): Promise<void>;
+  close(): Promise<void>;
+
+  loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
+  hasSound(name: string): boolean;
+
+  sound(name: string): Sound;            // throws SoundNotFoundError
+  bus(name: string): Bus;                 // throws BusNotFoundError
+
+  scheduleAt(audioTime: number, fn: () => void): () => void;
+
+  parameter(name: string, initial?: number): Parameter;
+  captureSnapshot(name: string): Snapshot;
+
+  activeVoices(): readonly Voice[];
+  onStateChange(fn: (s: EngineState) => void): () => void;
+}`;
+---
+<Docs
+  title="Engine"
+  description="The root object. Owns the AudioContext, the bus graph, the scheduler, every loaded sound."
+  eyebrow="Concept"
+>
+
+  <h2>TL;DR</h2>
+  <p>
+    The <code>Engine</code> is the only object you construct directly. Everything else
+    (<code>Bus</code>, <code>Sound</code>, <code>Voice</code>, <code>Parameter</code>,
+    <code>Snapshot</code>) is reached through it. Lifecycle is explicit — the underlying
+    <code>AudioContext</code> is created on first use, never in the constructor — so
+    <code>createEngine()</code> is safe to call before any user interaction.
+  </p>
+
+  <h2>State machine</h2>
+  <p>
+    Four states, one terminal transition. <code>unlock()</code> is the only thing you
+    call manually; visibility/focus changes auto-suspend and auto-resume the context
+    behind the scenes.
+  </p>
+  <Frame caption="Engine lifecycle. unlock() is idempotent and returns the same in-flight promise.">
+    <StateMachineDiagram />
+  </Frame>
+
+  <h2>Signal flow</h2>
+  <p>
+    Each <code>play()</code> call attaches a <code>Voice</code> to its bus's input node.
+    Voices feed through bus FX (if any), out the bus's output, into the master, and
+    onward to <code>ctx.destination</code>. Everything else is variation on this graph.
+  </p>
+  <Frame title="signal flow">
+    <SignalFlowDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Engine — public interface" />
+
+  <h2>Live demo</h2>
+  <p>
+    The mixer dashboard below runs a real <code>Engine</code> with three buses, six
+    pre-loaded samples in <code>.webm</code>/<code>.m4a</code> pairs, and a live voice counter.
+  </p>
+  <MixerDashboard client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Build at module load, unlock on click</h3>
+  <Snippet code={create} lang="ts" />
+  <Snippet code={lifecycle} lang="ts" />
+
+  <h3>Watch state transitions</h3>
+  <Snippet code={observe} lang="ts" />
+
+  <h3>Sample-accurate scheduling</h3>
+  <Snippet code={schedule} lang="ts" />
+
+  <h3>Tear down on route change</h3>
+  <Snippet code={teardown} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't construct the engine inside a click handler.</div>
+    Construct it at module load. <code>createEngine</code> is cheap; only
+    <code>unlock()</code> needs a user gesture.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't call play() before unlock.</div>
+    On iOS Safari the AudioContext starts <code>suspended</code>. Sounds will be silently
+    dropped. Always <code>await engine.unlock()</code> first.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't reuse a closed engine.</div>
+    <code>close()</code> is terminal. Construct a fresh one if you need audio again.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/mixer/">Mixer</a> — the bus graph rooted at the engine.</li>
+    <li><a href="/concepts/bus/">Bus</a> — routing, level, mute, fade.</li>
+    <li><a href="/concepts/voice/">Voice</a> — what <code>play()</code> returns.</li>
+  </ul>
+</Docs>

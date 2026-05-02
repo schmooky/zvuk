@@ -1,0 +1,89 @@
+---
+import ParameterModulator from '../../components/demos/ParameterModulator.tsx';
+import Frame from '../../components/diagrams/Frame.astro';
+import ParameterDiagram from '../../components/diagrams/ParameterDiagram.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const get = `const intensity = engine.parameter('intensity', 0.3);
+intensity.set(0.7);                       // updates all bound targets`;
+
+const bind = `intensity.bindTo((v) => engine.bus('music').level = v, {
+  from: 0.4, to: 1.0, curve: 'easeInOut',
+});
+
+intensity.bindTo((v) => filter.setFrequency(v), {
+  from: 800, to: 12000, curve: 'easeIn',
+});`;
+
+const subscribe = `const off = intensity.subscribe((v) => console.log('intensity:', v));
+// later: off();`;
+---
+<Docs
+  title="Parameter"
+  description="A named float you drive at runtime. Subscribers update immediately. Bind it to bus levels, FX values, anything."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A <code>Parameter</code> is the abstraction between "I want intensity to go
+    up" and "ten things change in the mix." You set the parameter; everything
+    bound to it (bus levels, FX wet, filter cutoff) updates with the curve and
+    range you specified.
+  </p>
+
+  <h2>Mental model</h2>
+  <Frame caption="One parameter feeds many bound targets. Each binding has its own range + curve.">
+    <ParameterDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={`engine.parameter(name, initial?): Parameter
+
+class Parameter {
+  readonly name: string;
+  readonly value: number;
+  set(v: number): void;
+  subscribe(fn: (v: number) => void): () => void;
+  bindTo(setter: (mapped: number) => void, opts?: {
+    from?: number;        // default 0
+    to?:   number;        // default 1
+    curve?: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'equal-power';
+  }): () => void;
+}`} lang="ts" title="Parameter" />
+
+  <h2>Live demo</h2>
+  <p>One slider drives bus level <em>and</em> a derived value. Curves, ranges, the works.</p>
+  <ParameterModulator client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Get / set</h3>
+  <Snippet code={get} lang="ts" />
+
+  <h3>Bind to one or more targets</h3>
+  <Snippet code={bind} lang="ts" />
+
+  <h3>Subscribe for UI updates</h3>
+  <Snippet code={subscribe} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Parameters aren't ramps.</div>
+    A parameter is a discrete value. Subscribers turn it into a ramp on their
+    own (e.g. by writing to a bus level which has its own 10 ms internal ramp).
+    For a guaranteed N-millisecond crossfade, use a Snapshot.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't <code>set</code> in a tight loop.</div>
+    Each set runs every subscriber synchronously. If you're driving a parameter
+    from <code>requestAnimationFrame</code>, you're already at 60 Hz — fine.
+    Anything denser, throttle it.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/snapshot/">Snapshot</a> — discrete state, crossfaded.</li>
+    <li><a href="/concepts/bus/">Bus</a> — common bind target.</li>
+  </ul>
+</Docs>

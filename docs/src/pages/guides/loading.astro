@@ -1,0 +1,99 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const single = `await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });`;
+
+const ladder = `await engine.loadSound('coin', [
+  '/sfx/coin.webm',
+  '/sfx/coin.m4a',
+], { bus: 'sfx' });`;
+
+const bulk = `const manifest = [
+  { name: 'coin',     urls: ['/sfx/coin.webm', '/sfx/coin.m4a'],     bus: 'sfx' },
+  { name: 'win',      urls: ['/sfx/win.webm', '/sfx/win.m4a'],       bus: 'sfx' },
+  { name: 'reel',     urls: ['/sfx/reel.webm', '/sfx/reel.m4a'],     bus: 'sfx' },
+  { name: 'bg-music', urls: ['/music/bg.webm', '/music/bg.m4a'],     bus: 'music' },
+];
+
+await Promise.all(
+  manifest.map(({ name, urls, bus }) =>
+    engine.loadSound(name, urls, { bus }),
+  ),
+);`;
+
+const progress = `let loaded = 0;
+const total = manifest.length;
+
+await Promise.all(
+  manifest.map(async (entry) => {
+    await engine.loadSound(entry.name, entry.urls, { bus: entry.bus });
+    loaded++;
+    onProgress(loaded / total);   // 0..1
+  }),
+);`;
+
+const cancel = `const ac = new AbortController();
+try {
+  await Promise.all(
+    manifest.map((m) => engine.loadSound(m.name, m.urls, { bus: m.bus, signal: ac.signal })),
+  );
+} catch (e) {
+  if ((e as Error).name === 'AbortError') console.log('cancelled');
+  else throw e;
+}
+
+// On route change:
+ac.abort();`;
+---
+<Docs
+  title="Loading sounds"
+  description="The patterns for getting audio off the network and into the engine — single, bulk, with progress, with cancellation."
+  eyebrow="Guide"
+>
+
+  <h2>Single sound</h2>
+  <Snippet code={single} lang="ts" />
+
+  <h2>Codec ladder</h2>
+  <p>
+    Pass an array; the engine picks the first URL the browser can decode.
+    See the <a href="/guides/asset-formats/">asset-formats guide</a> for the
+    encoding pipeline.
+  </p>
+  <Snippet code={ladder} lang="ts" />
+
+  <h2>Bulk load with Promise.all</h2>
+  <p>
+    The <code>Decoder</code> is concurrent-safe; firing N requests in parallel
+    is the right move. Network is almost always the bottleneck, not decoding.
+  </p>
+  <Snippet code={bulk} lang="ts" />
+
+  <h2>Progress reporting</h2>
+  <Snippet code={progress} lang="ts" />
+
+  <h2>Cancellable loads</h2>
+  <p>
+    Pass an <code>AbortSignal</code>. The fetch is cancelled mid-flight; in-progress
+    decodes complete (Web Audio's <code>decodeAudioData</code> is not abortable).
+  </p>
+  <Snippet code={cancel} lang="ts" />
+
+  <h2>Cache & memory</h2>
+  <p>
+    Decoded buffers are cached by URL inside the engine. Loading the same URL
+    twice is free; loading 130+ unique URLs evicts the least-recently-used
+    entries (configurable via the internal Decoder limit).
+  </p>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't load before unlock.</div>
+    The decoder needs a live AudioContext. <code>loadSound</code> calls
+    <code>touch()</code> to construct the context lazily — but on iOS Safari,
+    <code>decodeAudioData</code> can hang on a suspended context. Always
+    <code>await unlock()</code> first, ideally on the same gesture that
+    triggers the load.
+  </div>
+</Docs>

@@ -1,0 +1,27 @@
+---
+import { Code } from 'astro:components';
+import type { BuiltinLanguage } from 'shiki';
+
+interface Props {
+  /** Source code as a string. */
+  code: string;
+  /** Language for Shiki — defaults to ts. */
+  lang?: BuiltinLanguage;
+  /** Hide the lang badge in the top-right. */
+  hideBadge?: boolean;
+  /** Optional one-line caption above the snippet. */
+  title?: string;
+}
+const { code, lang = 'ts', hideBadge = false, title } = Astro.props as Props;
+---
+<figure class="not-prose my-5 overflow-hidden rounded-lg border border-code-border bg-[var(--color-code-bg)] text-sm">
+  <header class="flex items-center justify-between border-b border-code-border/60 bg-[hsl(220_30%_4%)]/60 px-3 py-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-muted-foreground">
+    <span>{title ?? lang}</span>
+    {!hideBadge && (
+      <span class="rounded border border-border/40 px-1.5 py-px text-[9px] text-primary/80">{lang}</span>
+    )}
+  </header>
+  <div class="overflow-x-auto px-1 py-1 text-[13px] leading-6 [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:!p-3">
+    <Code code={code} lang={lang} theme="github-dark" />
+  </div>
+</figure>

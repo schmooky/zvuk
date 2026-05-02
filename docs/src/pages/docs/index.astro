@@ -1,0 +1,54 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+<Docs
+  title="What is zvuk?"
+  description="An audio engine for the web. Tiny, ESM, type-safe. Built from a real shipping slot-game stack."
+  eyebrow="Overview"
+>
+  <p>
+    <strong>zvuk</strong> is a Web Audio API library that hands you the vocabulary you'd expect from
+    Wwise, FMOD, or Unreal: an Engine you talk to, a Mixer made of named Buses, Sounds that spawn
+    Voices, Snapshots that crossfade your whole mix, and Parameters that drive any value with
+    smooth ramps.
+  </p>
+
+  <p>
+    Designed around the realities the Web Audio API doesn't smooth over:
+    autoplay restrictions, iOS Safari's quirky <code>AudioContext</code> lifecycle,
+    click-free parameter changes, polyphony at scale, and the discipline of disposing
+    everything you constructed. The library makes those concerns explicit and named, so
+    your application code can stay short.
+  </p>
+
+  <h2>What's in v0.0.1</h2>
+  <ul>
+    <li><strong>Runtime:</strong> lazy AudioContext, sample-accurate scheduler, decode cache, codec ladder.</li>
+    <li><strong>Mixer:</strong> Master with headroom, named Buses with click-free fades, FX chain inserts.</li>
+    <li><strong>Sources:</strong> Sound + Voice with jitter, fades, abort signals, lifecycle promises;
+      <code>createSound</code> for procedural buffers.</li>
+    <li><strong>Concurrency:</strong> per-bus voice limit with steal strategies (<code>oldest</code> /
+      <code>lowest-priority</code> / <code>quietest</code> / <code>none</code>).</li>
+    <li><strong>FX:</strong> Compressor, Reverb (synthetic IR or your own), Filter (six biquad types),
+      Ducker (sidechain), and a granular pitch-preserving StretchProcessor.</li>
+    <li><strong>Spatializer:</strong> 2D StereoPanner + 3D HRTF PannerNode per voice.</li>
+    <li><strong>Parameters &amp; Snapshots:</strong> named knobs with <code>bindTo</code> mapping;
+      whole-mix capture and crossfade.</li>
+  </ul>
+
+  <h2>What's coming</h2>
+  <ul>
+    <li>Realtime time-stretch via AudioWorklet (current StretchProcessor is offline-only)</li>
+    <li>Bank manifest loader + <code>npx zvuk gen</code> for typed sound names</li>
+    <li>Audio sprites — multi-region atlases in one buffer</li>
+    <li>Stream source — <code>&lt;audio&gt;</code> wrapper for very long music files</li>
+    <li>React + Vue adapter packages (<code>useSound</code>, <code>useBus</code>, <code>useParameter</code>)</li>
+  </ul>
+
+  <h2>Read next</h2>
+  <ul>
+    <li><a href="/docs/quickstart/">Quickstart</a> — two functions, sound playing.</li>
+    <li><a href="/concepts/engine/">The Engine</a> — lifecycle, unlock, state machine.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> — the encoding pipeline you should be using.</li>
+  </ul>
+</Docs>

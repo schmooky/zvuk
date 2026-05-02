@@ -1,0 +1,84 @@
+---
+import MixerDashboard from '../../components/demos/MixerDashboard.tsx';
+import BusGraphDiagram from '../../components/diagrams/BusGraphDiagram.astro';
+import Frame from '../../components/diagrams/Frame.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const declare = `const engine = createEngine({
+  buses: {
+    music: { level: 0.8, concurrency: { max: 4 } },
+    sfx:   { level: 1.0, concurrency: { max: 32, steal: 'oldest' } },
+    voice: { level: 1.0, sidechain: { from: 'music', amount: 0.5, attack: 80, release: 400 } },
+  },
+  master: { headroom: -3 },
+});`;
+
+const access = `engine.bus('music').level = 0.5;
+engine.bus('sfx').fadeTo(0, 800);
+engine.bus('voice').muted = true;`;
+
+const fxInsert = `import { Compressor, Reverb } from 'zvuk';
+
+const comp = new Compressor(engine.context, { threshold: -18, ratio: 4 });
+const reverb = new Reverb(engine.context, { wet: 0.3, decay: { seconds: 1.4 } });
+
+engine.bus('music').addFx(reverb);
+engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
+---
+<Docs
+  title="Mixer"
+  description="The named bus graph that routes every voice from source to speakers."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    The Mixer is your declarative routing model. You name your buses
+    (<code>music</code>, <code>sfx</code>, <code>voice</code>, etc.), give each
+    one a level and behavior, and the engine builds the audio graph for you.
+    The mixer is what separates "I called <code>.play()</code>" from
+    "I shipped a mix."
+  </p>
+
+  <h2>Mental model</h2>
+  <p>
+    Sources fan in through their default bus. Each bus has its own level,
+    optional FX inserts, optional concurrency cap, and an optional sidechain
+    key. Bus outputs sum at the master, which applies headroom and sends to
+    the destination.
+  </p>
+  <Frame title="bus graph" caption="Three buses, FX inserts, sidechain key (voice → music). Master sums and applies headroom.">
+    <BusGraphDiagram />
+  </Frame>
+
+  <h2>API surface</h2>
+  <Snippet code={declare} lang="ts" title="Declare buses up front" />
+  <Snippet code={access} lang="ts" title="Talk to a bus by name" />
+
+  <h2>Live demo</h2>
+  <p>Sliders, mute, real voice counter — live engine, real samples.</p>
+  <MixerDashboard client:visible />
+
+  <h2>Recipes</h2>
+  <h3>Insert an FX chain on a bus</h3>
+  <Snippet code={fxInsert} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't add buses dynamically after createEngine.</div>
+    Bus topology is declared once. If you need a temporary effect, route into
+    an existing bus and bypass when not in use, or add a fresh FX insert.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't write directly to ctx.destination.</div>
+    Going around the master skips headroom and breaks snapshots. Always route
+    through a declared bus.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/bus/">Bus</a> — single-bus details and the FX chain.</li>
+    <li><a href="/concepts/snapshot/">Snapshot</a> — capture &amp; crossfade the whole mix.</li>
+    <li><a href="/guides/mix/">Building your mix</a> — practical guide.</li>
+  </ul>
+</Docs>

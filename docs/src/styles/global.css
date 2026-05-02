@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/**
+ * zvuk palette — Ableton/FMOD-flavored. Deep navy field, teal/cyan accents
+ * for level meters and signal flow, warm amber for compression/clip warnings.
+ */
+@theme {
+  --color-border: hsl(220 22% 22%);
+  --color-input: hsl(220 22% 22%);
+  --color-ring: hsl(186 80% 52%);
+  --color-background: hsl(220 28% 9%);
+  --color-foreground: hsl(210 25% 96%);
+
+  --color-primary: hsl(186 85% 55%);
+  --color-primary-foreground: hsl(220 28% 9%);
+
+  --color-secondary: hsl(220 22% 16%);
+  --color-secondary-foreground: hsl(210 25% 92%);
+
+  --color-muted: hsl(220 22% 16%);
+  --color-muted-foreground: hsl(215 12% 62%);
+
+  --color-accent: hsl(38 95% 60%);
+  --color-accent-foreground: hsl(220 28% 9%);
+
+  --color-destructive: hsl(0 80% 60%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+
+  --color-card: hsl(220 26% 12%);
+  --color-card-foreground: hsl(210 25% 96%);
+
+  --color-popover: hsl(220 26% 12%);
+  --color-popover-foreground: hsl(210 25% 96%);
+
+  --radius: 0.625rem;
+
+  --color-code-bg: hsl(220 30% 6%);
+  --color-code-border: hsl(220 22% 18%);
+  --color-code-fg: hsl(210 25% 90%);
+  --color-code-muted: hsl(215 12% 55%);
+
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-fade-in: fade-in 400ms ease-out;
+  --animate-pulse-slow: pulse-slow 3.5s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, hsl(186 85% 55% / 0.08), transparent 55%),
+      radial-gradient(900px 500px at -10% 15%, hsl(38 95% 60% / 0.06), transparent 60%),
+      var(--color-background);
+    min-height: 100vh;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--color-background); }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 10px;
+    border: 2px solid var(--color-background);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(186 85% 55% / 0.5); }
+}
+
+@layer components {
+  .container {
+    @apply mx-auto w-full max-w-[1240px] px-6;
+  }
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(186 85% 55%), hsl(38 95% 60%));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--color-background) 70%, transparent);
+    backdrop-filter: saturate(140%) blur(8px);
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, hsl(186 85% 55% / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(186 85% 55% / 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .waveform-bg {
+    /* tiled SVG-like waveform mask using gradients */
+    background: repeating-linear-gradient(
+      90deg,
+      hsl(186 85% 55% / 0.06) 0 1px,
+      transparent 1px 5px
+    );
+  }
+
+  .prose-docs h1 { @apply text-3xl font-semibold tracking-tight mb-3 text-foreground; }
+  .prose-docs h2 { @apply text-xl font-semibold tracking-tight mt-10 mb-3 text-foreground scroll-mt-24; }
+  .prose-docs h3 { @apply text-lg font-semibold tracking-tight mt-8 mb-2 text-foreground; }
+  .prose-docs p {
+    @apply leading-7 my-4;
+    color: color-mix(in oklab, var(--color-foreground) 82%, transparent);
+  }
+  .prose-docs a { @apply text-primary underline-offset-4 hover:underline; }
+  .prose-docs strong { @apply text-foreground font-semibold; }
+  .prose-docs ul, .prose-docs ol {
+    @apply my-4 ml-6 list-disc;
+    color: color-mix(in oklab, var(--color-foreground) 82%, transparent);
+  }
+  .prose-docs li { @apply mt-1; }
+  .prose-docs ol { @apply list-decimal; }
+  .prose-docs blockquote {
+    @apply border-l-2 border-primary bg-primary/5 px-4 py-2 my-4 rounded-r-md;
+  }
+  .prose-docs hr { @apply my-8 border-border; }
+  .prose-docs code:not(pre code) {
+    @apply rounded bg-secondary px-1.5 py-0.5 text-[0.85em] font-mono text-primary;
+  }
+  .prose-docs pre {
+    @apply rounded-lg px-4 py-3 overflow-x-auto my-5 text-sm;
+    background: var(--color-code-bg);
+    border: 1px solid var(--color-code-border);
+    color: var(--color-code-fg);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  .prose-docs pre code { @apply bg-transparent p-0; color: inherit; }
+  .prose-docs table { @apply w-full my-6 text-sm border-collapse; }
+  .prose-docs thead tr { @apply border-b border-border; }
+  .prose-docs th, .prose-docs td { @apply text-left px-3 py-2; }
+  .prose-docs tbody tr { @apply border-b border-border/60; }
+
+  .pitfall {
+    @apply my-6 rounded-xl border-l-4 border-l-accent bg-accent/5 px-5 py-4 text-sm;
+  }
+  .pitfall-title {
+    @apply mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent;
+  }
+}

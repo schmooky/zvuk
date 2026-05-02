@@ -1,0 +1,60 @@
+---
+import Hero from '../components/Hero.astro';
+import Base from '../layouts/Base.astro';
+import MixerDashboard from '../components/demos/MixerDashboard.tsx';
+---
+<Base>
+  <Hero />
+
+  <section class="container py-16">
+    <div class="mx-auto max-w-3xl">
+      <h2 class="text-3xl font-semibold tracking-tight mb-4">A real engine, not a wrapper.</h2>
+      <p class="text-lg text-muted-foreground mb-4">
+        zvuk gives you the vocabulary game-audio engineers expect: <strong class="text-foreground">Engine</strong>,
+        <strong class="text-foreground">Mixer</strong>, <strong class="text-foreground">Bus</strong>,
+        <strong class="text-foreground">Send</strong>, <strong class="text-foreground">Sound</strong>,
+        <strong class="text-foreground">Voice</strong>, <strong class="text-foreground">Snapshot</strong>,
+        <strong class="text-foreground">Parameter</strong>. Routing is declarative.
+        Lifecycle is explicit. The <code class="text-primary font-mono">AudioContext</code>
+        is constructed lazily — calling <code class="text-primary font-mono">createEngine()</code> before any
+        user gesture is safe.
+      </p>
+      <p class="text-lg text-muted-foreground">
+        Built for any application where audio matters — games, interactive learning,
+        ambient web experiences, kiosks, music apps. If you've ever fought autoplay
+        on iOS or watched a clip cut itself off mid-playback, zvuk is the layer that
+        handles those problems for you.
+      </p>
+    </div>
+  </section>
+
+  <section class="container py-8">
+    <div class="mx-auto max-w-4xl">
+      <h2 class="text-3xl font-semibold tracking-tight mb-2">Try it.</h2>
+      <p class="text-muted-foreground mb-6">
+        A live mixer running the actual engine. Real samples, real Web Audio. iOS-safe.
+      </p>
+      <MixerDashboard client:visible />
+    </div>
+  </section>
+
+  <section class="container py-16">
+    <div class="mx-auto max-w-4xl grid gap-6 md:grid-cols-3">
+      <a href="/docs/quickstart/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Start here</div>
+        <div class="font-semibold mb-1 group-hover:text-primary">Quickstart</div>
+        <div class="text-sm text-muted-foreground">pnpm add zvuk. Two function calls. Sound out of the speakers.</div>
+      </a>
+      <a href="/concepts/engine/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Concepts</div>
+        <div class="font-semibold mb-1 group-hover:text-primary">The Engine</div>
+        <div class="text-sm text-muted-foreground">State machine, lifecycle, unlock. The Big One.</div>
+      </a>
+      <a href="/recipes/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
+        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Recipes</div>
+        <div class="font-semibold mb-1 group-hover:text-primary">Click → hear → copy</div>
+        <div class="text-sm text-muted-foreground">Six live, copy-pasteable patterns. Slot reel, ducking, snapshots, more.</div>
+      </a>
+    </div>
+  </section>
+</Base>

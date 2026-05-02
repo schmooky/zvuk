@@ -1,0 +1,93 @@
+---
+import ReverbWet from '../../components/demos/ReverbWet.tsx';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Reverb implements FxInsert {
+  readonly input: GainNode;
+  readonly output: GainNode;
+  bypassed: boolean;
+
+  setWet(mix: number): void;          // 0..1
+  setImpulse(buffer: AudioBuffer): void;
+  dispose(): void;
+}
+
+interface ReverbConfig {
+  wet?: number;                       // default 0.3
+  impulse?: AudioBuffer;              // your own IR
+  decay?: { seconds?: number; preDelay?: number };
+}`;
+
+const synth = `import { Reverb } from 'zvuk';
+
+// Synthetic IR — ~free, fine for atmosphere.
+const verb = new Reverb(engine.context, {
+  wet: 0.3,
+  decay: { seconds: 1.5, preDelay: 0.02 },
+});
+engine.bus('music').addFx(verb);`;
+
+const ir = `// Real impulse response — load like any other audio asset.
+const irBuf = await fetch('/ir/cathedral.wav')
+  .then((r) => r.arrayBuffer())
+  .then((ab) => engine.context.decodeAudioData(ab));
+
+const verb = new Reverb(engine.context, { wet: 0.4, impulse: irBuf });
+engine.bus('music').addFx(verb);`;
+
+const param = `// Drive wet from a Parameter so multiple things tilt with one knob.
+const intensity = engine.parameter('intensity', 0.3);
+intensity.bindTo((v) => verb.setWet(v), { from: 0.1, to: 0.6 });`;
+---
+<Docs
+  title="Reverb"
+  description="Convolution reverb with synthetic-IR fallback. Use a real impulse response for spaces, or skip it for ambient wash."
+  eyebrow="FX"
+>
+
+  <h2>TL;DR</h2>
+  <p>
+    Wraps a <code>ConvolverNode</code> with dry/wet mixing and pre-delay.
+    Pass an <code>impulse</code> AudioBuffer for a real space, or omit it
+    and zvuk generates a synthetic exponential-decay noise IR — cheap,
+    not as character-rich, but plenty for atmosphere.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Reverb + ReverbConfig" />
+
+  <h2>Live demo</h2>
+  <p>Wet mix slider, decay length (regenerates the IR), bypass toggle.</p>
+  <ReverbWet client:visible />
+
+  <h2>Recipes</h2>
+
+  <h3>Synthetic IR</h3>
+  <Snippet code={synth} lang="ts" />
+
+  <h3>Real impulse response</h3>
+  <Snippet code={ir} lang="ts" />
+
+  <h3>Wet driven by a Parameter</h3>
+  <Snippet code={param} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't reverb SFX.</div>
+    Individual hits get smeared and mushy. Reserve reverb for music, ambience,
+    voice — long-tailed sources. SFX want to land sharp.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't ship a 5-second IR for a UI bus.</div>
+    Convolution cost scales with IR length × buffer rate. A 5 s IR at 48 kHz
+    is the same compute every frame whether the bus has audio or not. Keep
+    IRs under 2 s unless you actually need a cathedral.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/fx/">FX index</a></li>
+    <li><a href="/concepts/parameter/">Parameter</a> — drive wet from a knob.</li>
+  </ul>
+</Docs>
