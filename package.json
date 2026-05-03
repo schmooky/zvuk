@@ -39,7 +39,7 @@
     "type": "git",
     "url": "git+https://github.com/schmooky/zvuk.git"
   },
-  "homepage": "https://zvuk.dev",
+  "homepage": "https://zvuk.schmooky.dev",
   "bugs": {
     "url": "https://github.com/schmooky/zvuk/issues"
   },
