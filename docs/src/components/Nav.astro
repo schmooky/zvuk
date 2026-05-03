@@ -10,15 +10,23 @@ function isActive(prefix: string): boolean {
 ---
 <header class="sticky top-0 z-50 w-full border-b border-border/60 glass">
   <div class="container flex h-14 items-center">
-    <a href="/" class="mr-6 flex items-center gap-2 font-mono text-sm font-semibold tracking-tight shrink-0">
-      <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-accent text-[11px] text-primary-foreground font-bold shadow-sm shadow-primary/40">
-        Z
-      </span>
-      <span>{SITE.name}</span>
-      <span class="ml-1 hidden rounded-full border border-border/70 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-block">
-        v0.0.1
-      </span>
-    </a>
+    <div class="mr-6 flex items-center gap-2 shrink-0">
+      <a href="/" class="flex items-center gap-2 font-mono text-sm font-semibold tracking-tight">
+        <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-accent text-[11px] text-primary-foreground font-bold shadow-sm shadow-primary/40">
+          Z
+        </span>
+        <span>{SITE.name}</span>
+      </a>
+      <a
+        href={SITE.npm}
+        target="_blank"
+        rel="noopener"
+        title={`${SITE.npmName} on npm`}
+        class="hidden rounded-full border border-border/70 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary sm:inline-block"
+      >
+        v{SITE.version}
+      </a>
+    </div>
 
     <nav class="hidden md:flex items-center gap-1 text-sm">
       {TOP_NAV.map(({ href, label }) => (
@@ -47,6 +55,18 @@ function isActive(prefix: string): boolean {
           {label}
         </a>
       ))}
+      <a
+        href={SITE.npm}
+        target="_blank"
+        rel="noopener"
+        aria-label="npm"
+        title={`${SITE.npmName} on npm`}
+        class="hidden md:inline-flex h-8 items-center gap-2 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/50"
+      >
+        <svg width="22" height="14" viewBox="0 0 27.4 11" fill="currentColor" aria-hidden>
+          <path d="M0 0h27.4v9.6H13.7V11H8.2V9.6H0V0zm1.4 8.2h5.5V2.7h2.7v5.5h1.4V1.4H1.4v6.8zm12.3-6.8v8.2h5.5V8.2h5.5V1.4h-11zm2.7 1.4h1.4v4.1h-1.4V2.8zm5.5 0h1.4v4.1H22V2.8z"/>
+        </svg>
+      </a>
       <a
         href={SITE.github}
         target="_blank"
