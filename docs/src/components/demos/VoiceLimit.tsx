@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ConcurrencyConfig } from 'zvuk';
+import type { ConcurrencyConfig } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 type Strategy = NonNullable<ConcurrencyConfig['steal']>;

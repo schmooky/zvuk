@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Engine, type EngineConfig, createEngine } from 'zvuk';
+import { type Engine, type EngineConfig, createEngine } from '@schmooky/zvuk';
 
 /**
  * One engine per demo, lazy-constructed, closed on unmount.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Bus, type Engine, type Voice, createEngine } from 'zvuk';
+import { type Bus, type Engine, type Voice, createEngine } from '@schmooky/zvuk';
 
 type Sample = { name: string; sources: string[]; bus: 'music' | 'sfx' | 'ui' };
 

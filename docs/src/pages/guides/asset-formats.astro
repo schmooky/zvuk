@@ -27,7 +27,7 @@ for src in raw/*.wav; do
     "public/audio/\${name}.m4a" -loglevel error
 done`;
 
-const helpers = `import { pickSource, canPlay } from 'zvuk';
+const helpers = `import { pickSource, canPlay } from '@schmooky/zvuk';
 
 const url = pickSource(['/sfx/coin.webm', '/sfx/coin.m4a']);
 // returns the first URL the browser advertises canPlayType > '' for.

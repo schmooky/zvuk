@@ -9,9 +9,9 @@ export default defineConfig({
   integrations: [mdx(), react(), sitemap()],
   vite: {
     plugins: [tailwindcss()],
-    // zvuk is a workspace package whose `exports` resolve to `src/index.ts`.
+    // @schmooky/zvuk is a workspace package whose `exports` resolve to `src/index.ts`.
     // Vite needs it bundled (not externalized) so it's transformed as TS.
-    ssr: { noExternal: ['zvuk'] },
-    optimizeDeps: { exclude: ['zvuk'] },
+    ssr: { noExternal: ['@schmooky/zvuk'] },
+    optimizeDeps: { exclude: ['@schmooky/zvuk'] },
   },
 });

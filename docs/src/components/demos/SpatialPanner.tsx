@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Voice } from 'zvuk';
+import type { Voice } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 /**

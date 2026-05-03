@@ -1,5 +1,5 @@
 ---
-'zvuk': patch
+'@schmooky/zvuk': patch
 ---
 
 Docs polish + agent-readable index:

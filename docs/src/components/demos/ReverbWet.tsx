@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Reverb } from 'zvuk';
+import { Reverb } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 export default function ReverbWet() {

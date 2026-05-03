@@ -1,5 +1,5 @@
 ---
-'zvuk': minor
+'@schmooky/zvuk': minor
 ---
 
 Initial Sprint 1 release: lazy AudioContext runtime, Master + named Buses, Sound + Voice with

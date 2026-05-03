@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Snapshot } from 'zvuk';
+import type { Snapshot } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 const PRESETS = ['menu', 'gameplay', 'boss'] as const;

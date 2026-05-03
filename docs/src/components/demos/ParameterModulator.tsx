@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Parameter } from 'zvuk';
+import type { Parameter } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 export default function ParameterModulator() {

@@ -19,7 +19,7 @@ interface ReverbConfig {
   decay?: { seconds?: number; preDelay?: number };
 }`;
 
-const synth = `import { Reverb } from 'zvuk';
+const synth = `import { Reverb } from '@schmooky/zvuk';
 
 // Synthetic IR — ~free, fine for atmosphere.
 const verb = new Reverb(engine.context, {

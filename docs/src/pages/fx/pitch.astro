@@ -12,7 +12,7 @@ engine.sound('hit').play({
   pitch: { jitter: 0.08 },           // ±8% playback rate
 });`;
 
-const stretch = `import { StretchProcessor } from 'zvuk';
+const stretch = `import { StretchProcessor } from '@schmooky/zvuk';
 
 const original = await fetch('/music/bg.webm')
   .then((r) => r.arrayBuffer())
@@ -32,7 +32,7 @@ engine.createSound('bg-1.25', stretched(1.25), { bus: 'music' });
 engine.createSound('bg-1.5',  stretched(1.5),  { bus: 'music' });
 engine.createSound('bg-2.0',  stretched(2.0),  { bus: 'music' });`;
 
-const worklet = `import { ensureStretchWorklet, createStretchWorkletNode } from 'zvuk';
+const worklet = `import { ensureStretchWorklet, createStretchWorkletNode } from '@schmooky/zvuk';
 
 await ensureStretchWorklet(engine.context);
 const node = createStretchWorkletNode(engine.context, { stretchFactor: 1 });

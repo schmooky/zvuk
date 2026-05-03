@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Filter, type FilterKind } from 'zvuk';
+import { Filter, type FilterKind } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 export default function FilterSweep() {

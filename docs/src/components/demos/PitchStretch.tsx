@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { StretchProcessor } from 'zvuk';
+import { StretchProcessor } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 /**

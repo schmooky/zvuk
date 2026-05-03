@@ -31,7 +31,7 @@ const access = `engine.bus('music').level = 0.5;
 engine.bus('sfx').fadeTo(0, 800);
 engine.bus('voice').muted = true;`;
 
-const fxInsert = `import { Compressor, Reverb } from 'zvuk';
+const fxInsert = `import { Compressor, Reverb } from '@schmooky/zvuk';
 
 const comp = new Compressor(engine.context, { threshold: -18, ratio: 4 });
 const reverb = new Reverb(engine.context, { wet: 0.3, decay: { seconds: 1.4 } });

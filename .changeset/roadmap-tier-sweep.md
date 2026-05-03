@@ -1,5 +1,5 @@
 ---
-'zvuk': minor
+'@schmooky/zvuk': minor
 ---
 
 Sweeps the public roadmap (Tiers 1–4) end-to-end:

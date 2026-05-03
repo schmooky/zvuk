@@ -9,7 +9,7 @@ const coin = new Howl({ src: ['/sfx/coin.mp3'], volume: 0.6 });
 coin.play();
 coin.fade(0.6, 0, 800);`;
 
-const after = `import { createEngine } from 'zvuk';
+const after = `import { createEngine } from '@schmooky/zvuk';
 
 const engine = createEngine({
   buses: { sfx: { level: 0.8 } },

@@ -3,11 +3,11 @@
 > Audio Engine for the Web. Wwise-grade routing, sprite loading, sidechain ducking — in a tiny ESM package.
 
 ```bash
-pnpm add zvuk
+pnpm add @schmooky/zvuk
 ```
 
 ```ts
-import { createEngine } from 'zvuk';
+import { createEngine } from '@schmooky/zvuk';
 
 const engine = createEngine({
   buses: {
@@ -36,7 +36,7 @@ zvuk/
 └── tsup.config.ts       single-file ESM build
 ```
 
-- The **root package** is `zvuk`. It's what npm publishes.
+- The **root package** is `@schmooky/zvuk`. It's what npm publishes.
 - The **docs** site lives in `docs/` and deploys independently. Concept pages embed live React-island demos that drive the real engine.
 
 ## Working in this repo

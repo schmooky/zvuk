@@ -16,7 +16,7 @@ const bare = `createEngine({
   master: { headroom: -3 },
 });`;
 
-const fx = `import { Compressor, Reverb } from 'zvuk';
+const fx = `import { Compressor, Reverb } from '@schmooky/zvuk';
 
 engine.bus('music').addFx(new Reverb(engine.context, { wet: 0.2 }));
 engine.bus('voice').addFx(new Compressor(engine.context, {

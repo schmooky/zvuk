@@ -13,7 +13,7 @@ const pos3d = `engine.sound('footstep').play({
   spatializer: { position: [x, y, z] },    // world-space coords
 });`;
 
-const dynamic = `import { Spatializer } from 'zvuk';
+const dynamic = `import { Spatializer } from '@schmooky/zvuk';
 
 const sp = new Spatializer(engine.context, { position: [0, 0, 0] });
 sp.connectInto(engine.bus('sfx').input);

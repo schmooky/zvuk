@@ -1,5 +1,5 @@
 {
-  "name": "zvuk",
+  "name": "@schmooky/zvuk",
   "version": "0.0.1",
   "description": "Audio Engine for the Web — Wwise-grade routing, sprites, sidechain ducking. Tiny, ESM-only, type-safe.",
   "type": "module",
@@ -14,6 +14,7 @@
     }
   },
   "publishConfig": {
+    "access": "public",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",

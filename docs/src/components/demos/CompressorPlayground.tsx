@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Compressor } from 'zvuk';
+import { Compressor } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 
 export default function CompressorPlayground() {
