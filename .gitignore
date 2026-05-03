@@ -9,3 +9,6 @@ coverage
 docs/dist
 docs/.astro
 docs/node_modules
+# Stray archives at repo root (assets the user is reorganizing).
+/Archive.zip
+/*.zip

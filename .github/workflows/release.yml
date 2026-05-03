@@ -1,0 +1,88 @@
+name: Release
+
+# Auto-publish flow driven by changesets.
+#
+# How it works:
+#   1. Contributor opens a PR. If the PR ships user-visible changes they
+#      run `pnpm changeset` locally and commit the resulting .changeset/*.md
+#      file. The file states which packages bump and how.
+#   2. PR is reviewed and merged into main.
+#   3. This workflow runs. If there are any pending changeset .md files,
+#      changesets/action opens (or updates) a PR titled "Version Packages"
+#      that applies the version bumps, regenerates CHANGELOG.md, and
+#      removes the consumed .changeset files.
+#   4. When the "Version Packages" PR is merged into main, this workflow
+#      runs again. This time there are no pending changesets, so the
+#      action runs `pnpm release` (changeset publish), which publishes
+#      every newly-bumped package to npm.
+#
+# Required repo secrets:
+#   - NPM_TOKEN: an npm Automation token (https://www.npmjs.com/settings/<you>/tokens).
+#                Automation tokens bypass 2FA for CI. Add at:
+#                Repo → Settings → Secrets and variables → Actions → New secret.
+# GITHUB_TOKEN is provided automatically.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      # changesets/action needs these to open the Version Packages PR.
+      contents: write
+      pull-requests: write
+      # required for npm provenance attestation.
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # changesets needs full history to compute "what changed since
+          # the last release tag".
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (lint + typecheck + tests + lib build)
+        # The release stage gates on the same checks CI runs on PRs. If a
+        # bad commit lands on main, this catches it before publish.
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Create Release Pull Request or Publish
+        uses: changesets/action@v1
+        with:
+          # Opens or updates the "Version Packages" PR with pending bumps.
+          version: pnpm version-packages
+          # Runs when the Version Packages PR has already been merged —
+          # publishes the bumped package(s) to npm.
+          publish: pnpm release
+          createGithubReleases: true
+          title: 'chore: version packages'
+          commit: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Sign each published tarball with provenance linking it back to
+          # this workflow run — visible on npmjs.com under the package.
+          NPM_CONFIG_PROVENANCE: 'true'

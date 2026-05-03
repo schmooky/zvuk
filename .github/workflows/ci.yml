@@ -1,24 +1,50 @@
 name: CI
+
+# PR + push gate. Runs on every push to main/develop and every pull request:
+#   - install
+#   - lint (biome)
+#   - typecheck (tsc --noEmit)
+#   - tests (vitest)
+#   - lib build (tsup → dist/)
+#   - docs build (astro + pagefind + llms manifest)
+
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.2
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
-      - run: pnpm docs:build
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build lib
+        run: pnpm build
+
+      - name: Build docs
+        run: pnpm docs:build

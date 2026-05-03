@@ -1,0 +1,107 @@
+name: Snapshot Release
+
+# Publishes a Changesets "snapshot" release whenever a non-main branch with
+# a pending .changeset/*.md file is pushed. The published version is stamped
+# `<base>-<tag>-<timestamp>` and goes to npm under a per-branch dist-tag —
+# reviewers can install the preview without touching `latest` or the normal
+# release flow.
+#
+# Install a snapshot with:
+#   pnpm add zvuk@<branch-tag>
+# where <branch-tag> is the sanitized branch name (feat/foo -> feat-foo).
+#
+# Skips automatically when there are no pending changesets on the branch.
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - 'changeset-release/**'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to snapshot (defaults to the workflow ref)'
+        required: false
+        type: string
+      tag:
+        description: 'Override dist-tag (defaults to sanitized branch name)'
+        required: false
+        type: string
+
+concurrency:
+  group: snapshot-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Skip if no pending changesets
+        id: gate
+        run: |
+          shopt -s nullglob
+          files=(.changeset/*.md)
+          # Filter out README.md
+          changesets=()
+          for f in "${files[@]}"; do
+            base=$(basename "$f")
+            [ "$base" = "README.md" ] && continue
+            changesets+=("$f")
+          done
+          if [ ${#changesets[@]} -eq 0 ]; then
+            echo "No pending changesets — skipping snapshot."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found ${#changesets[@]} pending changeset(s)."
+            echo "skip=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify (lint + typecheck + tests + lib build)
+        if: steps.gate.outputs.skip == '0'
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Derive dist-tag
+        if: steps.gate.outputs.skip == '0'
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            RAW="${{ github.event.inputs.tag }}"
+          else
+            RAW="${{ github.event.inputs.branch || github.ref_name }}"
+          fi
+          SAN=$(echo "$RAW" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/^-*//; s/-*$//')
+          echo "tag=$SAN" >> "$GITHUB_OUTPUT"
+          echo "Snapshot dist-tag: $SAN"
+
+      - name: Publish snapshot
+        if: steps.gate.outputs.skip == '0'
+        run: pnpm snapshot
+        env:
+          SNAPSHOT_TAG: ${{ steps.tag.outputs.tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
