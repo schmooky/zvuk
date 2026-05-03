@@ -53,7 +53,7 @@ export class Filter implements FxInsert {
   set bypassed(v: boolean) {
     if (this._bypassed === v) return;
     this._bypassed = v;
-    this.input.frequency.value = v ? 22050 : (this.input.frequency.value || 1000);
+    this.input.frequency.value = v ? 22050 : this.input.frequency.value || 1000;
   }
 
   dispose(): void {

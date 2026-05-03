@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Compressor, Filter, Reverb, createEngine } from '../src/index';
+import { Compressor, createEngine, Filter, Reverb } from '../src/index';
 
 describe('Bus FX inserts', () => {
   it('attaches a Compressor without throwing', async () => {

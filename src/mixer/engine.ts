@@ -2,9 +2,12 @@ import { BusNotFoundError, EngineClosedError, SoundNotFoundError } from '../erro
 import { Parameter } from '../params/parameter';
 import { pickSource } from '../runtime/codecs';
 import { AudioContextHost, type EngineState } from '../runtime/context';
-import { Decoder, type DecodeOptions } from '../runtime/decode';
+import { type DecodeOptions, Decoder } from '../runtime/decode';
+import { applyLoudnessNormalization } from '../runtime/loudness';
 import { Scheduler } from '../runtime/scheduler';
 import { Sound } from '../sources/sound';
+import { Sprite, type SpriteMap } from '../sources/sprite';
+import { StreamSound } from '../sources/stream';
 import type { Voice } from '../sources/voice';
 import { Spatializer } from '../spatial/spatializer';
 import type { EngineConfig, LoadSoundOptions, SpatialOptions } from '../types';
@@ -35,8 +38,42 @@ export interface Engine {
   removeSound(name: string): void;
   hasSound(name: string): boolean;
 
+  /**
+   * Load a single buffer with a region map; spawn region-bound voices via
+   * `engine.sprite('cascade').play('match-3', ...)`.
+   */
+  loadSprite(
+    name: string,
+    url: string | readonly string[],
+    regions: SpriteMap,
+    options?: LoadSoundOptions,
+  ): Promise<Sprite>;
+  /** Look up a previously loaded sprite. Throws SoundNotFoundError on miss. */
+  sprite(name: string): Sprite;
+  /** True if `name` was loaded as a sprite. */
+  hasSprite(name: string): boolean;
+
+  /**
+   * Stream a long media file via HTMLAudioElement + MediaElementAudioSource.
+   * Use for music tracks > 30s — avoids decoding the whole file into RAM,
+   * and is the only safe path on iOS for multi-minute assets.
+   */
+  loadStream(name: string, url: string | readonly string[], options?: LoadSoundOptions): StreamSound;
+  /** Look up a registered stream. */
+  stream(name: string): StreamSound;
+  hasStream(name: string): boolean;
+
   sound(name: string): Sound;
   bus(name: string): Bus;
+
+  /**
+   * Crossfade helper. Stops `from` over `ms` while playing `to` over the same
+   * window with `equal-power` curves so the perceived loudness stays flat.
+   *
+   * Returns the new Voice. If `to` is already playing, its level is faded up
+   * from 0 instead of starting fresh.
+   */
+  crossfade(from: string, to: string, options?: CrossfadeOptions): Voice;
 
   scheduleAt(audioTime: number, fn: () => void): () => void;
 
@@ -55,6 +92,19 @@ export interface Engine {
   snapshot(name: string, state: SnapshotState): Snapshot;
 }
 
+export interface CrossfadeOptions {
+  /** Crossfade duration in ms. Default 1500. */
+  ms?: number;
+  /** Bus to play `to` on (and to look up `from` on). Defaults to the sound's defaults. */
+  bus?: string;
+  /** Loop the new voice. Default true (music swap is the canonical use case). */
+  loop?: boolean;
+  /** Curve. Default 'equal-power' so the sum stays at constant power. */
+  curve?: 'linear' | 'equal-power';
+  /** Override target volume of the incoming voice (0..1). Default 1. */
+  toVolume?: number;
+}
+
 /**
  * Construct a new engine. Does NOT touch the AudioContext — that happens on
  * the first unlock() or play() call. Safe to call before any user gesture.
@@ -71,6 +121,8 @@ class EngineImpl implements Engine {
   private buses = new Map<string, Bus>();
   private busOrder: string[] = [];
   private sounds = new Map<string, Sound>();
+  private sprites = new Map<string, Sprite>();
+  private streams = new Map<string, StreamSound>();
   private voices = new Map<string, Set<Voice>>();
   private parameters = new Map<string, Parameter>();
   private config: EngineConfig;
@@ -115,6 +167,9 @@ class EngineImpl implements Engine {
     this.master?.dispose();
     this.master = null;
     this.sounds.clear();
+    this.sprites.clear();
+    for (const s of this.streams.values()) s.dispose();
+    this.streams.clear();
     this.parameters.clear();
     this.decoder.clear();
     await this.host.close();
@@ -131,9 +186,76 @@ class EngineImpl implements Engine {
 
     const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    const buffer = await this.decoder.load(resolvedUrl, decodeOpts);
+    let buffer = await this.decoder.load(resolvedUrl, decodeOpts);
+
+    if (options.normalize) {
+      buffer = applyLoudnessNormalization(buffer, options.normalize);
+    }
 
     return this.createSound(name, buffer, { bus: options.bus });
+  }
+
+  async loadSprite(
+    name: string,
+    url: string | readonly string[],
+    regions: SpriteMap,
+    options: LoadSoundOptions = {},
+  ): Promise<Sprite> {
+    const sound = await this.loadSound(`__sprite:${name}`, url, options);
+    const sprite = new Sprite(name, sound, regions);
+    this.sprites.set(name, sprite);
+    return sprite;
+  }
+
+  sprite(name: string): Sprite {
+    const s = this.sprites.get(name);
+    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sprites.keys()]));
+    return s;
+  }
+
+  hasSprite(name: string): boolean {
+    return this.sprites.has(name);
+  }
+
+  loadStream(name: string, url: string | readonly string[], options: LoadSoundOptions = {}): StreamSound {
+    if (this.host.state === 'closed') throw new EngineClosedError();
+    this.host.touch();
+    this.ensureGraph();
+    const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
+    const bus = options.bus ?? this.busOrder[0]!;
+    const busObj = this.buses.get(bus);
+    if (!busObj) throw new BusNotFoundError(suggest(bus, [...this.buses.keys()]));
+    const stream = new StreamSound(name, this.host.touch(), resolvedUrl, busObj.input);
+    this.streams.set(name, stream);
+    return stream;
+  }
+
+  stream(name: string): StreamSound {
+    const s = this.streams.get(name);
+    if (!s) throw new SoundNotFoundError(suggest(name, [...this.streams.keys()]));
+    return s;
+  }
+
+  hasStream(name: string): boolean {
+    return this.streams.has(name);
+  }
+
+  crossfade(from: string, to: string, options: CrossfadeOptions = {}): Voice {
+    const ms = options.ms ?? 1500;
+    const curve = options.curve ?? 'equal-power';
+    const toVolume = options.toVolume ?? 1;
+    const target = this.sound(to);
+    const newVoice = target.play({
+      bus: options.bus,
+      loop: options.loop ?? true,
+      volume: 0,
+    });
+    void newVoice.fade({ to: toVolume, ms, curve });
+    const outgoing = this.activeVoices().filter((v) => v !== newVoice && v.sourceName === from);
+    for (const v of outgoing) {
+      void v.fade({ to: 0, ms, curve }).then(() => v.stop());
+    }
+    return newVoice;
   }
 
   createSound(name: string, buffer: AudioBuffer, options: { bus?: string } = {}): Sound {
@@ -142,7 +264,7 @@ class EngineImpl implements Engine {
     this.ensureGraph();
 
     const defaultBus = options.bus ?? this.busOrder[0]!;
-    if (!this.buses.has(defaultBus)) throw new BusNotFoundError(defaultBus);
+    if (!this.buses.has(defaultBus)) throw new BusNotFoundError(suggest(defaultBus, [...this.buses.keys()]));
 
     const sound = new Sound(name, {
       ctx: this.host.touch(),
@@ -150,7 +272,7 @@ class EngineImpl implements Engine {
       defaultBus,
       resolveBusInput: (busName) => {
         const bus = this.buses.get(busName);
-        if (!bus) throw new BusNotFoundError(busName);
+        if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
         return bus.input;
       },
       resolveSpatializer: (_busName, opts) => {
@@ -200,14 +322,14 @@ class EngineImpl implements Engine {
 
   sound(name: string): Sound {
     const s = this.sounds.get(name);
-    if (!s) throw new SoundNotFoundError(name);
+    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sounds.keys()]));
     return s;
   }
 
   bus(name: string): Bus {
     this.ensureGraph();
     const b = this.buses.get(name);
-    if (!b) throw new BusNotFoundError(name);
+    if (!b) throw new BusNotFoundError(suggest(name, [...this.buses.keys()]));
     return b;
   }
 
@@ -271,4 +393,49 @@ class EngineImpl implements Engine {
       if (!this.voices.has(name)) this.voices.set(name, new Set());
     }
   }
+}
+
+/**
+ * Build a friendlier "did you mean?" message when a name lookup misses.
+ * Uses Levenshtein distance on the candidate set; if a close match exists,
+ * it's surfaced in the error so a typo doesn't waste anyone's afternoon.
+ */
+function suggest(missing: string, candidates: readonly string[]): string {
+  if (candidates.length === 0) return missing;
+  let best: string | null = null;
+  let bestDist = Infinity;
+  for (const c of candidates) {
+    const d = levenshtein(missing, c);
+    if (d < bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  // Allow up to ceil(longer / 2) edits — generous enough to catch transposes
+  // ("sxf"/"sfx" = 2 edits, both length 3) but tight enough that "xyz" doesn't
+  // suggest "music".
+  const longest = Math.max(missing.length, best?.length ?? 0);
+  const threshold = Math.max(1, Math.ceil(longest / 2));
+  if (best && bestDist <= threshold) {
+    return `${missing}"; did you mean "${best}`;
+  }
+  return missing;
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
 }

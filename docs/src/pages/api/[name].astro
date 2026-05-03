@@ -1,0 +1,77 @@
+---
+import Base from '../../layouts/Base.astro';
+import { SITE } from '../../lib/seo';
+import api from '../../content/api.json';
+
+interface ApiSymbol {
+  id: number;
+  name: string;
+  kindString?: string;
+  comment?: { summary?: { text?: string }[] };
+  signatures?: Array<{
+    name: string;
+    parameters?: Array<{ name: string; type?: { name?: string } }>;
+    type?: { name?: string };
+    comment?: { summary?: { text?: string }[] };
+  }>;
+  children?: ApiSymbol[];
+}
+
+export async function getStaticPaths() {
+  const children = (api?.children ?? []) as ApiSymbol[];
+  return children.map((c) => ({ params: { name: c.name }, props: { entry: c } }));
+}
+
+const { entry } = Astro.props as { entry: ApiSymbol };
+const summary = entry.comment?.summary?.map((s) => s.text).filter(Boolean).join('\n') ?? '';
+---
+<Base title={`${entry.name} · API · ${SITE.name}`} description={summary || `Reference for ${entry.name}.`}>
+  <div class="container py-12 max-w-3xl">
+    <a href="/api/" class="text-[11px] font-mono uppercase tracking-[0.14em] text-primary hover:underline">← API</a>
+    <div class="mt-2 mb-2 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">{entry.kindString ?? 'Symbol'}</div>
+    <h1 class="mb-3 text-3xl font-semibold tracking-tight font-mono">{entry.name}</h1>
+
+    {summary && (
+      <p class="mb-8 text-base text-muted-foreground whitespace-pre-line">{summary}</p>
+    )}
+
+    {entry.signatures && entry.signatures.length > 0 && (
+      <section class="mb-10">
+        <h2 class="mb-3 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">Signatures</h2>
+        <ul class="space-y-3">
+          {entry.signatures.map((s) => (
+            <li class="rounded-lg border border-border bg-card/30 p-3 font-mono text-sm">
+              <div>
+                <span class="text-primary">{s.name}</span>
+                (
+                {(s.parameters ?? [])
+                  .map((p) => `${p.name}: ${p.type?.name ?? 'unknown'}`)
+                  .join(', ')}
+                ): {s.type?.name ?? 'void'}
+              </div>
+              {s.comment?.summary?.[0]?.text && (
+                <div class="mt-2 font-sans text-xs text-muted-foreground">{s.comment.summary[0].text}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {entry.children && entry.children.length > 0 && (
+      <section class="mb-10">
+        <h2 class="mb-3 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">Members</h2>
+        <ul class="space-y-2 font-mono text-sm">
+          {entry.children.map((c) => (
+            <li class="rounded-lg border border-border bg-card/20 p-2">
+              <span class="text-primary">{c.name}</span>
+              {c.comment?.summary?.[0]?.text && (
+                <span class="ml-2 font-sans text-xs text-muted-foreground">{c.comment.summary[0].text}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
+</Base>

@@ -44,7 +44,10 @@ export class Parameter {
    * is mapped to [from..to] via `curve`, then the setter is called with the
    * mapped value. Returns an unbind function.
    */
-  bindTo(setter: (mapped: number) => void, opts: { from?: number; to?: number; curve?: ParameterCurve } = {}): () => void {
+  bindTo(
+    setter: (mapped: number) => void,
+    opts: { from?: number; to?: number; curve?: ParameterCurve } = {},
+  ): () => void {
     const from = opts.from ?? 0;
     const to = opts.to ?? 1;
     const curve = opts.curve ?? 'linear';

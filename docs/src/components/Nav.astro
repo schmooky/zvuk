@@ -1,6 +1,7 @@
 ---
 import { SITE } from '../lib/seo';
 import { TOP_NAV } from '../content/nav';
+import Search from './Search.astro';
 const pathname = Astro.url.pathname;
 function isActive(prefix: string): boolean {
   if (prefix === '/') return pathname === '/';
@@ -34,6 +35,7 @@ function isActive(prefix: string): boolean {
     </nav>
 
     <div class="ml-auto flex items-center gap-2">
+      <Search />
       <a
         href={SITE.github}
         target="_blank"

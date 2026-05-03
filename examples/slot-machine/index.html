@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · slot-machine example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 480px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; }
+      .reel-row { display: flex; gap: 8px; margin: 24px 0; }
+      .reel { flex: 1; background: #15151b; border: 1px solid #2a2a32; border-radius: 8px; padding: 24px 0; text-align: center; font-size: 2rem; font-variant-numeric: tabular-nums; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 1rem; cursor: pointer; }
+      button:disabled { background: #2a2a32; cursor: not-allowed; }
+      .meter { margin-top: 24px; font-family: ui-monospace, monospace; font-size: 0.8rem; color: #6a6a78; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Slot machine</h1>
+      <p>Sprites for the per-stop tick; ducker pulls music down under the big-win sting.</p>
+      <div class="reel-row">
+        <div class="reel" id="r0">·</div>
+        <div class="reel" id="r1">·</div>
+        <div class="reel" id="r2">·</div>
+      </div>
+      <button id="spin">Spin</button>
+      <div class="meter" id="meter">awaiting unlock…</div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

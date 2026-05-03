@@ -58,5 +58,7 @@ export const TOP_NAV = [
   { href: '/fx/', label: 'FX' },
   { href: '/guides/', label: 'Guides' },
   { href: '/recipes/', label: 'Recipes' },
+  { href: '/api/', label: 'API' },
+  { href: '/changelog/', label: 'Changelog' },
   { href: '/roadmap/', label: 'Roadmap' },
 ];

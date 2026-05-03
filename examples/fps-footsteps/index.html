@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · fps-footsteps example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 480px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; }
+      #stage { background: #15151b; border: 1px solid #2a2a32; border-radius: 8px; height: 280px; position: relative; margin: 16px 0; cursor: crosshair; }
+      .listener { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; border-radius: 50%; background: #4f6cf7; }
+      .source { position: absolute; width: 12px; height: 12px; margin: -6px; border-radius: 50%; background: #d8e236; transition: left 80ms linear, top 80ms linear; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 1rem; cursor: pointer; }
+      .meter { font-family: ui-monospace, monospace; color: #6a6a78; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>FPS footsteps</h1>
+      <p>One spatialized loop, panned in 3D from cursor position. Move your mouse over the stage.</p>
+      <div id="stage">
+        <div class="listener"></div>
+        <div class="source" id="source"></div>
+      </div>
+      <button id="start">Start</button>
+      <div class="meter" id="meter">awaiting unlock…</div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

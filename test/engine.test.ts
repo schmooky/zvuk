@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BusNotFoundError, SoundNotFoundError, createEngine } from '../src/index';
+import { BusNotFoundError, createEngine, SoundNotFoundError } from '../src/index';
 
 describe('createEngine', () => {
   it('does not construct an AudioContext until unlock or play', () => {

@@ -29,7 +29,12 @@ describe('Parameter', () => {
     const engine = createEngine({ buses: { sfx: {} } });
     const p = engine.parameter('mix', 0);
     let captured = -1;
-    p.bindTo((v) => { captured = v; }, { from: 100, to: 1100, curve: 'linear' });
+    p.bindTo(
+      (v) => {
+        captured = v;
+      },
+      { from: 100, to: 1100, curve: 'linear' },
+    );
     p.set(0.5);
     expect(captured).toBe(600);
     await engine.close();

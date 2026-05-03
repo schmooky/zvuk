@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: { index: 'src/index.ts', cli: 'src/cli/index.ts' },
   format: ['esm'],
   dts: { resolve: true, compilerOptions: { rootDir: 'src' } },
   tsconfig: './tsconfig.build.json',

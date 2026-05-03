@@ -25,9 +25,22 @@ export interface BusConfig {
   sidechain?: SidechainConfig;
 }
 
+export interface MasterLimiterConfig {
+  /** Threshold in dB. Default -1 (just below 0 dBFS). */
+  threshold?: number;
+  /** Compression ratio. Default 20 (brick-wall). */
+  ratio?: number;
+  /** Attack in seconds. Default 0.001 (fast — catches the transient). */
+  attack?: number;
+  /** Release in seconds. Default 0.05. */
+  release?: number;
+}
+
 export interface MasterConfig {
   /** Headroom in dB applied to the master gain (negative). Default: 0. */
   headroom?: number;
+  /** Optional brick-wall limiter on the master output. */
+  limiter?: MasterLimiterConfig;
 }
 
 export interface EngineConfig {
@@ -67,6 +80,21 @@ export interface PlayOptions {
   signal?: AbortSignal;
   /** 2D pan or 3D position. Inserts a Spatializer between the voice and its bus. */
   spatializer?: SpatialOptions;
+  /** Offset into the buffer (seconds) to start at. Default 0. Used by Sprite. */
+  offset?: number;
+  /** If set, voice auto-stops after this many seconds. Used by Sprite. */
+  duration?: number;
+  /** When loop=true, start of the loop region (seconds). */
+  loopStart?: number;
+  /** When loop=true, end of the loop region (seconds). */
+  loopEnd?: number;
+}
+
+export interface LoudnessOptions {
+  /** Target RMS (linear, 0..1). Default 0.1 (~ -20 dBFS). */
+  targetRms?: number;
+  /** Hard ceiling for the resulting peak; gain is reduced to stay below it. Default 0.99. */
+  peakCeiling?: number;
 }
 
 export interface LoadSoundOptions {
@@ -74,4 +102,10 @@ export interface LoadSoundOptions {
   bus?: string;
   /** AbortSignal for the fetch. */
   signal?: AbortSignal;
+  /**
+   * Run RMS-based loudness normalization on the decoded buffer so it sits at
+   * the same perceived loudness as other normalized sounds. Pass `true` for
+   * defaults or an options object to tune the target.
+   */
+  normalize?: boolean | LoudnessOptions;
 }

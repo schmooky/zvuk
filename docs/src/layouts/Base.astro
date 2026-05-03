@@ -7,9 +7,21 @@ import '../styles/global.css';
 interface Props {
   title?: string;
   description?: string;
+  /** Override the OG image slug. Defaults to a guess based on URL path. */
+  og?: string;
 }
-const { title = `${SITE.name} — ${SITE.tagline}`, description = SITE.description } = Astro.props as Props;
+const { title = `${SITE.name} — ${SITE.tagline}`, description = SITE.description, og } = Astro.props as Props;
 const canonical = new URL(Astro.url.pathname, SITE.url).toString();
+const ogSlug = og ?? deriveOgSlug(Astro.url.pathname);
+const ogImage = new URL(`/og/${ogSlug}.png`, SITE.url).toString();
+
+function deriveOgSlug(path: string): string {
+  if (path === '/' || path === '') return 'index';
+  const trimmed = path.replace(/\/$/, '').replace(/^\//, '');
+  // Take the last segment so /concepts/voice/ → "voice", /api/Voice/ → "Voice".
+  const last = trimmed.split('/').pop() ?? 'index';
+  return last.toLowerCase();
+}
 ---
 <!doctype html>
 <html lang="en">
@@ -22,7 +34,9 @@ const canonical = new URL(Astro.url.pathname, SITE.url).toString();
     <meta property="og:description" content={description} />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
     <link rel="canonical" href={canonical} />
   </head>
   <body>

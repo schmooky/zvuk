@@ -89,7 +89,7 @@ export class AudioContextHost {
   private setState(s: EngineState): void {
     if (this._state === s) return;
     this._state = s;
-    this._listeners.forEach((fn) => fn(s));
+    for (const fn of this._listeners) fn(s);
   }
 
   private attachVisibilityHandler(): void {

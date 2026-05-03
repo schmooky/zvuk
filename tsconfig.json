@@ -16,6 +16,13 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "tsup.config.ts", "vitest.config.ts"],
+  "include": [
+    "src",
+    "test",
+    "bench",
+    "tsup.config.ts",
+    "vitest.config.ts",
+    "vitest.bench.config.ts"
+  ],
   "exclude": ["dist", "node_modules", "docs"]
 }

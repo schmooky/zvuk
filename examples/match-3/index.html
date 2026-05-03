@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · match-3 example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 480px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 1rem; cursor: pointer; margin-right: 6px; }
+      .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 16px 0; }
+      .pop { background: #15151b; border: 1px solid #2a2a32; border-radius: 6px; padding: 6px 10px; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+      .meter { font-family: ui-monospace, monospace; color: #6a6a78; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Match-3 cascade</h1>
+      <p>Cascading triggers, all on one bus with <code>max=8 / steal=oldest</code>. Watch the live voice count.</p>
+      <button id="trigger">Trigger cascade</button>
+      <button id="big">Trigger huge cascade</button>
+      <div class="row" id="pops"></div>
+      <div class="meter" id="meter">awaiting unlock…</div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

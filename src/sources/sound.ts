@@ -42,6 +42,8 @@ export class Sound {
       buffer: this.deps.buffer,
       destination,
       options: { ...options, bus },
+      spatializer,
+      sourceName: this.name,
       onEnded: (v) => {
         this.deps.releaseVoice(v, bus);
         spatializer?.dispose();
