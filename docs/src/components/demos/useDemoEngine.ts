@@ -48,4 +48,17 @@ export const SAMPLES = {
   dice: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'],
   card: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'],
   slide: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'],
+  // Two music beds for the Crossfade demo. MP3 fallback only — no codec
+  // ladder until we transcode them via `npx zvuk transcode`.
+  musicA: ['/audio/music-a.mp3'],
+  musicB: ['/audio/music-b.mp3'],
+  // Kenney digital-audio pack (CC0). Useful for arcade-flavoured one-shots.
+  laser: ['/audio/laser1.ogg'],
+  laserAlt: ['/audio/laser2.ogg'],
+  powerUp: ['/audio/powerUp1.ogg'],
+  powerUpAlt: ['/audio/powerUp2.ogg'],
+  phaseJump: ['/audio/phaseJump1.ogg'],
+  phaseJumpAlt: ['/audio/phaseJump2.ogg'],
+  zap: ['/audio/zap1.ogg'],
+  zapAlt: ['/audio/zap2.ogg'],
 } as const;

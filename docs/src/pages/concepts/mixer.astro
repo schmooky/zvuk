@@ -11,8 +11,21 @@ const declare = `const engine = createEngine({
     sfx:   { level: 1.0, concurrency: { max: 32, steal: 'oldest' } },
     voice: { level: 1.0, sidechain: { from: 'music', amount: 0.5, attack: 80, release: 400 } },
   },
-  master: { headroom: -3 },
+  master: {
+    headroom: -3,
+    // Brick-wall limiter on master out — catches peaks the headroom can't
+    // tame when FX stack on busy mixes. Disable by omitting the field.
+    limiter: { threshold: -1, ratio: 20, attack: 0.001, release: 0.05 },
+  },
 });`;
+
+const limiterLive = `// Read live gain reduction in dB (0 when nothing is being clamped).
+console.log('limiter:', engine.context && engine.bus('master')?.level);
+// Or via the Master directly if you held a reference at construction.
+
+// Toggle the limiter on/off at runtime.
+master.setLimiter({ threshold: -0.5 });
+master.setLimiter(null);`;
 
 const access = `engine.bus('music').level = 0.5;
 engine.bus('sfx').fadeTo(0, 800);
@@ -62,6 +75,14 @@ engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
   <h2>Recipes</h2>
   <h3>Insert an FX chain on a bus</h3>
   <Snippet code={fxInsert} lang="ts" />
+
+  <h3>Master limiter</h3>
+  <p>
+    Headroom is a static gain offset. The optional limiter is a brick-wall
+    DynamicsCompressor (ratio 20, ~1 ms attack) on the master output — it
+    catches the transients headroom alone can't tame.
+  </p>
+  <Snippet code={limiterLive} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

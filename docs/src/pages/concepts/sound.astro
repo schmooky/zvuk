@@ -20,6 +20,29 @@ const cleanup = `const ac = new AbortController();
 const v = engine.sound('coin').play({ signal: ac.signal });
 // later, e.g. on unmount:
 ac.abort();`;
+
+const normalize = `// Pass { normalize: true } to apply RMS-target loudness at decode time.
+// All normalized sounds will sit at the same perceived loudness.
+await engine.loadSound('crowd', '/sfx/crowd.webm', {
+  bus: 'sfx',
+  normalize: true,
+});
+
+// Or tune the target — defaults are RMS 0.1 (~ -20 dBFS), peak ceiling 0.99.
+await engine.loadSound('alert', '/sfx/alert.webm', {
+  normalize: { targetRms: 0.15, peakCeiling: 0.95 },
+});`;
+
+const sprite = `// One buffer, many regions — drop in a sprite when you'd otherwise load
+// 5+ tiny one-shots that share a session/scene.
+await engine.loadSprite('ui', '/sfx/ui-strip.webm', {
+  click:   { start: 0,    duration: 0.04 },
+  hover:   { start: 0.1,  duration: 0.05 },
+  error:   { start: 0.2,  duration: 0.18 },
+  success: { start: 0.5,  duration: 0.3 },
+}, { bus: 'sfx' });
+
+engine.sprite('ui').play('click');`;
 ---
 <Docs
   title="Sound"
@@ -69,6 +92,22 @@ interface PlayOptions {
 
   <h3>Tie playback to an AbortSignal</h3>
   <Snippet code={cleanup} lang="ts" />
+
+  <h3>Loudness-normalize on load</h3>
+  <p>
+    RMS-based normalization runs once per buffer at decode time. Removes the
+    "every sound is mastered at a different level" workflow tax without
+    affecting the original asset on disk.
+  </p>
+  <Snippet code={normalize} lang="ts" />
+
+  <h3>Audio sprites</h3>
+  <p>
+    See <a href="/concepts/engine/">Engine</a> for the full sprite story.
+    The short version: <code>loadSprite</code> shares the same fetch + decode
+    + cache path as <code>loadSound</code>, then maps named regions onto it.
+  </p>
+  <Snippet code={sprite} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

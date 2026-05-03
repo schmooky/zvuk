@@ -6,22 +6,34 @@ illustrates one cluster of the engine that's hard to explain in isolation.
 
 | Example         | Concept it shows                                                  |
 | --------------- | ----------------------------------------------------------------- |
-| `slot-machine/` | Sprites for reel ticks, sidechain ducking music under big wins.    |
+| `slot-machine/` | Streaming music, sidechain ducking under big wins, normalize on load. |
 | `match-3/`      | Concurrency limits + voice stealing as cascades stack.             |
-| `fps-footsteps/`| Spatializer (3D) live-tracked to a player position, jitter for variety. |
+| `fps-footsteps/`| Spatializer (3D) live-steered from pointer position via `voice.spatializer`. |
 
 ## Running
 
 These are zero-build examples — they import the workspace `zvuk` package
-straight from `src/index.ts`. Serve from the repo root with any static server:
+straight from `src/index.ts`, and they reference the same audio assets the
+docs site ships at `docs/public/audio/`. Serve from the repo root with any
+static server:
 
 ```bash
 npx serve .
 # then open http://localhost:3000/examples/slot-machine/
 ```
 
-## What you'll need
+## Bring your own music for the slot-machine bed
 
-The HTML pages assume you supply your own `assets/` audio. The shape each
-example expects is documented in its `index.html` (look for the `// ASSETS:`
-comment at the top of the script tag).
+`slot-machine/main.ts` streams a music bed from
+`/docs/public/audio/music-a.mp3`. Drop any MP3 (or transcoded `.webm` /
+`.m4a`) into `docs/public/audio/music-a.mp3` and the demo will pick it up.
+The other two examples work entirely off the casino SFX that already ship in
+the repo — no extra setup required.
+
+## Audio credits
+
+The arcade SFX (`laser*.ogg`, `powerUp*.ogg`, `phaseJump*.ogg`, `zap*.ogg`)
+under `docs/public/audio/` are from
+[Kenney's "Digital Audio" pack](https://kenney.nl/assets/digital-audio),
+released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+See `docs/public/audio/KENNEY-LICENSE.txt`.

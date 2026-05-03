@@ -9,94 +9,42 @@ interface Item {
   link?: string;
 }
 
+// Everything from the public roadmap that v0.0.2 ships. These render in the
+// "Recently shipped" section so the page reflects current state instead of
+// pretending the work is still pending.
+const recentlyShipped: Item[] = [
+  { title: 'Live spatializer control on Voice', why: 'voice.spatializer.setPan / setPosition during playback.', size: 'S', link: '/concepts/spatializer/' },
+  { title: 'Voice pause / resume', why: 'voice.pause() / resume() with offset retention.', size: 'S', link: '/concepts/voice/' },
+  { title: 'Live voice.playbackRate setter', why: 'voice.setPlaybackRate(rate, { ms, curve }) with optional ramp.', size: 'S', link: '/concepts/voice/' },
+  { title: 'Audio sprites', why: 'engine.loadSprite(name, url, regions) → engine.sprite(name).play(region).', size: 'M' },
+  { title: 'Stream source', why: 'engine.loadStream(name, url) — HTMLAudioElement + MediaElementAudioSource for long media.', size: 'M' },
+  { title: 'Loudness normalization on load', why: 'loadSound(..., { normalize: true }) — RMS target with peak ceiling.', size: 'M' },
+  { title: 'Better error messages', why: 'BusNotFoundError("sxf"; did you mean "sfx").', size: 'S', link: '/concepts/engine/' },
+  { title: 'Realtime stretch via AudioWorklet', why: 'ensureStretchWorklet(ctx) + createStretchWorkletNode(ctx) with live `stretch` AudioParam.', size: 'L', link: '/fx/pitch/' },
+  { title: 'Master limiter', why: 'master.limiter config wires a fast-attack DynamicsCompressor on master out.', size: 'S', link: '/concepts/mixer/' },
+  { title: 'Crossfade helper', why: 'engine.crossfade(from, to, { ms, curve }) — equal-power by default.', size: 'S' },
+  { title: 'Examples directory', why: 'Vanilla deployable apps under /examples/ (slot-machine, match-3, fps-footsteps).', size: 'L' },
+  { title: 'npx zvuk transcode', why: 'ffmpeg ladder (webm/opus + m4a/aac) packaged as a CLI.', size: 'S', link: '/guides/asset-formats/' },
+  { title: 'npx zvuk gen bank.json', why: 'Typed sound-name module emitted from a manifest.', size: 'M' },
+  { title: 'Bench suite', why: 'vitest bench/ for voice spawn, decode + cache, fade drift.', size: 'M' },
+  { title: 'Auto-generated /api/ from TypeDoc', why: 'TypeDoc JSON → Astro pages, regenerated each build.', size: 'M' },
+  { title: 'Pagefind search', why: '⌘K modal indexed at build time.', size: 'S' },
+  { title: 'Auto changelog page', why: '/changelog/ built from .changeset/*.md.', size: 'S' },
+  { title: 'OG images', why: 'Per-page social cards via astro-og-canvas.', size: 'S' },
+];
+
 const tier1: Item[] = [
   {
-    title: 'Live spatializer control on Voice',
-    why: 'voice.spatializer.setPan / setPosition while playing. Today the option is set at spawn and frozen — moving sources need a re-attach. The SpatialPanner demo even has to fake it.',
+    title: 'Touch handling polish',
+    why: 'Polished — the SpatialPanner demo now uses pointer events and exposes voice.spatializer for live binding instead of faking it. Listed here for the record; will move into the shipped block on the next pass.',
     size: 'S',
     link: '/concepts/spatializer/',
   },
-  {
-    title: 'Voice pause / resume',
-    why: 'pause-on-menu, pause-on-blur, per-voice. Track the offset; resume from where it stopped. Currently we only have stop().',
-    size: 'S',
-    link: '/concepts/voice/',
-  },
-  {
-    title: 'Live voice.playbackRate setter',
-    why: 'pitch is set in PlayOptions and frozen. Live ramps unlock tension/slow-mo without granular stretch.',
-    size: 'S',
-    link: '/concepts/voice/',
-  },
-  {
-    title: 'Audio sprites',
-    why: 'one buffer, many named regions, one fetch. Match-3 cascades, UI variants, low-latency one-shots. ~80 lines.',
-    size: 'M',
-  },
-  {
-    title: 'Stream source',
-    why: '<audio> + MediaElementAudioSource for music files >30s. Don\'t decode 4-minute tracks into RAM. iOS works around its own decode bugs this way.',
-    size: 'M',
-  },
 ];
 
-const tier2: Item[] = [
-  {
-    title: 'Auto-generated /api/ from TypeDoc',
-    why: 'Concept pages have hand-written API blocks; that drifts. TypeDoc → JSON → custom Astro content loader → MDX pages with consistent shape. Reference is always current.',
-    size: 'M',
-  },
-  {
-    title: 'Pagefind search',
-    why: '⌘K modal in the nav, indexed at build time, no Algolia key. With 27+ pages, search starts mattering.',
-    size: 'S',
-  },
-  {
-    title: 'Loudness normalization on load',
-    why: 'loadSound(..., { normalize: true }) runs an RMS pass at decode and applies makeup gain so all sounds sit at the same perceived loudness. Removes a workflow tax every game-audio team currently pays in their DAW.',
-    size: 'M',
-  },
-  {
-    title: 'Better error messages',
-    why: 'BusNotFoundError("sxf"; did you mean "sfx"?). Levenshtein on declared bus/sound names. Single-file change, big DX feel.',
-    size: 'S',
-    link: '/concepts/engine/',
-  },
-  {
-    title: 'Realtime stretch via AudioWorklet',
-    why: 'Current StretchProcessor is offline-only. Worklet port unlocks live tempo modulation — boss intros that bend in real time.',
-    size: 'L',
-    link: '/fx/pitch/',
-  },
-];
-
-const tier3: Item[] = [
-  {
-    title: 'Master limiter',
-    why: 'Headroom is a static gain; a brick-wall limiter on master prevents clipping when FX stack. DynamicsCompressorNode at ratio 20+, fast attack.',
-    size: 'S',
-    link: '/concepts/mixer/',
-  },
-  {
-    title: 'Crossfade helper',
-    why: 'engine.crossfade("intro", "main", { ms: 1500 }) — common music-swap pattern. People will write this themselves five times before realising it should be a helper.',
-    size: 'S',
-  },
-  {
-    title: 'Examples directory',
-    why: 'Full deployable apps in /examples/: slot-machine, match-3, fps-footsteps. Way more convincing than 11 isolated demos. Linked from the landing.',
-    size: 'L',
-  },
-];
-
-const tier4: Item[] = [
-  { title: 'npx zvuk transcode raw/*.wav', why: 'The ffmpeg loop from the asset-formats guide as a CLI. Cuts setup friction.', size: 'S', link: '/guides/asset-formats/' },
-  { title: 'npx zvuk gen bank.json',        why: 'Typed sound names emitted from a manifest, so engine.sound("coin") is autocompleted.', size: 'M' },
-  { title: 'Bench suite',                   why: 'Voice spawn rate, decode time, fade event drift. Wired to PR CI.', size: 'M' },
-  { title: 'Touch handling polish',         why: 'SpatialPanner is mouse-first; touch drag is rough on mobile.', size: 'S', link: '/concepts/spatializer/' },
-  { title: 'Auto changelog page',           why: 'Render .changeset/*.md as /changelog/ at build time.', size: 'S' },
-  { title: 'OG images',                     why: 'Per-page social cards via astro-og-canvas.', size: 'S' },
-];
+const tier2: Item[] = [];
+const tier3: Item[] = [];
+const tier4: Item[] = [];
 
 const sizeBadge = {
   S: { label: 'small', cls: 'border-primary/40 bg-primary/10 text-primary' },
@@ -109,7 +57,7 @@ const sections = [
   { tier: 2, title: 'Quality of life', subtitle: 'Pays back forever — across every page, every adopter.', items: tier2 },
   { tier: 3, title: 'For "library people adopt"', subtitle: 'Not just "library that works."', items: tier3 },
   { tier: 4, title: 'Polish', subtitle: 'Can wait, but on the list.', items: tier4 },
-];
+].filter((s) => s.items.length > 0);
 ---
 <Base title={`Roadmap · ${SITE.name}`} description="What's next in zvuk — public, prioritised, sized.">
   <div class="container py-12 max-w-4xl">
@@ -134,6 +82,38 @@ const sections = [
         </div>
       </div>
     </div>
+
+    <section class="mb-12">
+      <div class="mb-1 flex items-baseline gap-3">
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v0.0.2</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
+      </div>
+      <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep — every actionable item from Tiers 1–4, end-to-end. Framework adapters remain out of scope.</p>
+      <ol class="space-y-3">
+        {recentlyShipped.map((item) => {
+          const badge = sizeBadge[item.size ?? 'M'];
+          return (
+            <li class="rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+              <div class="flex flex-wrap items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold">
+                    <span class="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/30 text-[10px] text-primary-foreground">✓</span>
+                    {item.title}
+                  </div>
+                  <p class="mt-1 text-sm text-muted-foreground">{item.why}</p>
+                  {item.link && (
+                    <a href={item.link} class="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-primary hover:underline">
+                      related: {item.link}
+                    </a>
+                  )}
+                </div>
+                <span class={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${badge.cls}`}>{badge.label}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
 
     {sections.map(({ tier, title, subtitle, items }) => (
       <section class="mb-12">

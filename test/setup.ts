@@ -124,10 +124,44 @@ class FakeAudioBuffer {
   }
 }
 
+class FakeMediaElementAudioSourceNode extends FakeAudioNode {
+  mediaElement: HTMLMediaElement;
+  constructor(el: HTMLMediaElement) {
+    super();
+    this.mediaElement = el;
+  }
+}
+
+class FakeAudioWorklet {
+  modules = new Set<string>();
+  async addModule(url: string): Promise<void> {
+    this.modules.add(url);
+  }
+}
+
+class FakeAudioParamMap {
+  private params = new Map<string, FakeAudioParam>();
+  set(name: string, value: number) {
+    this.params.set(name, new FakeAudioParam(value));
+  }
+  get(name: string) {
+    return this.params.get(name);
+  }
+}
+
+class FakeAudioWorkletNode extends FakeAudioNode {
+  parameters = new FakeAudioParamMap();
+  constructor(_ctx: unknown, _name: string, options?: { processorOptions?: { stretch?: number } }) {
+    super();
+    this.parameters.set('stretch', options?.processorOptions?.stretch ?? 1);
+  }
+}
+
 class FakeAudioContext {
   state: 'suspended' | 'running' | 'closed' = 'suspended';
   destination = new FakeAudioNode();
   sampleRate = 44100;
+  audioWorklet = new FakeAudioWorklet();
   private _startTime = Date.now();
 
   get currentTime() {
@@ -165,6 +199,9 @@ class FakeAudioContext {
   createAnalyser() {
     return new FakeAnalyserNode();
   }
+  createMediaElementSource(el: HTMLMediaElement) {
+    return new FakeMediaElementAudioSourceNode(el);
+  }
   async decodeAudioData(_data: ArrayBuffer) {
     return new FakeAudioBuffer(2, 44100, 44100);
   }
@@ -182,6 +219,8 @@ class FakeAudioContext {
 
 (globalThis as unknown as { AudioContext: typeof FakeAudioContext }).AudioContext = FakeAudioContext;
 (globalThis as unknown as { AudioBuffer: typeof FakeAudioBuffer }).AudioBuffer = FakeAudioBuffer;
+(globalThis as unknown as { AudioWorkletNode: typeof FakeAudioWorkletNode }).AudioWorkletNode =
+  FakeAudioWorkletNode;
 
 // fetch is provided by happy-dom; stub it to return arbitrary bytes so
 // decodeAudioData is exercised without hitting the network.

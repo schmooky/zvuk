@@ -31,6 +31,27 @@ const stretched = (factor: number) =>
 engine.createSound('bg-1.25', stretched(1.25), { bus: 'music' });
 engine.createSound('bg-1.5',  stretched(1.5),  { bus: 'music' });
 engine.createSound('bg-2.0',  stretched(2.0),  { bus: 'music' });`;
+
+const worklet = `import { ensureStretchWorklet, createStretchWorkletNode } from 'zvuk';
+
+await ensureStretchWorklet(engine.context);
+const node = createStretchWorkletNode(engine.context, { stretchFactor: 1 });
+
+// Insert into a bus's FX chain — the stretch param is automatable.
+engine.bus('music').addFx({
+  input: node,
+  output: node,
+  bypassed: false,
+  dispose: () => node.dispose(),
+});
+
+// Live tempo ramp — boss intro slowing down to half-tempo over 2 seconds.
+node.stretch.linearRampToValueAtTime(0.5, engine.context.currentTime + 2);`;
+
+const liveRate = `// Voice-level rate control (alters pitch + tempo, not pitch-preserving).
+// Cheaper than the worklet, fine when you don't care about pitch.
+const v = engine.sound('boss-stinger').play();
+v.setPlaybackRate(0.6, { ms: 800, curve: 'easeOut' });`;
 ---
 <Docs
   title="Pitch & time-stretch"
@@ -75,11 +96,21 @@ engine.createSound('bg-2.0',  stretched(2.0),  { bus: 'music' });`;
 
   <h3>Pre-render multiple speeds</h3>
   <p>
-    The renderer is offline — call it once per buffer/factor pair, cache the
-    result. Realtime tempo control needs an AudioWorklet implementation
-    (planned).
+    The offline renderer — call once per buffer/factor pair, cache the result.
+    Use this when you know the factors at load time and don't need to ramp.
   </p>
   <Snippet code={factory} lang="ts" />
+
+  <h3>Realtime tempo via AudioWorklet</h3>
+  <p>
+    For live ramps — boss intros that bend in real time, gameplay slow-mo —
+    use the worklet node. The <code>stretch</code> param is a real
+    <code>AudioParam</code>, so all the standard automation methods work.
+  </p>
+  <Snippet code={worklet} lang="ts" />
+
+  <h3>Voice-level rate ramp (cheap, alters pitch)</h3>
+  <Snippet code={liveRate} lang="ts" />
 
   <h2>Quality notes</h2>
   <ul>

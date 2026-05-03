@@ -21,6 +21,21 @@ sp.setPosition(playerX, playerY, playerZ);    // each frame
 
 // when done:
 sp.dispose();`;
+
+const livePerVoice = `// New in v0.0.2 — the spawned voice exposes its Spatializer.
+const v = engine.sound('engine').play({
+  loop: true,
+  spatializer: { position: [0, 0, 0] },
+});
+
+requestAnimationFrame(function tick() {
+  if (v.spatializer) v.spatializer.setPosition(player.x, 0, player.z);
+  requestAnimationFrame(tick);
+});
+
+// 2D — same shape with setPan.
+const swarm = engine.sound('bee').play({ spatializer: { pan: 0 } });
+swarm.spatializer?.setPan(-0.6);`;
 ---
 <Docs
   title="Spatializer"
@@ -68,6 +83,13 @@ class Spatializer {
 
   <h3>Dynamic position — moving source</h3>
   <Snippet code={dynamic} lang="ts" />
+
+  <h3>Live binding from the spawned Voice</h3>
+  <p>
+    Spawning with <code>spatializer</code> now stores the node on the
+    returned voice. No more re-attaching, no separate ref to manage.
+  </p>
+  <Snippet code={livePerVoice} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

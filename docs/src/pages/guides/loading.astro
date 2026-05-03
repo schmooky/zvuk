@@ -45,6 +45,28 @@ try {
 
 // On route change:
 ac.abort();`;
+
+const stream = `// Long media — use loadStream so a 4-minute mix doesn't decode into RAM.
+const intro = engine.loadStream('intro', '/music/intro.m4a', { bus: 'music' });
+await intro.play({ loop: true, volume: 0.6 });
+intro.fade({ to: 0, ms: 1500 });`;
+
+const sprite = `// Sprite — share one buffer across N regions.
+await engine.loadSprite('reel', '/sfx/reel.webm', {
+  tick:      { start: 0,    duration: 0.06 },
+  stop:      { start: 0.1,  duration: 0.18 },
+  'win-sting': { start: 0.5, duration: 1.2 },
+}, { bus: 'sfx' });`;
+
+const normalize = `// Normalize on load — uniform perceived loudness without re-mastering.
+await engine.loadSound('crowd', '/sfx/crowd.webm', {
+  bus: 'sfx',
+  normalize: true,
+});`;
+
+const banks = `// CLI: zvuk gen bank.json → bank.gen.ts (typed loader).
+import { loadBank } from './bank.gen';
+await loadBank(engine);`;
 ---
 <Docs
   title="Loading sounds"
@@ -79,6 +101,33 @@ ac.abort();`;
     decodes complete (Web Audio's <code>decodeAudioData</code> is not abortable).
   </p>
   <Snippet code={cancel} lang="ts" />
+
+  <h2>Long media — stream, don't decode</h2>
+  <p>
+    For tracks longer than ~30 seconds, use <code>loadStream</code> instead of
+    <code>loadSound</code>. The asset is read off disk progressively through an
+    internal <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>,
+    so RAM stays flat and iOS Safari stops choking.
+  </p>
+  <Snippet code={stream} lang="ts" />
+
+  <h2>Sprites — bundle short SFX</h2>
+  <p>
+    For UI variants and cascade SFX that share a session, a single buffer with
+    named regions is faster to load and lower-overhead per voice than N
+    separate <code>loadSound</code> calls.
+  </p>
+  <Snippet code={sprite} lang="ts" />
+
+  <h2>Loudness normalization on load</h2>
+  <Snippet code={normalize} lang="ts" />
+
+  <h2>Typed banks via <code>npx zvuk gen</code></h2>
+  <p>
+    Keep your sound names in a manifest, run the CLI, get a typed loader back.
+    <code>engine.sound("coin")</code> autocompletes against the literal union.
+  </p>
+  <Snippet code={banks} lang="ts" />
 
   <h2>Cache & memory</h2>
   <p>

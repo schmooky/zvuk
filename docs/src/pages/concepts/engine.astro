@@ -1,4 +1,5 @@
 ---
+import CrossfadeDemo from '../../components/demos/CrossfadeDemo.tsx';
 import MixerDashboard from '../../components/demos/MixerDashboard.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import SignalFlowDiagram from '../../components/diagrams/SignalFlowDiagram.astro';
@@ -51,11 +52,18 @@ const surface = `interface Engine {
   close(): Promise<void>;
 
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
+  loadSprite(name: string, url, regions: SpriteMap, options?): Promise<Sprite>;
+  loadStream(name: string, url: string | readonly string[], options?): StreamSound;
   hasSound(name: string): boolean;
+  hasSprite(name: string): boolean;
+  hasStream(name: string): boolean;
 
-  sound(name: string): Sound;            // throws SoundNotFoundError
-  bus(name: string): Bus;                 // throws BusNotFoundError
+  sound(name: string): Sound;            // throws SoundNotFoundError ("did you mean…")
+  sprite(name: string): Sprite;
+  stream(name: string): StreamSound;
+  bus(name: string): Bus;                // throws BusNotFoundError ("did you mean…")
 
+  crossfade(from: string, to: string, opts?: CrossfadeOptions): Voice;
   scheduleAt(audioTime: number, fn: () => void): () => void;
 
   parameter(name: string, initial?: number): Parameter;
@@ -63,6 +71,36 @@ const surface = `interface Engine {
 
   activeVoices(): readonly Voice[];
   onStateChange(fn: (s: EngineState) => void): () => void;
+}`;
+
+const sprites = `// One buffer, three regions — the cascade SFX share a single fetch + decode.
+await engine.loadSprite('cascade', '/sfx/cascade.webm', {
+  small:  { start: 0,    duration: 0.2 },
+  medium: { start: 0.25, duration: 0.4 },
+  big:    { start: 0.7,  duration: 0.6 },
+}, { bus: 'sfx' });
+
+engine.sprite('cascade').play('medium', { volume: { jitter: 0.05 } });`;
+
+const streams = `// Multi-minute music — don't decode a 4-min track into RAM.
+const music = engine.loadStream('intro', '/music/intro.m4a', { bus: 'music' });
+await music.play({ loop: true, volume: 0.6 });
+await music.fade({ to: 0, ms: 1500 });
+music.stop();`;
+
+const crossfade = `// 1.5-second equal-power crossfade between two pre-loaded music tracks.
+await engine.loadSound('intro', '/music/intro.webm', { bus: 'music', normalize: true });
+await engine.loadSound('main',  '/music/main.webm',  { bus: 'music', normalize: true });
+
+engine.sound('intro').play({ loop: true });
+// Later — at the boss reveal.
+engine.crossfade('intro', 'main', { ms: 1500, loop: true });`;
+
+const didYouMean = `// Typo? The error tells you what you meant.
+try {
+  engine.bus('sxf');
+} catch (e) {
+  // BusNotFoundError: Bus "sxf"; did you mean "sfx" is not configured. ...
 }`;
 ---
 <Docs
@@ -121,6 +159,36 @@ const surface = `interface Engine {
 
   <h3>Sample-accurate scheduling</h3>
   <Snippet code={schedule} lang="ts" />
+
+  <h3>Audio sprites — one buffer, many regions</h3>
+  <p>
+    Use sprites for low-latency one-shots that share a buffer: cascades, UI
+    variants, dialogue chunks. One fetch, one decode, region-bound voices.
+  </p>
+  <Snippet code={sprites} lang="ts" />
+
+  <h3>Stream long media instead of decoding it</h3>
+  <p>
+    For tracks &gt; 30s, prefer <code>loadStream</code> over <code>loadSound</code>.
+    It uses an internal <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>,
+    so the asset is read off disk progressively — and iOS Safari stops choking on it.
+  </p>
+  <Snippet code={streams} lang="ts" />
+
+  <h3>Crossfade music tracks in one call</h3>
+  <p>
+    Equal-power by default, so the perceived loudness stays flat across the swap.
+    Outgoing voices are matched by <code>sourceName</code>.
+  </p>
+  <Snippet code={crossfade} lang="ts" />
+  <CrossfadeDemo client:visible />
+
+  <h3>"Did you mean…" lookups</h3>
+  <p>
+    Misspelled bus or sound names produce errors that include the closest
+    declared name (Levenshtein) — so the typo doesn't waste an afternoon.
+  </p>
+  <Snippet code={didYouMean} lang="ts" />
 
   <h3>Tear down on route change</h3>
   <Snippet code={teardown} lang="ts" />

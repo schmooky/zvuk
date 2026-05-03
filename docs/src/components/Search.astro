@@ -35,80 +35,84 @@
   <kbd class="ml-1 rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
 </button>
 
-<script>
-  /* eslint-disable */
-  let pagefind: any = null;
-  const root = document.getElementById('search-root') as HTMLDivElement;
-  const input = document.getElementById('search-input') as HTMLInputElement;
-  const results = document.getElementById('search-results') as HTMLOListElement;
-  const trigger = document.getElementById('search-trigger') as HTMLButtonElement;
+<!--
+  Inline + raw JS so Vite doesn't try to resolve /pagefind/pagefind.js at build
+  time — that file is emitted by `pagefind --site dist` AFTER Astro finishes,
+  so a normal ESM import would fail the build. The dynamic import sits inside
+  a string template literal hidden from the bundler.
+-->
+<script is:inline>
+  (() => {
+    var pagefind = null;
+    var root = document.getElementById('search-root');
+    var input = document.getElementById('search-input');
+    var results = document.getElementById('search-results');
+    var trigger = document.getElementById('search-trigger');
 
-  async function ensure() {
-    if (pagefind) return pagefind;
-    try {
-      // @vite-ignore
-      pagefind = await import(/* @vite-ignore */ '/pagefind/pagefind.js');
-      await pagefind.options({ baseUrl: '/' });
-      return pagefind;
-    } catch (e) {
-      console.warn('Pagefind index not built — run `pnpm build` in docs/ first.');
-      return null;
+    async function ensure() {
+      if (pagefind) return pagefind;
+      try {
+        var url = '/pagefind/' + 'pagefind.js';
+        pagefind = await import(/* @vite-ignore */ url);
+        await pagefind.options({ baseUrl: '/' });
+        return pagefind;
+      } catch (e) {
+        console.warn('Pagefind index not built — run `pnpm build` in docs/ first.');
+        return null;
+      }
     }
-  }
 
-  function open() {
-    root?.classList.remove('hidden');
-    input?.focus();
-  }
-  function close() {
-    root?.classList.add('hidden');
-  }
+    function open() {
+      if (!root) return;
+      root.classList.remove('hidden');
+      input && input.focus();
+    }
+    function close() {
+      if (!root) return;
+      root.classList.add('hidden');
+    }
 
-  trigger?.addEventListener('click', () => {
-    void ensure().then(open);
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
+    trigger && trigger.addEventListener('click', function () {
       void ensure().then(open);
-    } else if (e.key === 'Escape') {
-      close();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        void ensure().then(open);
+      } else if (e.key === 'Escape') {
+        close();
+      }
+    });
+
+    root && root.addEventListener('click', function (e) {
+      if (e.target === root) close();
+    });
+
+    var last = 0;
+    input && input.addEventListener('input', async function () {
+      var q = input.value.trim();
+      var id = ++last;
+      if (!q) {
+        if (results) results.innerHTML = '';
+        return;
+      }
+      var pf = await ensure();
+      if (!pf || id !== last) return;
+      var search = await pf.search(q);
+      if (id !== last) return;
+      var data = await Promise.all(search.results.slice(0, 10).map(function (r) { return r.data(); }));
+      if (!results) return;
+      results.innerHTML = data.map(function (d) {
+        var title = escapeHtml((d.meta && d.meta.title) || d.url);
+        return '<li class="rounded-md hover:bg-secondary/40"><a href="' + d.url + '" class="block px-3 py-2"><div class="text-sm font-semibold">' + title + '</div><div class="text-xs text-muted-foreground line-clamp-2">' + d.excerpt + '</div></a></li>';
+      }).join('');
+    });
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+      });
     }
-  });
-
-  root?.addEventListener('click', (e) => {
-    if (e.target === root) close();
-  });
-
-  let last = 0;
-  input?.addEventListener('input', async () => {
-    const q = input.value.trim();
-    const id = ++last;
-    if (!q) {
-      results.innerHTML = '';
-      return;
-    }
-    const pf = await ensure();
-    if (!pf || id !== last) return;
-    const search = await pf.search(q);
-    if (id !== last) return;
-    const data = await Promise.all(search.results.slice(0, 10).map((r: any) => r.data()));
-    results.innerHTML = data
-      .map(
-        (d) => `
-      <li class="rounded-md hover:bg-secondary/40">
-        <a href="${d.url}" class="block px-3 py-2">
-          <div class="text-sm font-semibold">${escapeHtml(d.meta.title ?? d.url)}</div>
-          <div class="text-xs text-muted-foreground line-clamp-2">${d.excerpt}</div>
-        </a>
-      </li>
-    `,
-      )
-      .join('');
-  });
-
-  function escapeHtml(s: string): string {
-    return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-  }
+  })();
 </script>

@@ -7,13 +7,20 @@ const surface = `class Voice {
   readonly id: number;
   readonly priority: number;
   readonly bus: string | undefined;
-  readonly startedAt: number;             // engine.now at spawn
+  readonly sourceName: string | undefined; // name of the Sound that spawned it
+  readonly startedAt: number;              // engine.now at spawn
+  readonly playbackRate: number;           // current rate
+  readonly isPaused: boolean;
+  readonly spatializer: Spatializer | undefined;
 
-  readonly ended: Promise<void>;          // resolves on natural end, stop, or abort
+  readonly ended: Promise<void>;           // resolves on natural end, stop, or abort
 
   fade(opts: { to: number; ms: number; curve?: FadeCurve }): Promise<void>;
+  pause(): void;                           // captures offset
+  resume(): void;                          // resumes from captured offset
+  setPlaybackRate(rate: number, opts?: { ms?: number; curve?: FadeCurve }): void;
   stop(): void;
-  cues(): AsyncIterableIterator<'started' | 'paused' | 'ended'>;
+  cues(): AsyncIterableIterator<'started' | 'paused' | 'resumed' | 'ended'>;
 }`;
 
 const jitter = `// Stacked SFX with variation so they don't sound robotic.
@@ -36,6 +43,29 @@ const v = engine.sound('alert').play({ signal: ac.signal });
 // Anywhere — close a modal, route change, etc.
 ac.abort();
 await v.ended;                       // resolves immediately`;
+
+const pauseResume = `// Pause-on-blur: keep the voice alive across menu/modal transitions.
+const v = engine.sound('intro').play({ loop: true });
+
+window.addEventListener('blur', () => v.pause());
+window.addEventListener('focus', () => v.resume());
+
+// resume() picks up at the offset captured on pause().`;
+
+const liveRate = `// Slow-mo sting on a boss intro — ramp the rate over 800 ms.
+const v = engine.sound('boss-stinger').play();
+v.setPlaybackRate(0.6, { ms: 800, curve: 'easeOut' });`;
+
+const liveSpatial = `// Hold the voice and steer the spatializer as the source moves.
+const v = engine.sound('engine').play({
+  loop: true,
+  spatializer: { position: [0, 0, 0] },
+});
+
+requestAnimationFrame(function tick() {
+  if (v.spatializer) v.spatializer.setPosition(player.x, 0, player.z);
+  requestAnimationFrame(tick);
+});`;
 ---
 <Docs
   title="Voice"
@@ -68,6 +98,29 @@ await v.ended;                       // resolves immediately`;
   <h3>AbortSignal cancellation</h3>
   <Snippet code={abortable} lang="ts" />
 
+  <h3>Pause / resume on blur</h3>
+  <p>
+    <code>pause()</code> tears down the current source node and remembers the
+    sample offset. <code>resume()</code> rebuilds the source and starts from
+    that offset — for looping voices this round-trips through the loop region.
+  </p>
+  <Snippet code={pauseResume} lang="ts" />
+
+  <h3>Live playback-rate ramp</h3>
+  <p>
+    <code>setPlaybackRate</code> automates the underlying
+    <code>playbackRate</code> AudioParam. Pitch and tempo move together — for
+    pitch-preserving stretch see <a href="/fx/pitch/">pitch &amp; time-stretch</a>.
+  </p>
+  <Snippet code={liveRate} lang="ts" />
+
+  <h3>Live spatial control</h3>
+  <p>
+    The Spatializer is now exposed on the Voice. Hold the ref, call
+    <code>setPan</code>/<code>setPosition</code> from your render loop.
+  </p>
+  <Snippet code={liveSpatial} lang="ts" />
+
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't hold a Voice ref past <code>ended</code>.</div>
@@ -75,9 +128,10 @@ await v.ended;                       // resolves immediately`;
     <code>stop()</code> is a no-op; <code>fade()</code> resolves immediately.
   </div>
   <div class="pitfall">
-    <div class="pitfall-title">Don't expect <code>cues()</code> to fire <code>paused</code> in v0.</div>
-    The current implementation emits <code>started</code> and <code>ended</code>;
-    <code>paused</code> is reserved for the upcoming pause/resume API.
+    <div class="pitfall-title"><code>pause()</code> rebuilds the source on <code>resume()</code>.</div>
+    The Web Audio API doesn't expose pause on a buffer source, so we stop +
+    re-spawn at the captured offset. For very tight cue chains, prefer
+    <code>fade({'{'} to: 0 {'}'})</code> over <code>pause()</code>.
   </div>
 
   <h2>Related</h2>

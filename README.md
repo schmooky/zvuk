@@ -71,6 +71,15 @@ git add .changeset/*.md && git commit -m "feat: describe it"
 git push                    # PR + merge to main
 ```
 
+## Credits
+
+The demo audio shipped under [docs/public/audio/](docs/public/audio/) includes
+selections from [Kenney's "Digital Audio" pack](https://kenney.nl/assets/digital-audio),
+released under [CC0](https://creativecommons.org/publicdomain/zero/1.0/) — used here
+without modification. Kenney's full license file is preserved alongside those assets in
+[docs/public/audio/KENNEY-LICENSE.txt](docs/public/audio/KENNEY-LICENSE.txt). All other
+audio in the repo is original to this project.
+
 ## License
 
-MIT
+MIT for source code. Demo audio attributions live above.

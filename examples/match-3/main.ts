@@ -1,5 +1,5 @@
-// ASSETS:
-//   ./assets/pop.wav  — short gem-pop one-shot.
+// ASSETS — uses dice-throw + chips-collide as gem pops, drawn from
+//   /docs/public/audio/.
 
 import { createEngine } from '../../src/index';
 
@@ -8,16 +8,26 @@ const big = document.getElementById('big') as HTMLButtonElement;
 const meter = document.getElementById('meter') as HTMLDivElement;
 const pops = document.getElementById('pops') as HTMLDivElement;
 
+const POP_VARIANTS = [
+  ['/docs/public/audio/dice-throw-1.webm', '/docs/public/audio/dice-throw-1.m4a'],
+  ['/docs/public/audio/chips-collide-1.webm', '/docs/public/audio/chips-collide-1.m4a'],
+  ['/docs/public/audio/chip-lay-1.webm', '/docs/public/audio/chip-lay-1.m4a'],
+];
+
 const engine = createEngine({
   buses: {
     sfx: { level: 1, concurrency: { max: 8, steal: 'oldest' } },
   },
-  master: { headroom: -3 },
+  master: { headroom: -3, limiter: { threshold: -1 } },
 });
 
 async function setup(): Promise<void> {
   await engine.unlock();
-  await engine.loadSound('pop', './assets/pop.wav', { bus: 'sfx', normalize: true });
+  await Promise.all(
+    POP_VARIANTS.map((urls, i) =>
+      engine.loadSound(`pop-${i}`, urls, { bus: 'sfx', normalize: true }),
+    ),
+  );
   meter.textContent = 'ready — click to cascade';
 }
 
@@ -25,7 +35,8 @@ function cascade(count: number): void {
   pops.innerHTML = '';
   for (let i = 0; i < count; i++) {
     setTimeout(() => {
-      engine.sound('pop').play({
+      const variant = `pop-${i % POP_VARIANTS.length}`;
+      engine.sound(variant).play({
         pitch: 1 + i * 0.05 + (Math.random() * 0.04 - 0.02),
         volume: { jitter: 0.05 },
       });

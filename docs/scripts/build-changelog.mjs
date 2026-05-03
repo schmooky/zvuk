@@ -49,7 +49,18 @@ function parse(raw) {
   const bumps = [...fm.matchAll(/'([^']+)':\s*(major|minor|patch)/g)];
   if (bumps.length === 0) return null;
   const bump = bumps[0][2];
-  const title = body.split('\n')[0]?.replace(/^#+\s*/, '') ?? 'change';
+  // First non-bullet, non-list paragraph as the title; strip trailing
+  // colons and markdown heading markers so the changelog page doesn't show
+  // "Sweeps the public roadmap (Tiers 1–4) end-to-end:" as a title.
+  const lines = body.split('\n');
+  let title = 'change';
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('-') || trimmed.startsWith('*')) continue;
+    title = trimmed.replace(/^#+\s*/, '').replace(/[:.]$/, '');
+    break;
+  }
   return { bump, title, body };
 }
 

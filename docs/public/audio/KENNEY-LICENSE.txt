@@ -1,0 +1,16 @@
+Digital Audio
+by Kenney Vleugels (Kenney.nl)
+
+License: Creative Commons Zero (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+You may use these assets in personal and commercial projects.
+Credit (Kenney or www.kenney.nl) would be nice but is not mandatory.
+
+Files in docs/public/audio/ from this pack:
+  laser1.ogg, laser2.ogg
+  powerUp1.ogg, powerUp2.ogg
+  phaseJump1.ogg, phaseJump2.ogg
+  zap1.ogg, zap2.ogg
+
+Source pack: https://kenney.nl/assets/digital-audio
