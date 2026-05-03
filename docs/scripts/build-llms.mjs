@@ -222,11 +222,19 @@ async function collectChangelog() {
     const raw = await readFile(CHANGELOG_JSON, 'utf-8');
     const json = JSON.parse(raw);
     if (!Array.isArray(json)) return [];
-    return json.map((entry) => ({
-      id: entry.id,
-      bump: entry.bump,
-      title: entry.title,
-    }));
+    // The new shape is per-version with major/minor/patch buckets. Flatten
+    // to one bullet per published version, summarising the buckets.
+    return json.map((v) => {
+      const counts = [];
+      if (v.major?.length) counts.push(`${v.major.length} major`);
+      if (v.minor?.length) counts.push(`${v.minor.length} minor`);
+      if (v.patch?.length) counts.push(`${v.patch.length} patch`);
+      return {
+        id: `v${v.version}`,
+        bump: v.major?.length ? 'major' : v.minor?.length ? 'minor' : 'patch',
+        title: `v${v.version}${counts.length ? ` (${counts.join(', ')})` : ''}`,
+      };
+    });
   } catch (e) {
     console.warn('[build-llms] changelog.json not loadable:', e?.message ?? e);
     return [];

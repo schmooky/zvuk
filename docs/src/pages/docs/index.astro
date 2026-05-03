@@ -1,5 +1,6 @@
 ---
 import Docs from '../../layouts/Docs.astro';
+import { SITE } from '../../lib/seo';
 ---
 <Docs
   title="What is zvuk?"
@@ -21,29 +22,31 @@ import Docs from '../../layouts/Docs.astro';
     your application code can stay short.
   </p>
 
-  <h2>What's in v0.0.1</h2>
+  <h2>What's in v{SITE.version}</h2>
   <ul>
     <li><strong>Runtime:</strong> lazy AudioContext, sample-accurate scheduler, decode cache, codec ladder.</li>
-    <li><strong>Mixer:</strong> Master with headroom, named Buses with click-free fades, FX chain inserts.</li>
-    <li><strong>Sources:</strong> Sound + Voice with jitter, fades, abort signals, lifecycle promises;
+    <li><strong>Mixer:</strong> Master with headroom + optional brick-wall limiter, named Buses with click-free fades, FX chain inserts.</li>
+    <li><strong>Sources:</strong> Sound + Voice with jitter, fades, pause / resume, live <code>setPlaybackRate</code>, abort signals, lifecycle promises;
       <code>createSound</code> for procedural buffers.</li>
+    <li><strong>Sprites:</strong> one buffer, many named regions, one fetch — for cascades, UI variants, dialogue chunks.</li>
+    <li><strong>Streams:</strong> <code>loadStream</code> for music tracks &gt; 30s via <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>.</li>
+    <li><strong>Crossfade:</strong> <code>engine.crossfade(from, to, &#123; ms &#125;)</code> — equal-power music swap in one call.</li>
     <li><strong>Concurrency:</strong> per-bus voice limit with steal strategies (<code>oldest</code> /
       <code>lowest-priority</code> / <code>quietest</code> / <code>none</code>).</li>
     <li><strong>FX:</strong> Compressor, Reverb (synthetic IR or your own), Filter (six biquad types),
-      Ducker (sidechain), and a granular pitch-preserving StretchProcessor.</li>
-    <li><strong>Spatializer:</strong> 2D StereoPanner + 3D HRTF PannerNode per voice.</li>
-    <li><strong>Parameters &amp; Snapshots:</strong> named knobs with <code>bindTo</code> mapping;
-      whole-mix capture and crossfade.</li>
+      Ducker (sidechain), pitch-preserving StretchProcessor (offline) plus a realtime AudioWorklet variant.</li>
+    <li><strong>Spatializer:</strong> 2D StereoPanner + 3D HRTF PannerNode per voice, with <code>voice.spatializer</code> exposed for live <code>setPan</code> / <code>setPosition</code>.</li>
+    <li><strong>Loudness:</strong> RMS-based normalization on load (<code>loadSound(&#123; normalize: true &#125;)</code>) so sounds sit at uniform perceived loudness.</li>
+    <li><strong>Parameters &amp; Snapshots:</strong> named knobs with <code>bindTo</code> mapping; whole-mix capture and crossfade.</li>
+    <li><strong>DX:</strong> <code>BusNotFoundError("sxf"; did you mean "sfx")</code> with Levenshtein suggestions; CLI (<code>zvuk transcode</code> + <code>zvuk gen bank.json</code>); auto-built TypeDoc reference, Pagefind search, OG cards, and an agent-readable <a href="/llms.txt"><code>llms.txt</code></a>.</li>
   </ul>
 
-  <h2>What's coming</h2>
-  <ul>
-    <li>Realtime time-stretch via AudioWorklet (current StretchProcessor is offline-only)</li>
-    <li>Bank manifest loader + <code>npx zvuk gen</code> for typed sound names</li>
-    <li>Audio sprites — multi-region atlases in one buffer</li>
-    <li>Stream source — <code>&lt;audio&gt;</code> wrapper for very long music files</li>
-    <li>React + Vue adapter packages (<code>useSound</code>, <code>useBus</code>, <code>useParameter</code>)</li>
-  </ul>
+  <h2>What's next</h2>
+  <p>
+    See the <a href="/roadmap/">roadmap</a> for sized, prioritised items.
+    Public-roadmap Tiers 1–4 were all swept in v0.0.2/0.1.0 — the next pass
+    is community-driven; PRs welcome.
+  </p>
 
   <h2>Read next</h2>
   <ul>
