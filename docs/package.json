@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "prebuild": "node scripts/build-api.mjs && node scripts/build-changelog.mjs",
+    "prebuild": "node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "build": "astro build && pagefind --site dist",
     "postbuild": "node scripts/copy-pagefind.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "api:gen": "node scripts/build-api.mjs",
-    "changelog:gen": "node scripts/build-changelog.mjs"
+    "changelog:gen": "node scripts/build-changelog.mjs",
+    "llms:gen": "node scripts/build-llms.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.3",
