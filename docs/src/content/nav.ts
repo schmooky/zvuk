@@ -58,8 +58,10 @@ export const TOP_NAV = [
   { href: '/fx/', label: 'FX' },
   { href: '/guides/', label: 'Guides' },
   { href: '/recipes/', label: 'Recipes' },
+];
+
+/** Smaller utility links rendered next to the GitHub button. */
+export const TOP_NAV_UTILITY = [
   { href: '/api/', label: 'API' },
-  { href: '/changelog/', label: 'Changelog' },
-  { href: '/roadmap/', label: 'Roadmap' },
   { href: '/llms.txt', label: 'llms.txt' },
 ];
