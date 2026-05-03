@@ -61,4 +61,5 @@ export const TOP_NAV = [
   { href: '/api/', label: 'API' },
   { href: '/changelog/', label: 'Changelog' },
   { href: '/roadmap/', label: 'Roadmap' },
+  { href: '/llms.txt', label: 'llms.txt' },
 ];
