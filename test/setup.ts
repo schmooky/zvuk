@@ -158,11 +158,27 @@ class FakeAudioWorkletNode extends FakeAudioNode {
 }
 
 class FakeAudioContext {
-  state: 'suspended' | 'running' | 'closed' = 'suspended';
+  state: 'suspended' | 'running' | 'closed' | 'interrupted' = 'suspended';
   destination = new FakeAudioNode();
   sampleRate = 44100;
   audioWorklet = new FakeAudioWorklet();
   private _startTime = Date.now();
+  private _stateListeners: Array<() => void> = [];
+
+  addEventListener(type: string, listener: () => void) {
+    if (type === 'statechange') this._stateListeners.push(listener);
+  }
+  removeEventListener(type: string, listener: () => void) {
+    if (type !== 'statechange') return;
+    const i = this._stateListeners.indexOf(listener);
+    if (i >= 0) this._stateListeners.splice(i, 1);
+  }
+  /** Test helper: set state and fire statechange listeners synchronously. */
+  _setState(s: 'suspended' | 'running' | 'closed' | 'interrupted') {
+    this.state = s;
+    if (s === 'running') this._startTime = Date.now();
+    for (const l of this._stateListeners) l();
+  }
 
   get currentTime() {
     if (this.state !== 'running') return 0;
@@ -206,14 +222,13 @@ class FakeAudioContext {
     return new FakeAudioBuffer(2, 44100, 44100);
   }
   async resume() {
-    this.state = 'running';
-    this._startTime = Date.now();
+    this._setState('running');
   }
   async suspend() {
-    if (this.state !== 'closed') this.state = 'suspended';
+    if (this.state !== 'closed') this._setState('suspended');
   }
   async close() {
-    this.state = 'closed';
+    this._setState('closed');
   }
 }
 
