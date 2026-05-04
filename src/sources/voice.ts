@@ -84,7 +84,8 @@ export class Voice {
       this.resolveEnded = resolve;
     });
 
-    this.bindSourceLifecycle(this.source, deps.onEnded);
+    // No-op hook: deps.onEnded fires once via the .ended.then below (covers stop/abort/region too).
+    this.bindSourceLifecycle(this.source, () => {});
 
     if (options.signal) {
       if (options.signal.aborted) {
