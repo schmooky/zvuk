@@ -37,9 +37,7 @@ async function setup(): Promise<void> {
   // Music streams in instead of decoding into RAM.
   const music = engine.loadStream('bed', ASSETS.music, { bus: 'music' });
 
-  const ducker = new Ducker(engine.context, {
-    source: engine.bus('sfx').output,
-    target: engine.bus('music'),
+  const ducker = new Ducker(engine.context, engine.bus('sfx'), {
     amount: 0.7,
     attack: 0.04,
     release: 0.6,

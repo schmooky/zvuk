@@ -63,6 +63,11 @@ const close = `await engine.close();`;
   </p>
 
   <h2>4. Play, fade, mix</h2>
+  <p>
+    All time-valued options in zvuk are <strong>seconds</strong> — fades,
+    crossfades, attack/release, snapshot applies, every one of them. Matches
+    the Web Audio API; nothing else to remember.
+  </p>
   <Snippet code={playFade} lang="ts" />
 
   <h2>5. Clean up</h2>

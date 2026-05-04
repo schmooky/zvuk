@@ -22,6 +22,17 @@ import { SITE } from '../../lib/seo';
     your application code can stay short.
   </p>
 
+  <h2>Conventions</h2>
+  <p>
+    <strong>All time-valued options are in seconds</strong>, matching the Web
+    Audio API (<code>AudioContext.currentTime</code>, every <code>AudioParam</code>
+    schedule). That includes fades (<code>voice.fade(&#123; duration: 0.8 &#125;)</code>),
+    crossfades (<code>engine.crossfade(a, b, &#123; duration: 1.5 &#125;)</code>),
+    snapshot applies (<code>snap.apply(&#123; fade: 0.25 &#125;)</code>), and
+    every dynamics processor's <code>attack</code>/<code>release</code>. No
+    millisecond fields, no per-API conversions to remember.
+  </p>
+
   <h2>What's in v{SITE.version}</h2>
   <ul>
     <li><strong>Runtime:</strong> lazy AudioContext, sample-accurate scheduler, decode cache, codec ladder.</li>
