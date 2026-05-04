@@ -36,9 +36,11 @@ export class Ducker implements FxInsert {
   private ctx: AudioContext;
   private cfg: Required<DuckerConfig>;
   private _bypassed = false;
+  private sourceBus: Bus;
 
   constructor(ctx: AudioContext, sourceBus: Bus, config: DuckerConfig = {}) {
     this.ctx = ctx;
+    this.sourceBus = sourceBus;
     this.cfg = {
       amount: config.amount ?? 0.5,
       attack: config.attack ?? 80,
@@ -78,6 +80,15 @@ export class Ducker implements FxInsert {
 
   dispose(): void {
     if (this.rafId != null) cancelAnimationFrame(this.rafId);
+    try {
+      // Tear down the inbound edge from the source bus first — that's the
+      // one that keeps the analyser (and its 1024-sample Float32Array) live
+      // for the bus's lifetime if we only disconnect the analyser's outgoing
+      // side.
+      this.sourceBus.output.disconnect(this.analyser);
+    } catch {
+      /* not connected */
+    }
     try {
       this.input.disconnect();
       this.gain.disconnect();

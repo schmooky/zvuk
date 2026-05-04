@@ -19,6 +19,9 @@ class FakeAudioParam {
   setValueCurveAtTime(curve: Float32Array, _t: number, _d: number) {
     this.value = curve[curve.length - 1] ?? this.value;
   }
+  setTargetAtTime(target: number, _start: number, _timeConstant: number) {
+    this.value = target;
+  }
   cancelScheduledValues(_t: number) {}
 }
 
@@ -28,8 +31,12 @@ class FakeAudioNode {
     this._connections.push(node);
     return node;
   }
-  disconnect(_node?: FakeAudioNode) {
-    this._connections = [];
+  disconnect(node?: FakeAudioNode) {
+    if (node) {
+      this._connections = this._connections.filter((c) => c !== node);
+    } else {
+      this._connections = [];
+    }
   }
 }
 
