@@ -9,9 +9,21 @@ interface Item {
   link?: string;
 }
 
-// Everything from the public roadmap that v0.0.2 ships. These render in the
-// "Recently shipped" section so the page reflects current state instead of
-// pretending the work is still pending.
+// Headline change in v1.0.0 — every time-valued option in the public API
+// now uses seconds, matching the Web Audio API. Listed first because it's a
+// breaking change and the migration story matters.
+const v1_0_0: Item[] = [
+  {
+    title: 'Normalize all time-valued options to seconds',
+    why: 'Fades, crossfades, snapshot apply, Ducker/Sidechain attack/release — all in seconds now. Field renames: ms → duration, fadeMs → fade. Aligns with Web Audio (currentTime, AudioParam scheduling) and removes the *1000/÷1000 bug class. Breaking; migration table in CHANGELOG.',
+    size: 'M',
+    link: '/changelog/#v1.0.0',
+  },
+];
+
+// Everything from the public roadmap that v0.0.2 shipped. These render in
+// the "Recently shipped" section so the page reflects current state instead
+// of pretending the work is still pending.
 const recentlyShipped: Item[] = [
   { title: 'Live spatializer control on Voice', why: 'voice.spatializer.setPan / setPosition during playback.', size: 'S', link: '/concepts/spatializer/' },
   { title: 'Voice pause / resume', why: 'voice.pause() / resume() with offset retention.', size: 'S', link: '/concepts/voice/' },
@@ -85,8 +97,40 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v0.0.2</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.0.0</div>
         <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
+      </div>
+      <p class="mb-5 text-sm text-muted-foreground">First stable release. The headline change is a unit normalization across the public API.</p>
+      <ol class="space-y-3">
+        {v1_0_0.map((item) => {
+          const badge = sizeBadge[item.size ?? 'M'];
+          return (
+            <li class="rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+              <div class="flex flex-wrap items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold">
+                    <span class="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/30 text-[10px] text-primary-foreground">✓</span>
+                    {item.title}
+                  </div>
+                  <p class="mt-1 text-sm text-muted-foreground">{item.why}</p>
+                  {item.link && (
+                    <a href={item.link} class="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-primary hover:underline">
+                      related: {item.link}
+                    </a>
+                  )}
+                </div>
+                <span class={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${badge.cls}`}>{badge.label}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+
+    <section class="mb-12">
+      <div class="mb-1 flex items-baseline gap-3">
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v0.0.2</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Earlier — roadmap tier sweep</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep — every actionable item from Tiers 1–4, end-to-end. Framework adapters remain out of scope.</p>
       <ol class="space-y-3">
