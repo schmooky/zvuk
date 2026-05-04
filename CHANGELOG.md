@@ -1,5 +1,80 @@
 # @schmooky/zvuk
 
+## 0.2.0
+
+### Minor Changes
+
+- [#6](https://github.com/schmooky/zvuk/pull/6) [`490d822`](https://github.com/schmooky/zvuk/commit/490d822dd75fc343e9b544b802aad9d321049a87) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Handle iOS Safari `AudioContext` interruptions (phone calls, Siri, system
+  audio takeovers).
+
+  iOS Safari moves the `AudioContext` into a non-standard `'interrupted'` state
+  during these events; `resume()` does not recover from it. Without explicit
+  handling, voices hang silently until the page is reloaded.
+
+  The `AudioContextHost` now subscribes to the context's `statechange` event:
+
+  - On transition into `'interrupted'`, a new `'interrupted'` engine state is
+    emitted via `onStateChange`, so apps can render an "audio paused" indicator.
+  - When the OS releases the interruption (`'interrupted'` → `'suspended'`),
+    the host auto-resumes after a 200 ms beat — the same idiom used for
+    visibility-driven suspends.
+  - Once the context returns to `'running'`, the engine state goes back to
+    `'live'`.
+
+  **Breaking:** `EngineState` adds an `'interrupted'` arm. Code doing exhaustive
+  `switch` on engine state needs an additional case (TypeScript will surface
+  this).
+
+### Patch Changes
+
+- [#7](https://github.com/schmooky/zvuk/pull/7) [`12b6e46`](https://github.com/schmooky/zvuk/commit/12b6e46e1c32713dfe9d560cb8d2b8416862e0bf) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix `Ducker.dispose()` leaking the analyser node into its source bus.
+
+  The Ducker constructor wires `sourceBus.output → analyser` to read RMS off
+  the source bus, but the previous `dispose()` only disconnected the analyser's
+  _outgoing_ side. The source bus retained its outbound edge to the analyser,
+  so the analyser (and its 1024-sample `Float32Array` envelope buffer) stayed
+  alive for the entire lifetime of the bus — long-running games (slot
+  machines, music apps) would accumulate one of these per Ducker swap.
+
+  `dispose()` now stores the source bus on the instance and tears down the
+  inbound edge first via `sourceBus.output.disconnect(this.analyser)`.
+
+  Also extends the happy-dom Web Audio mock so `AudioNode.disconnect(target)`
+  honours its target argument (it previously cleared all outgoing edges
+  regardless), and adds `setTargetAtTime` to `FakeAudioParam` so Ducker's
+  envelope follower can run under tests.
+
+- [#8](https://github.com/schmooky/zvuk/pull/8) [`e29b8da`](https://github.com/schmooky/zvuk/commit/e29b8da94956f4efb1f2a48ba3db410064bf4d41) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Add unit-test coverage for `Snapshot` — capture / apply / mute restore /
+  parameter behaviour / missing-bus tolerance / re-capture. No source changes;
+  pins the existing behaviour of `engine.captureSnapshot()` and
+  `Snapshot.apply()` so future edits don't silently regress the documented
+  contract.
+
+  Notable behaviours now pinned:
+
+  - `apply({ fadeMs: 0 })` snaps and resolves immediately; `apply({ fadeMs: N })`
+    takes ≥ N ms.
+  - Missing buses on the engine are silently skipped (no throw) — preserved
+    intentionally so snapshots can be ported across configs.
+  - Parameter values snap discretely even when `fadeMs > 0` — confirmed as the
+    documented behaviour.
+  - `captureSnapshot()` returns a frozen copy of the state at capture time;
+    later mutations to the engine don't affect prior snapshots.
+
+- [#4](https://github.com/schmooky/zvuk/pull/4) [`48e4155`](https://github.com/schmooky/zvuk/commit/48e41554cc28ad5b5de64d8c3f3c4ae3e3c2e068) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix `Voice` invoking the engine's internal `onEnded` callback twice on natural
+  end of non-looped sources.
+
+  The voice constructor wired the engine cleanup hook both through
+  `bindSourceLifecycle` (sync, when `AudioBufferSourceNode.onended` fires) and
+  through `this.ended.then(...)` (microtask, when `finish()` resolves the
+  `ended` promise). `stop()`, abort signals, and the region timer all flowed
+  through only the promise path, so natural end was the lone asymmetric case.
+
+  Engine and Bus voice tracking use `Set.delete` so the duplicate was
+  idempotent in practice — but it was a real correctness bug waiting to bite
+  any callback that wasn't safe to call twice. All termination paths now fire
+  exactly once via the promise.
+
 ## 0.1.1
 
 ### Patch Changes
