@@ -30,7 +30,7 @@ const jitterCode = `for (let i = 0; i < 6; i++) {
   });
 }`;
 
-const fadeCode = `engine.bus('music').fadeTo(0, 1200, 'equal-power');`;
+const fadeCode = `engine.bus('music').fadeTo(0, 1.2, 'equal-power');`;
 
 const limitCode = `engine.bus('sfx').setConcurrency({ max: 8, steal: 'lowest-priority' });
 engine.sound('hero-attack').play({ priority: 10 });
@@ -40,7 +40,7 @@ const snapCode = `const menu = engine.snapshot('menu', {
   buses: { music: { level: 0.8, muted: false }, sfx: { level: 0.3, muted: false } },
   parameters: {},
 });
-await menu.apply({ fadeMs: 800 });`;
+await menu.apply({ fade: 0.8 });`;
 
 const paramCode = `const intensity = engine.parameter('intensity', 0.3);
 intensity.bindTo((v) => engine.bus('music').level = v, { from: 0.3, to: 1, curve: 'easeInOut' });

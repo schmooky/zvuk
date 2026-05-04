@@ -113,8 +113,8 @@ export class StreamSound {
 
   fade(opts: FadeOptions): Promise<void> {
     if (!this.gain) return Promise.resolve();
-    applyRamp(this.gain.gain, this.ctx.currentTime, clamp01(opts.to), opts.ms, opts.curve ?? 'linear');
-    return new Promise((res) => setTimeout(res, Math.max(0, opts.ms)));
+    applyRamp(this.gain.gain, this.ctx.currentTime, clamp01(opts.to), opts.duration, opts.curve ?? 'linear');
+    return new Promise((res) => setTimeout(res, Math.max(0, opts.duration) * 1000));
   }
 
   dispose(): void {

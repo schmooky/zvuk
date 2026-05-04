@@ -37,10 +37,12 @@ await engine.unlock();                                  // call from a user gest
 await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });
 
 const v = engine.sound('coin').play({ volume: { jitter: 0.05 } });
-await v.fade({ to: 0, ms: 800 });
+await v.fade({ to: 0, duration: 0.8 });
 
-engine.bus('music').fadeTo(0.1, 800);
+engine.bus('music').fadeTo(0.1, 0.8);
 ```
+
+> All time-valued options in zvuk are **seconds** (matching the Web Audio API).
 
 ## Why zvuk?
 
@@ -86,7 +88,7 @@ await engine.loadSound('intro', '/music/intro.webm', { bus: 'music' });
 await engine.loadSound('main',  '/music/main.webm',  { bus: 'music' });
 
 engine.sound('intro').play({ loop: true });
-engine.crossfade('intro', 'main', { ms: 1500 });
+engine.crossfade('intro', 'main', { duration: 1.5 });
 ```
 
 ### Sidechain ducking — music breathes under VO
@@ -97,7 +99,7 @@ import { Ducker } from '@schmooky/zvuk';
 const ducker = new Ducker(engine.context, {
   source: engine.bus('voice').output,
   target: engine.bus('music'),
-  amount: 0.7, attack: 80, release: 600,
+  amount: 0.7, attack: 0.08, release: 0.6,
 });
 engine.bus('music').addFx(ducker);
 ```
@@ -121,10 +123,10 @@ requestAnimationFrame(function tick() {
 ```ts
 const calm = engine.captureSnapshot('calm');
 
-engine.bus('music').fadeTo(0.2, 200);
-engine.bus('voice').fadeTo(1.5, 200);
+engine.bus('music').fadeTo(0.2, 0.2);
+engine.bus('voice').fadeTo(1.5, 0.2);
 
-await calm.apply({ fadeMs: 600 });   // restore everything in one call
+await calm.apply({ fade: 0.6 });   // restore everything in one call
 ```
 
 ## Browser support

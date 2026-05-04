@@ -13,7 +13,7 @@ const surface = `class Bus {
   level: number;                     // setter ramps over 10ms (click-free)
   muted: boolean;                    // setter ramps over 10ms
 
-  fadeTo(target: number, ms: number, curve?: FadeCurve): Promise<void>;
+  fadeTo(target: number, duration: number, curve?: FadeCurve): Promise<void>;  // duration in seconds
 
   voiceCount: number;
   voices(): readonly Voice[];
@@ -29,11 +29,11 @@ const surface = `class Bus {
 const fade = `// Smooth fade — won't pop because of the 10ms internal ramp on direct writes,
 // or use fadeTo() with a curve for longer transitions.
 engine.bus('music').level = 0.5;
-await engine.bus('music').fadeTo(0, 1200, 'equal-power');`;
+await engine.bus('music').fadeTo(0, 1.2, 'equal-power');`;
 
 const enumerate = `const bus = engine.bus('sfx');
 console.log('voices on this bus:', bus.voiceCount);
-for (const v of bus.voices()) v.fade({ to: 0, ms: 200 });`;
+for (const v of bus.voices()) v.fade({ to: 0, duration: 0.2 });`;
 ---
 <Docs
   title="Bus"

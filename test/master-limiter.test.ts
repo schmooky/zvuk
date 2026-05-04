@@ -19,7 +19,7 @@ describe('Crossfade helper', () => {
     await engine.loadSound('intro', 'mock://intro.wav', { bus: 'music' });
     await engine.loadSound('main', 'mock://main.wav', { bus: 'music' });
     const old = engine.sound('intro').play({ loop: true });
-    const fresh = engine.crossfade('intro', 'main', { ms: 50 });
+    const fresh = engine.crossfade('intro', 'main', { duration: 0.05 });
     expect(fresh.sourceName).toBe('main');
     await new Promise((r) => setTimeout(r, 100));
     await expect(old.ended).resolves.toBeUndefined();

@@ -15,10 +15,10 @@ const surface = `class Voice {
 
   readonly ended: Promise<void>;           // resolves on natural end, stop, or abort
 
-  fade(opts: { to: number; ms: number; curve?: FadeCurve }): Promise<void>;
+  fade(opts: { to: number; duration: number; curve?: FadeCurve }): Promise<void>;
   pause(): void;                           // captures offset
   resume(): void;                          // resumes from captured offset
-  setPlaybackRate(rate: number, opts?: { ms?: number; curve?: FadeCurve }): void;
+  setPlaybackRate(rate: number, opts?: { duration?: number; curve?: FadeCurve }): void;
   stop(): void;
   cues(): AsyncIterableIterator<'started' | 'paused' | 'resumed' | 'ended'>;
 }`;
@@ -54,7 +54,7 @@ window.addEventListener('focus', () => v.resume());
 
 const liveRate = `// Slow-mo sting on a boss intro — ramp the rate over 800 ms.
 const v = engine.sound('boss-stinger').play();
-v.setPlaybackRate(0.6, { ms: 800, curve: 'easeOut' });`;
+v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
 
 const liveSpatial = `// Hold the voice and steer the spatializer as the source moves.
 const v = engine.sound('engine').play({

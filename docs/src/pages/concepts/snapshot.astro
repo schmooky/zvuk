@@ -19,8 +19,8 @@ const boss = engine.snapshot('boss', {
   parameters: { intensity: 1.0 },
 });`;
 
-const apply = `await menu.apply({ fadeMs: 250 });        // crossfade everything in 250ms
-await boss.apply({ fadeMs: 800 });`;
+const apply = `await menu.apply({ fade: 0.25 });        // crossfade everything in 250ms
+await boss.apply({ fade: 0.8 });`;
 ---
 <Docs
   title="Snapshot"
@@ -31,8 +31,8 @@ await boss.apply({ fadeMs: 800 });`;
   <p>
     A <code>Snapshot</code> is an immutable record of bus levels, mutes, and
     parameter values. Capture once when the mix is right, then re-apply
-    later with <code>fadeMs</code> to crossfade the whole mix in one call.
-    No more orchestrating ten <code>fadeTo</code> calls by hand.
+    later with <code>fade</code> (in seconds) to crossfade the whole mix in
+    one call. No more orchestrating ten <code>fadeTo</code> calls by hand.
   </p>
 
   <h2>Mental model</h2>
@@ -47,7 +47,7 @@ engine.snapshot(name, state): Snapshot
 class Snapshot {
   readonly name: string;
   readonly state: SnapshotState;
-  apply(options?: { fadeMs?: number }): Promise<void>;
+  apply(options?: { fade?: number }): Promise<void>;
 }`} lang="ts" title="Snapshot" />
 
   <h2>Live demo</h2>

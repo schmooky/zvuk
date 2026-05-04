@@ -110,8 +110,8 @@ export class Voice {
   fade(opts: FadeOptions): Promise<void> {
     const param = this.gain.gain;
     const now = this.ctx.currentTime;
-    applyRamp(param, now, clamp01(opts.to), opts.ms, opts.curve ?? 'linear');
-    return new Promise((res) => setTimeout(res, Math.max(0, opts.ms)));
+    applyRamp(param, now, clamp01(opts.to), opts.duration, opts.curve ?? 'linear');
+    return new Promise((res) => setTimeout(res, Math.max(0, opts.duration) * 1000));
   }
 
   stop(): void {
@@ -181,10 +181,10 @@ export class Voice {
    * Live playback-rate setter. Optional ramp via curve.
    * Setting while paused only updates the value used on the next start.
    */
-  setPlaybackRate(rate: number, opts: { ms?: number; curve?: FadeOptions['curve'] } = {}): void {
+  setPlaybackRate(rate: number, opts: { duration?: number; curve?: FadeOptions['curve'] } = {}): void {
     if (this.done) return;
     const r = Math.max(0, rate);
-    const ms = Math.max(0, opts.ms ?? 0);
+    const duration = Math.max(0, opts.duration ?? 0);
     if (!this.paused) {
       // Snapshot offset at the previous rate before we change it.
       this.currentOffset = this.computeOffset();
@@ -193,11 +193,11 @@ export class Voice {
     this.basePitch = r;
     if (this.paused) return;
     const param = this.source.playbackRate;
-    if (ms === 0) {
+    if (duration === 0) {
       param.value = r;
       return;
     }
-    applyRamp(param, this.ctx.currentTime, r, ms, opts.curve ?? 'linear');
+    applyRamp(param, this.ctx.currentTime, r, duration, opts.curve ?? 'linear');
   }
 
   get playbackRate(): number {

@@ -7,13 +7,13 @@ export interface SnapshotState {
 }
 
 export interface ApplyOptions {
-  /** Crossfade duration in milliseconds. Default 0 (snap). */
-  fadeMs?: number;
+  /** Crossfade duration in seconds. Default 0 (snap). */
+  fade?: number;
 }
 
 /**
  * A captured mix-state preset. Capture it once with the engine in a known
- * good state ("menu mood"), then `apply({ fadeMs: 250 })` to crossfade the
+ * good state ("menu mood"), then `apply({ fade: 0.25 })` to crossfade the
  * entire mix back to that snapshot — bus levels, mutes, parameter values,
  * everything in one call.
  *
@@ -39,14 +39,14 @@ export class Snapshot {
   }
 
   apply(opts: ApplyOptions = {}): Promise<void> {
-    const fadeMs = opts.fadeMs ?? 0;
+    const fade = opts.fade ?? 0;
     const tasks: Promise<void>[] = [];
 
     for (const [name, bs] of Object.entries(this.state.buses)) {
       const bus = this.getBus(name);
       if (!bus) continue;
       bus.muted = bs.muted;
-      tasks.push(bus.fadeTo(bs.level, fadeMs));
+      tasks.push(bus.fadeTo(bs.level, fade));
     }
 
     for (const [name, value] of Object.entries(this.state.parameters)) {

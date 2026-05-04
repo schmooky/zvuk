@@ -52,7 +52,7 @@ describe('Snapshot', () => {
     engine.bus('music').level = 0.1;
     engine.bus('sfx').level = 0.2;
 
-    await snap.apply({ fadeMs: 0 });
+    await snap.apply({ fade: 0 });
     expect(engine.bus('music').level).toBeCloseTo(0.8);
     expect(engine.bus('sfx').level).toBeCloseTo(1);
 

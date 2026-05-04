@@ -26,11 +26,11 @@ const playFade = `const v = engine.sound('coin').play({
   pitch:  { jitter: 0.04 },
 });
 
-// Bus-level fade — click-free
-engine.bus('music').fadeTo(0.1, 800);
+// Bus-level fade — click-free (duration in seconds)
+engine.bus('music').fadeTo(0.1, 0.8);
 
 // Voice-level fade with curve
-await v.fade({ to: 0, ms: 800, curve: 'equal-power' });
+await v.fade({ to: 0, duration: 0.8, curve: 'equal-power' });
 await v.ended;`;
 
 const close = `await engine.close();`;
@@ -63,6 +63,11 @@ const close = `await engine.close();`;
   </p>
 
   <h2>4. Play, fade, mix</h2>
+  <p>
+    All time-valued options in zvuk are <strong>seconds</strong> — fades,
+    crossfades, attack/release, snapshot applies, every one of them. Matches
+    the Web Audio API; nothing else to remember.
+  </p>
   <Snippet code={playFade} lang="ts" />
 
   <h2>5. Clean up</h2>

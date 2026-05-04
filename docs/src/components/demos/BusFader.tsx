@@ -30,10 +30,10 @@ export default function BusFader() {
     if (engine.current?.state === 'live') engine.current.bus('music').level = v;
   }
 
-  async function fadeTo(target: number, ms: number) {
+  async function fadeTo(target: number, duration: number) {
     if (!engine.current || engine.current.state !== 'live') return;
     setBusy(true);
-    await engine.current.bus('music').fadeTo(target, ms);
+    await engine.current.bus('music').fadeTo(target, duration);
     setLevel(target);
     setBusy(false);
   }
@@ -68,9 +68,9 @@ export default function BusFader() {
             disabled={busy}
           />
           <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(1, 600)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(1, 600)</button>
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0.1, 800)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0.1, 800)</button>
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0, 1200)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0, 1200)</button>
+            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(1, 0.6)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(1, 0.6)</button>
+            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0.1, 0.8)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0.1, 0.8)</button>
+            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0, 1.2)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0, 1.2)</button>
             <button type="button" onClick={stop} className="ml-auto rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20">stop voice</button>
           </div>
         </>

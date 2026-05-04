@@ -49,7 +49,7 @@ ac.abort();`;
 const stream = `// Long media — use loadStream so a 4-minute mix doesn't decode into RAM.
 const intro = engine.loadStream('intro', '/music/intro.m4a', { bus: 'music' });
 await intro.play({ loop: true, volume: 0.6 });
-intro.fade({ to: 0, ms: 1500 });`;
+intro.fade({ to: 0, duration: 1.5 });`;
 
 const sprite = `// Sprite — share one buffer across N regions.
 await engine.loadSprite('reel', '/sfx/reel.webm', {

@@ -13,27 +13,27 @@ export function applyRamp(
   param: AudioParam,
   now: number,
   to: number,
-  durationMs: number,
+  duration: number,
   curve: FadeCurve,
 ): void {
-  const durationSec = Math.max(0, durationMs / 1000);
+  const seconds = Math.max(0, duration);
   const from = param.value;
 
   param.cancelScheduledValues(now);
   param.setValueAtTime(from, now);
 
-  if (durationSec === 0) {
+  if (seconds === 0) {
     param.setValueAtTime(to, now);
     return;
   }
 
   if (curve === 'linear') {
-    param.linearRampToValueAtTime(to, now + durationSec);
+    param.linearRampToValueAtTime(to, now + seconds);
     return;
   }
 
   const samples = sampleCurve(from, to, curve, 64);
-  param.setValueCurveAtTime(samples, now, durationSec);
+  param.setValueCurveAtTime(samples, now, seconds);
 }
 
 function sampleCurve(from: number, to: number, curve: FadeCurve, n: number): Float32Array {

@@ -40,7 +40,7 @@ export default function CrossfadeDemo() {
     setBusy(true);
     const next: Track = active === 'a' ? 'b' : 'a';
     voiceRef.current = e.crossfade(active === 'a' ? 'musicA' : 'musicB', next === 'a' ? 'musicA' : 'musicB', {
-      ms: 1500,
+      duration: 1.5,
       loop: true,
     });
     setActive(next);
@@ -77,7 +77,7 @@ export default function CrossfadeDemo() {
             {busy ? 'crossfading…' : `Crossfade to music ${active === 'a' ? 'B' : 'A'}`}
           </button>
           <p className="text-[10px] text-muted-foreground">
-            <code className="font-mono text-primary">engine.crossfade('musicA', 'musicB', {`{ ms: 1500 }`})</code> — outgoing voices match by{' '}
+            <code className="font-mono text-primary">engine.crossfade('musicA', 'musicB', {`{ duration: 1.5 }`})</code> — outgoing voices match by{' '}
             <code className="font-mono">sourceName</code> and fade out while the new voice fades in.
           </p>
         </div>

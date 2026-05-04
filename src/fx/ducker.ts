@@ -4,9 +4,9 @@ import type { FxInsert } from './types';
 export interface DuckerConfig {
   /** How much to attenuate when fully ducking (0..1). Default 0.5 = -6 dB. */
   amount?: number;
-  /** Attack ms. Default 80. */
+  /** Attack in seconds. Default 0.08. */
   attack?: number;
-  /** Release ms. Default 400. */
+  /** Release in seconds. Default 0.4. */
   release?: number;
   /** Threshold (linear amplitude) on the source bus's RMS to trigger ducking. Default 0.05. */
   threshold?: number;
@@ -43,8 +43,8 @@ export class Ducker implements FxInsert {
     this.sourceBus = sourceBus;
     this.cfg = {
       amount: config.amount ?? 0.5,
-      attack: config.attack ?? 80,
-      release: config.release ?? 400,
+      attack: config.attack ?? 0.08,
+      release: config.release ?? 0.4,
       threshold: config.threshold ?? 0.05,
     };
     this.input = ctx.createGain();
@@ -114,10 +114,10 @@ export class Ducker implements FxInsert {
     const exceeded = Math.max(0, rms - this.cfg.threshold);
     const target = exceeded > 0 ? 1 - this.cfg.amount : 1;
     // Single-pole envelope follower: τ in seconds → coefficient per frame.
-    const dtMs = 1000 / 60;
+    const dtSec = 1 / 60;
     const useAttack = target < this.envelope;
-    const tau = (useAttack ? this.cfg.attack : this.cfg.release) || 1;
-    const alpha = 1 - Math.exp(-dtMs / tau);
+    const tau = (useAttack ? this.cfg.attack : this.cfg.release) || 0.001;
+    const alpha = 1 - Math.exp(-dtSec / tau);
     this.envelope = this.envelope + alpha * (target - this.envelope);
     if (Math.abs(this.envelope - this.targetGain) > 0.001) {
       this.targetGain = this.envelope;

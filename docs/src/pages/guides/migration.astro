@@ -19,7 +19,7 @@ await engine.unlock();
 await engine.loadSound('coin', ['/sfx/coin.webm', '/sfx/coin.m4a'], { bus: 'sfx' });
 
 const v = engine.sound('coin').play({ volume: 0.6 });
-await v.fade({ to: 0, ms: 800 });`;
+await v.fade({ to: 0, duration: 0.8 });`;
 ---
 <Docs
   title="Migrating from Howler"
@@ -47,8 +47,8 @@ await v.fade({ to: 0, ms: 800 });`;
     <tbody>
       <tr><td><code>new Howl({'{ src }'})</code></td><td><code>engine.loadSound(name, urls, opts)</code></td></tr>
       <tr><td><code>howl.play()</code></td><td><code>engine.sound(name).play()</code></td></tr>
-      <tr><td><code>howl.volume(0.5)</code></td><td><code>voice.fade({'{ to: 0.5, ms: 0 }'})</code></td></tr>
-      <tr><td><code>howl.fade(from, to, ms)</code></td><td><code>voice.fade({'{ to, ms, curve }'})</code></td></tr>
+      <tr><td><code>howl.volume(0.5)</code></td><td><code>voice.fade({'{ to: 0.5, duration: 0 }'})</code></td></tr>
+      <tr><td><code>howl.fade(from, to, ms)</code></td><td><code>voice.fade({'{ to, duration, curve }'})</code> — duration in seconds</td></tr>
       <tr><td><code>Howler.volume(0.8)</code></td><td><code>engine.bus('master')</code> — or just lower headroom</td></tr>
       <tr><td><code>howl.on('end', fn)</code></td><td><code>await voice.ended</code> or <code>for await of voice.cues()</code></td></tr>
       <tr><td><code>howl.stop()</code></td><td><code>voice.stop()</code></td></tr>

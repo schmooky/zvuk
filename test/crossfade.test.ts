@@ -20,7 +20,7 @@ describe('Engine.crossfade source-filter precision', () => {
     expect(intro.sourceName).toBe('intro');
     expect(ambient.sourceName).toBe('ambient');
 
-    const fresh = engine.crossfade('intro', 'main', { ms: 30 });
+    const fresh = engine.crossfade('intro', 'main', { duration: 0.03 });
     expect(fresh.sourceName).toBe('main');
 
     await new Promise((r) => setTimeout(r, 80));
