@@ -1,8 +1,13 @@
 import { EngineClosedError } from '../errors';
 
-export type EngineState = 'cold' | 'unlocking' | 'live' | 'closed';
+export type EngineState = 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed';
 
 type StateListener = (s: EngineState) => void;
+
+// AudioContextState in lib.dom.d.ts is 'suspended' | 'running' | 'closed'.
+// iOS Safari additionally exposes 'interrupted' during phone calls / Siri /
+// other system audio interruptions; widen here so we can switch on it.
+type ExtAudioContextState = AudioContextState | 'interrupted';
 
 /**
  * AudioContext host with explicit lifecycle.
@@ -32,6 +37,7 @@ export class AudioContextHost {
     if (!this._ctx) {
       this._ctx = new AudioContext();
       this.attachVisibilityHandler();
+      this.attachStateChangeHandler(this._ctx);
     }
     return this._ctx;
   }
@@ -78,8 +84,11 @@ export class AudioContextHost {
   async close(): Promise<void> {
     if (this._state === 'closed') return;
     document.removeEventListener('visibilitychange', this.handleVisibility);
-    if (this._ctx && this._ctx.state !== 'closed') {
-      await this._ctx.close().catch(() => void 0);
+    if (this._ctx) {
+      this._ctx.removeEventListener('statechange', this.handleCtxStateChange);
+      if (this._ctx.state !== 'closed') {
+        await this._ctx.close().catch(() => void 0);
+      }
     }
     this._ctx = null;
     this.setState('closed');
@@ -109,6 +118,40 @@ export class AudioContextHost {
       }, 200);
     } else {
       void this._ctx.suspend().catch(() => void 0);
+    }
+  };
+
+  private attachStateChangeHandler(ctx: AudioContext): void {
+    ctx.addEventListener('statechange', this.handleCtxStateChange);
+  }
+
+  // iOS Safari moves the AudioContext into 'interrupted' on phone calls, Siri,
+  // and other system audio takeovers. resume() does not recover from
+  // 'interrupted' — we have to wait for the OS to flip it back to 'suspended'
+  // and resume from there.
+  private handleCtxStateChange = (): void => {
+    const ctx = this._ctx;
+    if (!ctx || this._state === 'closed') return;
+    const state = ctx.state as ExtAudioContextState;
+
+    if (state === 'interrupted') {
+      this.setState('interrupted');
+      return;
+    }
+
+    if (state === 'suspended' && this._state === 'interrupted') {
+      // Same 200ms beat as the visibility path — iOS rejects an immediate
+      // resume() right after the state flip.
+      setTimeout(() => {
+        if (this._ctx === ctx && ctx.state === 'suspended') {
+          void ctx.resume().catch(() => void 0);
+        }
+      }, 200);
+      return;
+    }
+
+    if (state === 'running' && this._state === 'interrupted') {
+      this.setState('live');
     }
   };
 }
