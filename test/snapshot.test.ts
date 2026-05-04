@@ -18,7 +18,7 @@ describe('Snapshot', () => {
     await engine.close();
   });
 
-  it('apply with fadeMs: 0 snaps levels and resolves immediately', async () => {
+  it('apply with fade: 0 snaps levels and resolves immediately', async () => {
     const engine = createEngine({ buses: { music: { level: 0.8 } } });
     await engine.unlock();
 
@@ -26,7 +26,7 @@ describe('Snapshot', () => {
     engine.bus('music').level = 0.1;
 
     const t0 = Date.now();
-    await snap.apply({ fadeMs: 0 });
+    await snap.apply({ fade: 0 });
     const elapsed = Date.now() - t0;
 
     expect(elapsed).toBeLessThan(50);
@@ -34,7 +34,7 @@ describe('Snapshot', () => {
     await engine.close();
   });
 
-  it('apply with fadeMs ramps over the requested duration', async () => {
+  it('apply with fade ramps over the requested duration', async () => {
     const engine = createEngine({ buses: { music: { level: 1.0 } } });
     await engine.unlock();
 
@@ -42,7 +42,7 @@ describe('Snapshot', () => {
     engine.bus('music').level = 0;
 
     const t0 = Date.now();
-    await snap.apply({ fadeMs: 120 });
+    await snap.apply({ fade: 0.12 });
     const elapsed = Date.now() - t0;
 
     // Loose floor — happy-dom timer drift can vary; just confirm we waited.
@@ -60,7 +60,7 @@ describe('Snapshot', () => {
     engine.bus('music').muted = false;
     expect(engine.bus('music').muted).toBe(false);
 
-    await snap.apply({ fadeMs: 0 });
+    await snap.apply({ fade: 0 });
     expect(engine.bus('music').muted).toBe(true);
     await engine.close();
   });
@@ -79,7 +79,7 @@ describe('Snapshot', () => {
     });
 
     // Must not throw on the unknown 'ghost' bus.
-    await expect(snap.apply({ fadeMs: 0 })).resolves.toBeUndefined();
+    await expect(snap.apply({ fade: 0 })).resolves.toBeUndefined();
     expect(engine.bus('music').level).toBeCloseTo(0.2);
     await engine.close();
   });
@@ -94,8 +94,8 @@ describe('Snapshot', () => {
     intensity.set(0.9);
     expect(intensity.value).toBeCloseTo(0.9);
 
-    await snap.apply({ fadeMs: 200 });
-    // Parameters snap immediately even when fadeMs > 0 — documented behaviour.
+    await snap.apply({ fade: 0.2 });
+    // Parameters snap immediately even when fade > 0 — documented behaviour.
     expect(intensity.value).toBeCloseTo(0.3);
     await engine.close();
   });

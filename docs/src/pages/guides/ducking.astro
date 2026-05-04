@@ -6,8 +6,8 @@ const construct = `import { Ducker } from '@schmooky/zvuk';
 
 const ducker = new Ducker(engine.context, engine.bus('voice'), {
   amount: 0.6,        // 60% drop at peak
-  attack: 80,         // ms — how fast we duck
-  release: 400,       // ms — how slow we recover
+  attack: 0.08,       // seconds — how fast we duck
+  release: 0.4,       // seconds — how slow we recover
   threshold: 0.05,    // RMS amplitude on source to trigger
 });
 
@@ -26,8 +26,8 @@ ducker.setThreshold(0.02); // more sensitive — duck even on quiet whispers`;
     A <strong>Ducker</strong> lives on the <em>target</em> bus (the one being
     ducked) and listens to a <em>source</em> bus (the one whose loudness drives
     the duck). When the source's RMS exceeds the threshold, the target's
-    output gain drops over <code>attack</code> ms; when the source quiets, gain
-    recovers over <code>release</code> ms.
+    output gain drops over <code>attack</code> seconds; when the source quiets,
+    gain recovers over <code>release</code> seconds.
   </p>
 
   <h2>Wiring</h2>

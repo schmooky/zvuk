@@ -45,7 +45,7 @@ export default function SnapshotCrossfade() {
     if (!snaps) return;
     setBusy(true);
     setActive(name);
-    await snaps[name].apply({ fadeMs: 800 });
+    await snaps[name].apply({ fade: 0.8 });
     setBusy(false);
   }
 

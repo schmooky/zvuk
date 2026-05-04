@@ -67,8 +67,9 @@ export interface Engine {
   bus(name: string): Bus;
 
   /**
-   * Crossfade helper. Stops `from` over `ms` while playing `to` over the same
-   * window with `equal-power` curves so the perceived loudness stays flat.
+   * Crossfade helper. Stops `from` over `duration` seconds while playing `to`
+   * over the same window with `equal-power` curves so the perceived loudness
+   * stays flat.
    *
    * Returns the new Voice. If `to` is already playing, its level is faded up
    * from 0 instead of starting fresh.
@@ -93,8 +94,8 @@ export interface Engine {
 }
 
 export interface CrossfadeOptions {
-  /** Crossfade duration in ms. Default 1500. */
-  ms?: number;
+  /** Crossfade duration in seconds. Default 1.5. */
+  duration?: number;
   /** Bus to play `to` on (and to look up `from` on). Defaults to the sound's defaults. */
   bus?: string;
   /** Loop the new voice. Default true (music swap is the canonical use case). */
@@ -241,7 +242,7 @@ class EngineImpl implements Engine {
   }
 
   crossfade(from: string, to: string, options: CrossfadeOptions = {}): Voice {
-    const ms = options.ms ?? 1500;
+    const duration = options.duration ?? 1.5;
     const curve = options.curve ?? 'equal-power';
     const toVolume = options.toVolume ?? 1;
     const target = this.sound(to);
@@ -250,10 +251,10 @@ class EngineImpl implements Engine {
       loop: options.loop ?? true,
       volume: 0,
     });
-    void newVoice.fade({ to: toVolume, ms, curve });
+    void newVoice.fade({ to: toVolume, duration, curve });
     const outgoing = this.activeVoices().filter((v) => v !== newVoice && v.sourceName === from);
     for (const v of outgoing) {
-      void v.fade({ to: 0, ms, curve }).then(() => v.stop());
+      void v.fade({ to: 0, duration, curve }).then(() => v.stop());
     }
     return newVoice;
   }

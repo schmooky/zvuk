@@ -9,7 +9,7 @@ const declare = `const engine = createEngine({
   buses: {
     music: { level: 0.8, concurrency: { max: 4 } },
     sfx:   { level: 1.0, concurrency: { max: 32, steal: 'oldest' } },
-    voice: { level: 1.0, sidechain: { from: 'music', amount: 0.5, attack: 80, release: 400 } },
+    voice: { level: 1.0, sidechain: { from: 'music', amount: 0.5, attack: 0.08, release: 0.4 } },
   },
   master: {
     headroom: -3,
@@ -28,7 +28,7 @@ master.setLimiter({ threshold: -0.5 });
 master.setLimiter(null);`;
 
 const access = `engine.bus('music').level = 0.5;
-engine.bus('sfx').fadeTo(0, 800);
+engine.bus('sfx').fadeTo(0, 0.8);
 engine.bus('voice').muted = true;`;
 
 const fxInsert = `import { Compressor, Reverb } from '@schmooky/zvuk';

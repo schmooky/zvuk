@@ -41,8 +41,8 @@ async function setup(): Promise<void> {
     source: engine.bus('sfx').output,
     target: engine.bus('music'),
     amount: 0.7,
-    attack: 40,
-    release: 600,
+    attack: 0.04,
+    release: 0.6,
     threshold: 0.04,
   });
   engine.bus('music').addFx(ducker);

@@ -85,7 +85,7 @@ engine.sprite('cascade').play('medium', { volume: { jitter: 0.05 } });`;
 const streams = `// Multi-minute music — don't decode a 4-min track into RAM.
 const music = engine.loadStream('intro', '/music/intro.m4a', { bus: 'music' });
 await music.play({ loop: true, volume: 0.6 });
-await music.fade({ to: 0, ms: 1500 });
+await music.fade({ to: 0, duration: 1.5 });
 music.stop();`;
 
 const crossfade = `// 1.5-second equal-power crossfade between two pre-loaded music tracks.
@@ -94,7 +94,7 @@ await engine.loadSound('main',  '/music/main.webm',  { bus: 'music', normalize: 
 
 engine.sound('intro').play({ loop: true });
 // Later — at the boss reveal.
-engine.crossfade('intro', 'main', { ms: 1500, loop: true });`;
+engine.crossfade('intro', 'main', { duration: 1.5, loop: true });`;
 
 const didYouMean = `// Typo? The error tells you what you meant.
 try {

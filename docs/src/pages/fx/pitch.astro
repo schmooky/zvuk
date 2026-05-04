@@ -51,7 +51,7 @@ node.stretch.linearRampToValueAtTime(0.5, engine.context.currentTime + 2);`;
 const liveRate = `// Voice-level rate control (alters pitch + tempo, not pitch-preserving).
 // Cheaper than the worklet, fine when you don't care about pitch.
 const v = engine.sound('boss-stinger').play();
-v.setPlaybackRate(0.6, { ms: 800, curve: 'easeOut' });`;
+v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
 ---
 <Docs
   title="Pitch & time-stretch"

@@ -30,7 +30,7 @@ import { SITE } from '../../lib/seo';
       <code>createSound</code> for procedural buffers.</li>
     <li><strong>Sprites:</strong> one buffer, many named regions, one fetch — for cascades, UI variants, dialogue chunks.</li>
     <li><strong>Streams:</strong> <code>loadStream</code> for music tracks &gt; 30s via <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>.</li>
-    <li><strong>Crossfade:</strong> <code>engine.crossfade(from, to, &#123; ms &#125;)</code> — equal-power music swap in one call.</li>
+    <li><strong>Crossfade:</strong> <code>engine.crossfade(from, to, &#123; duration &#125;)</code> — equal-power music swap in one call.</li>
     <li><strong>Concurrency:</strong> per-bus voice limit with steal strategies (<code>oldest</code> /
       <code>lowest-priority</code> / <code>quietest</code> / <code>none</code>).</li>
     <li><strong>FX:</strong> Compressor, Reverb (synthetic IR or your own), Filter (six biquad types),

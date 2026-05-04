@@ -12,9 +12,9 @@ export interface SidechainConfig {
   from: string;
   /** Amount of duck (0..1, where 1 = fully muted at peak source). */
   amount: number;
-  /** Attack ms. */
+  /** Attack in seconds. */
   attack?: number;
-  /** Release ms. */
+  /** Release in seconds. */
   release?: number;
 }
 
@@ -50,7 +50,8 @@ export interface EngineConfig {
 
 export interface FadeOptions {
   to: number;
-  ms: number;
+  /** Fade duration in seconds. */
+  duration: number;
   curve?: FadeCurve;
 }
 
