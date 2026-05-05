@@ -37,6 +37,10 @@ export interface Engine {
    * If every URL fails, throws AggregateDecodeError (a subclass of
    * DecodeError) with per-URL causes attached. If only one URL was given,
    * the underlying DecodeError is rethrown verbatim.
+   *
+   * If `createEngine({ resolveAsset })` is configured, the resolver is
+   * consulted first — it can return an `AudioBuffer`, `ArrayBuffer`, or
+   * `string` URL, or `undefined`/`null` to fall through to the URL list.
    */
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
   /** Register a Sound from an AudioBuffer you constructed yourself (procedural, custom-decoded, time-stretched). */
@@ -194,15 +198,38 @@ class EngineImpl implements Engine {
     this.host.touch();
     this.ensureGraph();
 
-    const urls = typeof url === 'string' ? [url] : pickSourceOrder(url);
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    let buffer = await this.decoder.loadFirst(urls, decodeOpts);
+    let buffer = await this.resolveBuffer(name, url, decodeOpts);
 
     if (options.normalize) {
       buffer = applyLoudnessNormalization(buffer, options.normalize);
     }
 
     return this.createSound(name, buffer, { bus: options.bus });
+  }
+
+  private async resolveBuffer(
+    name: string,
+    url: string | readonly string[],
+    decodeOpts: DecodeOptions,
+  ): Promise<AudioBuffer> {
+    const resolver = this.config.resolveAsset;
+    if (resolver) {
+      const resolved = await resolver({ name, url, signal: decodeOpts.signal });
+      if (resolved != null) {
+        if (resolved instanceof AudioBuffer) return resolved;
+        if (resolved instanceof ArrayBuffer) {
+          // ArrayBuffer carries no MIME hint — decodeAudioData sniffs it.
+          return await this.host.touch().decodeAudioData(resolved);
+        }
+        if (typeof resolved === 'string') {
+          return await this.decoder.load(resolved, decodeOpts);
+        }
+      }
+      // null/undefined: explicit miss → fall through to the URL list.
+    }
+    const urls = typeof url === 'string' ? [url] : pickSourceOrder(url);
+    return await this.decoder.loadFirst(urls, decodeOpts);
   }
 
   async loadSprite(

@@ -49,6 +49,7 @@ export { StreamSound } from './sources/stream';
 export { Voice } from './sources/voice';
 export { Spatializer } from './spatial/spatializer';
 export type {
+  AssetResolver,
   BusConfig,
   ConcurrencyConfig,
   EngineConfig,
@@ -58,6 +59,8 @@ export type {
   MasterConfig,
   MasterLimiterConfig,
   PlayOptions,
+  ResolveAssetContext,
+  ResolvedAsset,
   SidechainConfig,
   SpatialOptions,
   StopOptions,
