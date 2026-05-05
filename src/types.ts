@@ -43,6 +43,44 @@ export interface MasterConfig {
   limiter?: MasterLimiterConfig;
 }
 
+/**
+ * External ticker for driving the scheduler's task dispatch — typically
+ * a host's existing render loop (Pixi `app.ticker`, GSAP `gsap.ticker`).
+ *
+ * The scheduler subscribes lazily: only while there are pending tasks. When
+ * the queue drains, it unsubscribes so a 60 Hz host loop isn't waking the
+ * scheduler 60 times per second to do nothing.
+ *
+ * Without a `TickSource`, the scheduler dispatches via `setTimeout` — see
+ * the "Runtime timing" guide for trade-offs around browser timer
+ * throttling and tab visibility.
+ *
+ * @example Pixi v8
+ * ```ts
+ * const tickSource: TickSource = {
+ *   subscribe(handler) {
+ *     app.ticker.add(handler);
+ *     return () => app.ticker.remove(handler);
+ *   },
+ * };
+ * createEngine({ tickSource });
+ * ```
+ *
+ * @example GSAP
+ * ```ts
+ * const tickSource: TickSource = {
+ *   subscribe(handler) {
+ *     gsap.ticker.add(handler);
+ *     return () => gsap.ticker.remove(handler);
+ *   },
+ * };
+ * ```
+ */
+export interface TickSource {
+  /** Register a tick handler. Returns an unsubscribe function. */
+  subscribe(handler: () => void): () => void;
+}
+
 export interface VoiceDefaults {
   /**
    * Default click-free fade-out duration applied by `voice.stop()`, in
@@ -62,6 +100,26 @@ export interface EngineConfig {
   buses?: Record<string, BusConfig>;
   master?: MasterConfig;
   voice?: VoiceDefaults;
+  /**
+   * External ticker (e.g. Pixi `app.ticker`, GSAP `gsap.ticker`) that drives
+   * scheduler dispatch. Without one, the scheduler uses `setTimeout` —
+   * which browsers throttle to ~1 Hz on hidden tabs. Inject a host ticker
+   * to align dispatch to your render loop and avoid spawning a parallel rAF
+   * loop. See the "Runtime timing" guide for the full trade-off.
+   */
+  tickSource?: TickSource;
+  /**
+   * When `true` (default), the engine listens for `visibilitychange` and
+   * suspends the AudioContext while the tab/window is hidden, then resumes
+   * automatically on return. This is also the iOS Safari workaround for
+   * suspension-on-blur.
+   *
+   * Set to `false` if you want music to keep playing across tab switches —
+   * e.g. background music players where a brief navigation away from the
+   * page shouldn't pause playback. Audio continues running on the Web Audio
+   * thread regardless of tab visibility.
+   */
+  autoPauseOnHidden?: boolean;
 }
 
 export interface FadeOptions {

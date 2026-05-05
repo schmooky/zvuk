@@ -122,8 +122,8 @@ export function createEngine(config: EngineConfig = {}): Engine {
 }
 
 class EngineImpl implements Engine {
-  private host = new AudioContextHost();
-  private decoder = new Decoder(() => this.host.touch());
+  private host: AudioContextHost;
+  private decoder: Decoder;
   private scheduler: Scheduler | null = null;
   private master: Master | null = null;
   private buses = new Map<string, Bus>();
@@ -137,6 +137,8 @@ class EngineImpl implements Engine {
 
   constructor(config: EngineConfig) {
     this.config = config;
+    this.host = new AudioContextHost({ autoPauseOnHidden: config.autoPauseOnHidden });
+    this.decoder = new Decoder(() => this.host.touch());
     const declared = Object.keys(config.buses ?? {});
     this.busOrder = declared.length > 0 ? declared : ['default'];
     for (const name of this.busOrder) this.voices.set(name, new Set());
@@ -392,7 +394,7 @@ class EngineImpl implements Engine {
     if (this.master) return;
     const ctx = this.host.touch();
     this.master = new Master(ctx, this.config.master);
-    this.scheduler = new Scheduler(this.host);
+    this.scheduler = new Scheduler(this.host, this.config.tickSource);
 
     for (const name of this.busOrder) {
       const cfg = this.config.buses?.[name] ?? {};

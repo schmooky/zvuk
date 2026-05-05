@@ -1,0 +1,210 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const setTimeoutDefault = `// No tickSource — scheduler dispatches via setTimeout (default).
+const engine = createEngine({ buses: { sfx: {} } });
+engine.scheduleAt(engine.now + 1, () => playStinger());`;
+
+const pixiTicker = `import { Application } from 'pixi.js';
+import { createEngine, type TickSource } from '@schmooky/zvuk';
+
+const app = new Application();
+await app.init({ /* ... */ });
+
+const tickSource: TickSource = {
+  subscribe(handler) {
+    app.ticker.add(handler);
+    return () => app.ticker.remove(handler);
+  },
+};
+
+const engine = createEngine({ buses: { sfx: {}, music: {} }, tickSource });`;
+
+const gsapTicker = `import gsap from 'gsap';
+import { createEngine, type TickSource } from '@schmooky/zvuk';
+
+const tickSource: TickSource = {
+  subscribe(handler) {
+    gsap.ticker.add(handler);
+    return () => gsap.ticker.remove(handler);
+  },
+};
+
+const engine = createEngine({ tickSource });`;
+
+const rafTicker = `// If you have no host loop and want frame-aligned dispatch anyway,
+// you can roll your own rAF subscriber. Be aware: rAF pauses entirely
+// when the tab is hidden — setTimeout (the default) at least throttles
+// to ~1 Hz, so it still fires occasionally.
+const tickSource: TickSource = {
+  subscribe(handler) {
+    let id: number;
+    const loop = () => {
+      handler();
+      id = requestAnimationFrame(loop);
+    };
+    id = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(id);
+  },
+};`;
+
+const autoPause = `// Default — suspend on tab hide, resume on return. Recommended for
+// most apps; also part of the iOS Safari reliability story.
+createEngine({ buses: { sfx: {} } });
+
+// Music players that should keep playing across tab switches:
+createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
+---
+<Docs
+  title="Runtime timing"
+  description="How zvuk schedules JS callbacks, why it doesn't run a parallel rAF, and when to inject your own ticker."
+  eyebrow="Guide"
+>
+
+  <h2>The two clocks</h2>
+  <p>
+    zvuk has two distinct timing concerns:
+  </p>
+  <ul>
+    <li>
+      <strong>Audio time</strong> — what the Web Audio thread does. Sample-
+      accurate, runs independently of the main thread, unaffected by tab blur.
+      Anything stamped onto an <code>AudioParam</code>
+      (<code>setValueAtTime</code>, <code>linearRampToValueAtTime</code>,
+      <code>source.start(when)</code>) is dispatched here. zvuk's fades, ramps,
+      crossfades, and click-free stops all schedule directly on the audio
+      thread.
+    </li>
+    <li>
+      <strong>JS dispatch time</strong> — when the main thread fires user
+      callbacks (<code>engine.scheduleAt(t, fn)</code>, region-end callbacks,
+      end-of-fade resolutions). This depends on a JavaScript timer, which is
+      what this guide is about.
+    </li>
+  </ul>
+
+  <h2>Default: <code>setTimeout</code>, explicitly</h2>
+  <p>
+    Without a <code>tickSource</code>, zvuk dispatches scheduled callbacks via
+    <code>setTimeout</code>. We do <strong>not</strong> spin up an internal
+    <code>requestAnimationFrame</code> loop — running a parallel rAF in a
+    library that's likely embedded in a host that already has one is a
+    waste, and rAF doesn't actually fix the visibility problem (more on that
+    below).
+  </p>
+  <Snippet code={setTimeoutDefault} lang="ts" />
+
+  <p>
+    The trade-off you're accepting with the default:
+  </p>
+  <ul>
+    <li>
+      Browsers throttle <code>setTimeout</code> on hidden tabs to roughly
+      <code>1 Hz</code>. Callbacks scheduled to fire while the tab is hidden
+      will land late.
+    </li>
+    <li>
+      <strong>Your audio doesn't glitch.</strong> Audio playback runs on the
+      Web Audio thread, which keeps going regardless of the JS event loop. As
+      long as you stamp ramps and source starts directly with audio time,
+      they fire sample-accurately. The only thing that lags is the
+      JS-side confirmation callback.
+    </li>
+    <li>
+      When the tab regains focus, the scheduler sweeps every overdue task
+      on its next tick. No tasks are lost.
+    </li>
+  </ul>
+
+  <h2>Inject a host ticker for frame-aligned dispatch</h2>
+  <p>
+    If your host (Pixi, GSAP, a custom render loop) is already running an
+    rAF on every frame, hand it to zvuk. The scheduler subscribes
+    <strong>lazily</strong> — only while there are pending tasks — so your
+    60 Hz loop isn't waking the scheduler 60 times a second to do nothing.
+  </p>
+
+  <h3>Pixi v8</h3>
+  <Snippet code={pixiTicker} lang="ts" />
+
+  <h3>GSAP</h3>
+  <Snippet code={gsapTicker} lang="ts" />
+
+  <h3>Standalone <code>requestAnimationFrame</code></h3>
+  <Snippet code={rafTicker} lang="ts" />
+
+  <p>
+    A <code>TickSource</code> is just any object that exposes a
+    <code>subscribe(handler) → unsubscribe</code> shape. Anything you can
+    add a callback to and remove it from is a valid source.
+  </p>
+
+  <h2>Pause on tab hide</h2>
+  <p>
+    By default, zvuk listens for <code>visibilitychange</code> and suspends
+    the AudioContext while the tab is hidden, then resumes automatically on
+    return. This is also the iOS Safari reliability workaround for
+    suspension-on-blur. While suspended, audio time stops advancing — so
+    scheduled callbacks pause right along with the audio they were paired
+    with.
+  </p>
+  <Snippet code={autoPause} lang="ts" />
+
+  <p>
+    Set <code>autoPauseOnHidden: false</code> if you're building a
+    background music player and want playback to continue across tab
+    switches.
+  </p>
+
+  <h2>Picking a strategy</h2>
+  <table>
+    <thead>
+      <tr><th>Use case</th><th>Recommendation</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Game with Pixi / Phaser / a render loop</td>
+        <td>Inject the host's ticker. Audio dispatch lines up with frames.</td>
+      </tr>
+      <tr>
+        <td>Slot machine, casino, casual game</td>
+        <td>Same — inject the host ticker for crisp wheel/reel sync.</td>
+      </tr>
+      <tr>
+        <td>Music player, background-audio app</td>
+        <td>Default <code>setTimeout</code>. Set <code>autoPauseOnHidden: false</code>.</td>
+      </tr>
+      <tr>
+        <td>Embedded widget on a page (single SFX, simple UI)</td>
+        <td>Default <code>setTimeout</code>. Don't add the rAF complexity unless you have a reason.</td>
+      </tr>
+      <tr>
+        <td>You need sample-accurate sample triggers</td>
+        <td>Stamp <code>AudioParam</code> values directly with the <code>audioTime</code> passed to your callback. The ticker only affects when your JS confirmation runs, not when the audio fires.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't run zvuk's scheduler from a second rAF.</div>
+    If you already have a render loop, inject <em>that</em> as the
+    <code>tickSource</code>. Spinning a second <code>requestAnimationFrame</code>
+    loop in parallel buys you nothing and burns frames.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title"><code>rAF</code> does not fix tab-blur lag.</div>
+    Hidden tabs throttle <code>setTimeout</code> to ~1 Hz; they pause
+    <code>requestAnimationFrame</code> entirely (0 Hz). For audio that must
+    be sample-accurate <em>through</em> blur, schedule on
+    <code>AudioParam</code> directly — that's the only path that runs on
+    the audio thread independent of the main thread.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/voice/">Voice</a> — fade / stop / cues fire on these timers.</li>
+    <li><a href="/concepts/engine/">Engine</a> — <code>scheduleAt</code> API.</li>
+  </ul>
+</Docs>

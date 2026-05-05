@@ -47,6 +47,7 @@ export const DOCS_NAV: NavSection[] = [
       { href: '/guides/loading/', label: 'Loading sounds' },
       { href: '/guides/mix/', label: 'Building your mix' },
       { href: '/guides/ducking/', label: 'Sidechain ducking' },
+      { href: '/guides/runtime-timing/', label: 'Runtime timing' },
       { href: '/guides/migration/', label: 'Migrating from Howler' },
     ],
   },
