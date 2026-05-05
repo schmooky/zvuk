@@ -121,10 +121,16 @@ describe('autoPauseOnHidden', () => {
 
   beforeEach(() => {
     visibilityListeners.length = 0;
-    document.addEventListener = vi.fn((type: string, listener: EventListenerOrEventListenerObject, opts?: AddEventListenerOptions | boolean) => {
-      if (type === 'visibilitychange') visibilityListeners.push(listener);
-      return realAdd(type, listener, opts);
-    }) as typeof document.addEventListener;
+    document.addEventListener = vi.fn(
+      (
+        type: string,
+        listener: EventListenerOrEventListenerObject,
+        opts?: AddEventListenerOptions | boolean,
+      ) => {
+        if (type === 'visibilitychange') visibilityListeners.push(listener);
+        return realAdd(type, listener, opts);
+      },
+    ) as typeof document.addEventListener;
   });
 
   afterEach(() => {
