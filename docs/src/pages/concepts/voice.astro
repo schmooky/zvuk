@@ -19,7 +19,7 @@ const surface = `class Voice {
   pause(): void;                           // captures offset
   resume(): void;                          // resumes from captured offset
   setPlaybackRate(rate: number, opts?: { duration?: number; curve?: FadeCurve }): void;
-  stop(): void;
+  stop(opts?: { fade?: number }): void;     // ~8 ms click-free fade by default
   cues(): AsyncIterableIterator<'started' | 'paused' | 'resumed' | 'ended'>;
 }`;
 
@@ -120,6 +120,19 @@ requestAnimationFrame(function tick() {
     <code>setPan</code>/<code>setPosition</code> from your render loop.
   </p>
   <Snippet code={liveSpatial} lang="ts" />
+
+  <h2>Stop semantics</h2>
+  <p>
+    <code>voice.stop()</code> applies a short click-free fade-out before the
+    source node actually stops — Web Audio cuts buffers mid-waveform on
+    <code>source.stop()</code>, which produces a digital click on non-zero
+    crossings. The default ~8 ms ramp on the gain stage suppresses that
+    without being audible as a fade. Pass <code>{'{'} fade: 0 {'}'}</code> for
+    a sample-accurate hard cut, or set <code>voice.stopFade</code> on the
+    engine to override the default. The behaviour applies to all stop
+    paths: explicit <code>stop()</code>, <code>AbortSignal</code> aborts,
+    region-timer expiry, and concurrency-driven stealing.
+  </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

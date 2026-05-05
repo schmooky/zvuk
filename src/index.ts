@@ -60,5 +60,7 @@ export type {
   PlayOptions,
   SidechainConfig,
   SpatialOptions,
+  StopOptions,
+  VoiceDefaults,
   VoiceJitter,
 } from './types';

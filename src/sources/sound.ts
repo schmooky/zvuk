@@ -11,6 +11,8 @@ export interface SoundDeps {
   trackVoice: (v: Voice, bus: string) => void;
   releaseVoice: (v: Voice, bus: string) => void;
   applyConcurrency?: (v: Voice, bus: string) => boolean;
+  /** Engine-level default click-free fade for voice.stop() (seconds). */
+  defaultStopFade?: number;
 }
 
 /**
@@ -44,6 +46,7 @@ export class Sound {
       options: { ...options, bus },
       spatializer,
       sourceName: this.name,
+      defaultStopFade: this.deps.defaultStopFade,
       onEnded: (v) => {
         this.deps.releaseVoice(v, bus);
         spatializer?.dispose();
