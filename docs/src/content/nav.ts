@@ -45,6 +45,7 @@ export const DOCS_NAV: NavSection[] = [
     items: [
       { href: '/guides/asset-formats/', label: 'Asset formats (webm/m4a)' },
       { href: '/guides/loading/', label: 'Loading sounds' },
+      { href: '/guides/asset-resolution/', label: 'Asset resolution (Pixi, IndexedDB)' },
       { href: '/guides/mix/', label: 'Building your mix' },
       { href: '/guides/ducking/', label: 'Sidechain ducking' },
       { href: '/guides/runtime-timing/', label: 'Runtime timing' },

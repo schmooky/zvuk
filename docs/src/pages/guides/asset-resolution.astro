@@ -1,0 +1,236 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const apiShape = `import { createEngine, type AssetResolver } from '@schmooky/zvuk';
+
+const resolveAsset: AssetResolver = ({ name, url, signal }) => {
+  // Return one of:
+  //   AudioBuffer    — used as-is, no decode
+  //   ArrayBuffer    — decoded via the engine's AudioContext
+  //   string         — treated as a URL, fetched + decoded normally
+  //   undefined/null — explicit miss; falls through to the URL list
+};
+
+const engine = createEngine({
+  buses: { sfx: {}, music: {} },
+  resolveAsset,
+});`;
+
+const pixiAssetpack = `import { Application, Assets } from 'pixi.js';
+import { createEngine, type AssetResolver } from '@schmooky/zvuk';
+
+// In your assetpack manifest (assetpack.config.ts), make sure the audio
+// pipeline is configured so .webm/.m4a files end up as ArrayBuffer / Blob
+// in Pixi's cache. Then load them as part of your normal Pixi bundle:
+const app = new Application();
+await app.init({ /* ... */ });
+
+await Assets.init({ manifest: '/manifest.json' });
+await Assets.loadBundle('game-audio');   // populates Assets.cache
+
+// Pixi v8 Assets.cache returns whatever the pipeline produced. For an
+// audio file with no special loader, that's typically an ArrayBuffer or
+// a Blob. Adapt to ArrayBuffer here:
+const resolveAsset: AssetResolver = async ({ name }) => {
+  const asset = Assets.cache.get(name);
+  if (!asset) return undefined;                 // miss → URL fetch
+
+  if (asset instanceof ArrayBuffer) return asset;
+  if (asset instanceof Blob) return await asset.arrayBuffer();
+  if (typeof asset === 'string') return asset;  // URL string in the cache
+  return undefined;
+};
+
+const engine = createEngine({
+  buses: { sfx: {}, music: {} },
+  resolveAsset,
+});
+
+// loadSound now consults the Pixi cache first; if nothing is there, it
+// falls through to the URL fetch — handy for audio added at runtime.
+await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });
+await engine.loadSound('win',  '/sfx/win.webm',  { bus: 'sfx' });`;
+
+const indexedDB = `import { createEngine, type AssetResolver } from '@schmooky/zvuk';
+
+// Persistent offline cache: store decoded buffers in IndexedDB the first
+// time you fetch them, hydrate from the DB on subsequent loads. Slot
+// machines and casino apps that ship a fixed audio set get a noticeable
+// cold-start improvement.
+
+const DB_NAME = 'zvuk-audio';
+const STORE   = 'buffers';
+
+async function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+async function dbGet(name: string): Promise<ArrayBuffer | undefined> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly').objectStore(STORE).get(name);
+    tx.onsuccess = () => resolve(tx.result);
+    tx.onerror   = () => reject(tx.error);
+  });
+}
+
+async function dbPut(name: string, bytes: ArrayBuffer): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite').objectStore(STORE).put(bytes, name);
+    tx.onsuccess = () => resolve();
+    tx.onerror   = () => reject(tx.error);
+  });
+}
+
+const resolveAsset: AssetResolver = async ({ name, url, signal }) => {
+  const cached = await dbGet(name);
+  if (cached) return cached;
+
+  // Miss — fetch ourselves so we can persist before handing to zvuk.
+  const single = typeof url === 'string' ? url : url[0];
+  if (!single) return undefined;
+  const res = await fetch(single, { signal });
+  if (!res.ok) return undefined;          // let zvuk's loader try the ladder
+  const bytes = await res.arrayBuffer();
+  await dbPut(name, bytes);
+  return bytes;
+};
+
+const engine = createEngine({ buses: { sfx: {} }, resolveAsset });`;
+
+const inMemoryCache = `import { createEngine, type AssetResolver } from '@schmooky/zvuk';
+
+// Tiny manual cache — useful when you want full control over eviction or
+// you're hydrating from a service worker / build-time inlined buffer.
+const cache = new Map<string, AudioBuffer>();
+
+export function preload(name: string, buffer: AudioBuffer): void {
+  cache.set(name, buffer);
+}
+
+const resolveAsset: AssetResolver = ({ name }) => cache.get(name);
+
+const engine = createEngine({ buses: { sfx: {} }, resolveAsset });`;
+
+const manifest = `import { createEngine, type AssetResolver } from '@schmooky/zvuk';
+
+// Manifest-driven loading: ship a single JSON that maps logical names to
+// versioned URLs (cache-busting hashes), so engine.loadSound('coin') just
+// works without the call site knowing the URL.
+type Manifest = Record<string, string[]>;
+const manifest: Manifest = await fetch('/audio.manifest.json').then(r => r.json());
+
+const resolveAsset: AssetResolver = ({ name, url }) => {
+  const urls = manifest[name];
+  if (urls && urls.length > 0) {
+    // Return the manifest URL list as-is (zvuk runs it through the codec
+    // ladder and falls back across entries on its own). Returning the
+    // first one is also fine — codec preferences win either way.
+    return urls[0];
+  }
+  // Manifest miss — fall through to whatever URL the call passed in.
+  return undefined;
+};
+
+const engine = createEngine({ buses: { sfx: {} }, resolveAsset });
+
+// Call sites can be terse — the URL is just a fallback / type stub:
+await engine.loadSound('coin', '');`;
+---
+<Docs
+  title="Asset resolution"
+  description="Adopt buffers from Pixi assetpack, IndexedDB, manifests, or any asset system — without coupling zvuk to it."
+  eyebrow="Guide"
+>
+
+  <h2>Why a resolver?</h2>
+  <p>
+    Most apps already have an asset system: Pixi's <code>Assets.cache</code>,
+    a manifest-driven loader, an IndexedDB persistence layer, a build-time
+    inliner. Forcing zvuk to <em>also</em> fetch and decode the same audio
+    file means double the download, double the RAM, and weird race conditions
+    on the loading screen.
+  </p>
+  <p>
+    <code>resolveAsset</code> is the seam: a single function that maps an asset
+    name to a buffer (or URL) drawn from whatever system you already run. zvuk
+    consults it before any fetch — so you can build a Pixi adapter, an
+    IndexedDB cache, or a manifest layer without zvuk depending on any of
+    them.
+  </p>
+
+  <h2>API shape</h2>
+  <Snippet code={apiShape} lang="ts" />
+
+  <p>
+    Returning <code>undefined</code> or <code>null</code> falls through to
+    the URL list passed to <code>loadSound</code>. That means you can
+    seamlessly mix cached and uncached sounds without branching at the
+    call site — the resolver returns what it has, the URL fetch handles
+    the rest.
+  </p>
+
+  <h2>Recipe — Pixi v8 + assetpack</h2>
+  <p>
+    The integration zvuk is mainly designed around. Bundle audio with your
+    Pixi assetpack manifest, load it as part of the normal preload flow,
+    and have zvuk pull buffers straight out of the Pixi cache.
+  </p>
+  <Snippet code={pixiAssetpack} lang="ts" />
+  <p>
+    A real example app is shipped separately with slotplate. Your existing
+    Pixi loading-screen progress bar continues to drive the audio download
+    too — there's no second progress to wire up.
+  </p>
+
+  <h2>Recipe — IndexedDB persistent cache</h2>
+  <p>
+    For apps that load the same audio set repeatedly (slot machines, casino
+    games, kiosk experiences), persisting decoded bytes in IndexedDB cuts
+    cold-start time on returning users. The resolver fetches the first
+    time, then hydrates from the DB on subsequent loads.
+  </p>
+  <Snippet code={indexedDB} lang="ts" />
+
+  <h2>Recipe — in-memory cache</h2>
+  <p>
+    If you want full control over eviction or you're injecting buffers from
+    a service worker / build-time inliner, a plain <code>Map</code> is
+    enough.
+  </p>
+  <Snippet code={inMemoryCache} lang="ts" />
+
+  <h2>Recipe — manifest-driven URLs</h2>
+  <p>
+    Ship one JSON that maps logical names to versioned (hash-busted) URLs,
+    and let the resolver pick the right URL given a name. Call sites stay
+    terse — they don't need to know the actual file path.
+  </p>
+  <Snippet code={manifest} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Resolver miss is <em>not</em> the same as a load failure.</div>
+    Returning <code>undefined</code>/<code>null</code> falls through to the
+    URL list. If the URL list also fails, <em>then</em> the load throws — a
+    miss is just "I don't have this, try the network." If you actually want
+    to fail fast when the asset isn't in your cache, return a string URL
+    that you know doesn't exist, or wrap <code>loadSound</code> in a
+    pre-check.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Streams use a different path.</div>
+    <code>resolveAsset</code> applies to <code>loadSound</code> and
+    <code>loadSprite</code>. <code>loadStream</code> is HTMLAudioElement-
+    backed and doesn't decode buffers, so it doesn't run through the
+    resolver. If your manifest covers streams too, point them at URLs and
+    let <code>loadStream</code> consume those directly.
+  </div>
+</Docs>

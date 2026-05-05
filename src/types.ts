@@ -44,6 +44,40 @@ export interface MasterConfig {
 }
 
 /**
+ * Anything an `AssetResolver` is allowed to return:
+ * - `AudioBuffer` — already decoded, used as-is.
+ * - `ArrayBuffer` — encoded bytes; zvuk decodes via the engine's AudioContext.
+ * - `string` — a URL; zvuk fetches and decodes via its normal loader (and
+ *    the cache).
+ * - `undefined` / `null` — explicit "I don't have this" — falls through to
+ *    the URL list passed to `loadSound` (or throws if none was given).
+ */
+export type ResolvedAsset = AudioBuffer | ArrayBuffer | string;
+
+export interface ResolveAssetContext {
+  /** The name passed to `engine.loadSound(name, ...)`. */
+  readonly name: string;
+  /** The URL or URL list passed to `engine.loadSound(name, urls)`. */
+  readonly url: string | readonly string[];
+  /** Forwarded from `LoadSoundOptions.signal`. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * Hook for adopting buffers from an external asset system (Pixi assetpack,
+ * IndexedDB cache, custom manifest) instead of (or in addition to) zvuk's
+ * URL fetcher. Returning `undefined`/`null` falls through to the URL fetch,
+ * so resolvers can mix cached and uncached sounds without branching at the
+ * call site.
+ *
+ * The resolver runs before any fetch — if it returns a buffer or URL, the
+ * URL list passed to `loadSound` is only used as the resolution key.
+ */
+export type AssetResolver = (
+  ctx: ResolveAssetContext,
+) => ResolvedAsset | undefined | null | Promise<ResolvedAsset | undefined | null>;
+
+/**
  * External ticker for driving the scheduler's task dispatch — typically
  * a host's existing render loop (Pixi `app.ticker`, GSAP `gsap.ticker`).
  *
@@ -108,6 +142,23 @@ export interface EngineConfig {
    * loop. See the "Runtime timing" guide for the full trade-off.
    */
   tickSource?: TickSource;
+  /**
+   * Adopt buffers from an external asset system instead of (or in addition
+   * to) zvuk's URL fetcher. Called once per `loadSound` / `loadSprite` call
+   * before any fetch. Return:
+   *
+   * - `AudioBuffer` — used as-is.
+   * - `ArrayBuffer` — decoded via the engine's AudioContext.
+   * - `string` — treated as a URL; fetched and decoded normally.
+   * - `undefined` / `null` — miss; falls through to the URL list passed to
+   *   `loadSound`. Resolvers can mix cached and uncached sounds without
+   *   branching at the call site.
+   *
+   * Useful for: Pixi `Assets.cache`, IndexedDB persistence, manifest-driven
+   * loading, custom CDN proxies. See the "Asset resolution" guide for
+   * complete recipes.
+   */
+  resolveAsset?: AssetResolver;
   /**
    * When `true` (default), the engine listens for `visibilitychange` and
    * suspends the AudioContext while the tab/window is hidden, then resumes
