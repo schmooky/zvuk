@@ -43,9 +43,25 @@ export interface MasterConfig {
   limiter?: MasterLimiterConfig;
 }
 
+export interface VoiceDefaults {
+  /**
+   * Default click-free fade-out duration applied by `voice.stop()`, in
+   * seconds. Web Audio cuts source nodes mid-waveform, which produces a
+   * digital click on non-zero crossings — a tiny linear ramp on the gain
+   * stage before the source actually stops eliminates that. Default 0.008
+   * (8 ms): inaudible as fade, sufficient as click suppressor.
+   *
+   * Override per-call with `voice.stop({ fade: 0 })` for hard cuts (sample-
+   * accurate timing, intentional staccato), or `{ fade: 0.05 }` for longer
+   * tails. Set 0 here to opt the whole engine out of click-free behaviour.
+   */
+  stopFade?: number;
+}
+
 export interface EngineConfig {
   buses?: Record<string, BusConfig>;
   master?: MasterConfig;
+  voice?: VoiceDefaults;
 }
 
 export interface FadeOptions {
@@ -53,6 +69,15 @@ export interface FadeOptions {
   /** Fade duration in seconds. */
   duration: number;
   curve?: FadeCurve;
+}
+
+export interface StopOptions {
+  /**
+   * Click-free fade-out duration (seconds) to apply before the source node
+   * actually stops. Default: the engine's `voice.stopFade` (0.008 if not
+   * configured). Pass `0` for an immediate hard cut.
+   */
+  fade?: number;
 }
 
 export interface VoiceJitter {

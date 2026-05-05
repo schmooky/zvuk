@@ -1,8 +1,10 @@
 import { applyRamp } from '../mixer/curve';
 import type { Spatializer } from '../spatial/spatializer';
-import type { FadeOptions, PlayOptions } from '../types';
+import type { FadeOptions, PlayOptions, StopOptions } from '../types';
 
 type VoiceCue = 'started' | 'paused' | 'resumed' | 'ended';
+
+const DEFAULT_STOP_FADE_SEC = 0.008;
 
 interface VoiceDeps {
   ctx: AudioContext;
@@ -12,6 +14,8 @@ interface VoiceDeps {
   onEnded: (v: Voice) => void;
   spatializer?: Spatializer;
   sourceName?: string;
+  /** Engine-level default click-free fade for stop() (seconds). */
+  defaultStopFade?: number;
 }
 
 /**
@@ -39,6 +43,7 @@ export class Voice {
   private loop: boolean;
   private basePitch: number;
   private done = false;
+  private stopping = false;
   private paused = false;
   private resolveEnded!: () => void;
   private cueListeners = new Set<(c: VoiceCue) => void>();
@@ -51,6 +56,7 @@ export class Voice {
   private loopStart: number | undefined;
   private loopEnd: number | undefined;
   private regionTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopFade: number;
 
   static nextId = 1;
 
@@ -71,6 +77,7 @@ export class Voice {
     this.regionDuration = options.duration;
     this.loopStart = options.loopStart;
     this.loopEnd = options.loopEnd;
+    this.stopFade = Math.max(0, deps.defaultStopFade ?? DEFAULT_STOP_FADE_SEC);
 
     this.gain = ctx.createGain();
     const initialVolume = resolveJittered(options.volume ?? 1);
@@ -114,14 +121,60 @@ export class Voice {
     return new Promise((res) => setTimeout(res, Math.max(0, opts.duration) * 1000));
   }
 
-  stop(): void {
-    if (this.done) return;
-    try {
-      this.source.stop();
-    } catch {
-      /* already stopped */
+  /**
+   * Stop the voice. Applies a short linear gain ramp (default ~8 ms) before
+   * the source node actually stops, to suppress the digital click that
+   * would otherwise fire if the source is cut mid-waveform on a non-zero
+   * crossing. Pass `{ fade: 0 }` for an instant hard cut, or a longer
+   * duration for an explicit tail.
+   *
+   * Re-entrant calls during an in-progress stop are no-ops — the first
+   * stop wins. The voice's `.ended` promise resolves when the audio
+   * actually stops (i.e. after the ramp completes).
+   */
+  stop(opts: StopOptions = {}): void {
+    if (this.done || this.stopping) return;
+    const fade = Math.max(0, opts.fade ?? this.stopFade);
+
+    if (fade === 0) {
+      try {
+        this.source.stop();
+      } catch {
+        /* already stopped */
+      }
+      this.finish('ended');
+      return;
     }
-    this.finish('ended');
+
+    this.stopping = true;
+    const now = this.ctx.currentTime;
+    const stopAt = now + fade;
+
+    // Detach the source's onended hook so it doesn't race the timeout below.
+    // We own the finish lifecycle for the click-free path.
+    this.source.onended = null;
+
+    if (this.regionTimer != null) {
+      clearTimeout(this.regionTimer);
+      this.regionTimer = null;
+    }
+
+    try {
+      const param = this.gain.gain;
+      param.cancelScheduledValues(now);
+      // Pin the current value so linearRampToValueAtTime has a defined "from"
+      // even if there were no prior scheduled events on this param.
+      param.setValueAtTime(param.value, now);
+      param.linearRampToValueAtTime(0, stopAt);
+      this.source.stop(stopAt);
+    } catch {
+      // Schedule failed (e.g. source already stopped) — fall through to a
+      // hard finish so we don't leak a node graph.
+      this.finish('ended');
+      return;
+    }
+
+    setTimeout(() => this.finish('ended'), fade * 1000);
   }
 
   /**

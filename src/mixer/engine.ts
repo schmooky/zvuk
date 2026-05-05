@@ -278,6 +278,7 @@ class EngineImpl implements Engine {
       ctx: this.host.touch(),
       buffer,
       defaultBus,
+      defaultStopFade: this.config.voice?.stopFade,
       resolveBusInput: (busName) => {
         const bus = this.buses.get(busName);
         if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
