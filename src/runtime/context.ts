@@ -9,6 +9,11 @@ type StateListener = (s: EngineState) => void;
 // other system audio interruptions; widen here so we can switch on it.
 type ExtAudioContextState = AudioContextState | 'interrupted';
 
+export interface AudioContextHostOptions {
+  /** When false, the host won't suspend the context on tab hide. Default true. */
+  autoPauseOnHidden?: boolean;
+}
+
 /**
  * AudioContext host with explicit lifecycle.
  *
@@ -26,6 +31,11 @@ export class AudioContextHost {
   private _state: EngineState = 'cold';
   private _unlocking: Promise<void> | null = null;
   private _listeners = new Set<StateListener>();
+  private opts: AudioContextHostOptions;
+
+  constructor(opts: AudioContextHostOptions = {}) {
+    this.opts = opts;
+  }
 
   get state(): EngineState {
     return this._state;
@@ -83,7 +93,9 @@ export class AudioContextHost {
 
   async close(): Promise<void> {
     if (this._state === 'closed') return;
-    document.removeEventListener('visibilitychange', this.handleVisibility);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibility);
+    }
     if (this._ctx) {
       this._ctx.removeEventListener('statechange', this.handleCtxStateChange);
       if (this._ctx.state !== 'closed') {
@@ -102,6 +114,7 @@ export class AudioContextHost {
   }
 
   private attachVisibilityHandler(): void {
+    if (this.opts.autoPauseOnHidden === false) return;
     if (typeof document === 'undefined') return;
     document.addEventListener('visibilitychange', this.handleVisibility);
   }

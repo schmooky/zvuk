@@ -61,6 +61,7 @@ export type {
   SidechainConfig,
   SpatialOptions,
   StopOptions,
+  TickSource,
   VoiceDefaults,
   VoiceJitter,
 } from './types';

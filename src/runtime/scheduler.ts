@@ -1,3 +1,4 @@
+import type { TickSource } from '../types';
 import type { AudioContextHost } from './context';
 
 type ScheduledTask = {
@@ -9,29 +10,50 @@ type ScheduledTask = {
 /**
  * Sample-accurate scheduler driven by AudioContext time.
  *
- * Tasks are sorted by their target audio time and dispatched from a setTimeout
- * tick whose interval is computed from the closest pending task. The drift
- * vs ctx.currentTime is bounded by one tick (a few ms) — for true
- * sample-accurate playback, callers should stamp Web Audio API parameters
- * (gain ramps, source.start) directly with the audioTime value passed in.
+ * Tasks are sorted by their target audio time and dispatched from a tick
+ * source: an injected `TickSource` (host's render loop — Pixi, GSAP) when
+ * configured, otherwise `setTimeout`. The drift vs `ctx.currentTime` is
+ * bounded by one tick (a few ms for setTimeout, ~16 ms at 60 fps for an
+ * external ticker). For true sample-accurate playback, callers should
+ * stamp Web Audio API parameters (gain ramps, source.start) directly with
+ * the `audioTime` value passed in — that scheduling happens on the audio
+ * thread and is unaffected by tab-blur throttling either way.
+ *
+ * Tick-source mode subscribes lazily — only while there are pending tasks —
+ * so a 60 fps host loop isn't waking the scheduler 60 times a second to do
+ * nothing.
  */
 export class Scheduler {
   private tasks: ScheduledTask[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
+  private unsubscribe: (() => void) | null = null;
 
-  constructor(private host: AudioContextHost) {}
+  constructor(
+    private host: AudioContextHost,
+    private tickSource?: TickSource,
+  ) {}
 
   scheduleAt(audioTime: number, fn: () => void): () => void {
     const task: ScheduledTask = { audioTime, fn, cancelled: false };
     this.tasks.push(task);
     this.tasks.sort((a, b) => a.audioTime - b.audioTime);
-    this.reschedule();
+    this.arm();
     return () => {
       task.cancelled = true;
     };
   }
 
-  private reschedule(): void {
+  private arm(): void {
+    if (this.tickSource) {
+      if (!this.unsubscribe) {
+        this.unsubscribe = this.tickSource.subscribe(() => this.tick());
+      }
+      return;
+    }
+    this.rearmTimer();
+  }
+
+  private rearmTimer(): void {
     if (this.timer != null) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -45,7 +67,10 @@ export class Scheduler {
   }
 
   private tick(): void {
-    this.timer = null;
+    if (this.timer != null) {
+      // setTimeout-mode tick fired — the timer ref is now spent.
+      this.timer = null;
+    }
     const now = this.host.now;
     const due: ScheduledTask[] = [];
     const remaining: ScheduledTask[] = [];
@@ -63,12 +88,27 @@ export class Scheduler {
         console.error('[zvuk] scheduled task threw', e);
       }
     }
-    this.reschedule();
+
+    if (this.tasks.length === 0) {
+      // Idle — release the host ticker subscription so it isn't burning
+      // frames on an empty queue.
+      if (this.unsubscribe) {
+        this.unsubscribe();
+        this.unsubscribe = null;
+      }
+      return;
+    }
+
+    if (!this.tickSource) this.rearmTimer();
   }
 
   dispose(): void {
     if (this.timer != null) clearTimeout(this.timer);
     this.timer = null;
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
     this.tasks = [];
   }
 }
