@@ -39,3 +39,27 @@ export class DecodeError extends ZvukError {
     this.name = 'DecodeError';
   }
 }
+
+export interface DecodeAttempt {
+  readonly url: string;
+  readonly cause: unknown;
+}
+
+/**
+ * Thrown when every URL in a fallback list fails to load. Subclass of
+ * DecodeError so existing `catch (e instanceof DecodeError)` paths still
+ * fire — `attempts` exposes the per-URL causes for diagnostics.
+ */
+export class AggregateDecodeError extends DecodeError {
+  readonly attempts: readonly DecodeAttempt[];
+  constructor(urls: readonly string[], attempts: readonly DecodeAttempt[]) {
+    const last = attempts[attempts.length - 1];
+    super(urls[urls.length - 1] ?? '<empty>', last?.cause);
+    this.name = 'AggregateDecodeError';
+    this.attempts = attempts;
+    const summary = attempts
+      .map((a) => `  - ${a.url}: ${a.cause instanceof Error ? a.cause.message : String(a.cause)}`)
+      .join('\n');
+    this.message = `Failed to load any of ${urls.length} fallback URLs:\n${summary}`;
+  }
+}

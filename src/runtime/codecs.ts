@@ -71,3 +71,25 @@ export function pickSource(urls: readonly string[]): string {
   }
   return urls[0]!;
 }
+
+/**
+ * Return the URL list reordered for fallback loading: codecs the browser
+ * claims it can play first (in user-given order), unknowns/unsupported last.
+ *
+ * canPlayType is a hint, not a hard filter — some browsers under-report
+ * support, and decodeAudioData accepts a few extras. So we keep all URLs in
+ * the result; ordering merely biases the first attempts toward what's most
+ * likely to succeed. Pair with Decoder.loadFirst() to walk the list and fall
+ * through on per-URL fetch/decode failures.
+ */
+export function pickSourceOrder(urls: readonly string[]): readonly string[] {
+  if (urls.length === 0) return urls;
+  const playable: string[] = [];
+  const unknown: string[] = [];
+  for (const url of urls) {
+    const mime = mimeForUrl(url);
+    if (mime && canPlay(mime)) playable.push(url);
+    else unknown.push(url);
+  }
+  return [...playable, ...unknown];
+}

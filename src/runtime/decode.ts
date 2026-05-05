@@ -1,4 +1,4 @@
-import { DecodeError } from '../errors';
+import { AggregateDecodeError, type DecodeAttempt, DecodeError } from '../errors';
 
 export interface DecodeOptions {
   signal?: AbortSignal;
@@ -54,6 +54,52 @@ export class Decoder {
 
     this.touch(url, buffer);
     return buffer;
+  }
+
+  /**
+   * Walk a list of URLs, returning the first successful load. Falls through
+   * on per-URL fetch failures (404, 5xx, network) AND decode failures
+   * (decodeAudioData rejections), so a single broken codec or stale CDN
+   * entry doesn't bring the whole sound down.
+   *
+   * Cache fast-path: if any URL in the list is already cached, that buffer
+   * is returned immediately without any fetch — useful when a previous load
+   * already resolved a fallback for the same asset.
+   *
+   * AbortError (from opts.signal) is fatal and propagates verbatim — once
+   * the caller pulled the plug, we don't keep trying.
+   *
+   * On total failure: if a single URL was given, the underlying DecodeError
+   * is rethrown verbatim. If multiple URLs were given, an
+   * AggregateDecodeError is thrown with per-URL causes attached.
+   */
+  async loadFirst(urls: readonly string[], opts: DecodeOptions = {}): Promise<AudioBuffer> {
+    if (urls.length === 0) throw new Error('loadFirst requires at least one URL');
+
+    for (const url of urls) {
+      const cached = this.cache.get(url);
+      if (cached) {
+        this.touch(url, cached);
+        return cached;
+      }
+    }
+
+    const attempts: DecodeAttempt[] = [];
+    for (const url of urls) {
+      try {
+        return await this.load(url, opts);
+      } catch (e) {
+        if ((e as Error).name === 'AbortError') throw e;
+        attempts.push({ url, cause: e });
+      }
+    }
+
+    if (urls.length === 1) {
+      const cause = attempts[0]?.cause;
+      if (cause instanceof Error) throw cause;
+      throw new DecodeError(urls[0]!, cause);
+    }
+    throw new AggregateDecodeError(urls, attempts);
   }
 
   evict(url: string): void {

@@ -1,4 +1,6 @@
+export type { DecodeAttempt } from './errors';
 export {
+  AggregateDecodeError,
   BankNotLoadedError,
   BusNotFoundError,
   DecodeError,
@@ -33,7 +35,7 @@ export { Snapshot } from './mixer/snapshot';
 export type { ParameterCurve } from './params/parameter';
 export { Parameter } from './params/parameter';
 export type { AudioMimeType } from './runtime/codecs';
-export { canPlay, mimeForUrl, pickSource } from './runtime/codecs';
+export { canPlay, mimeForUrl, pickSource, pickSourceOrder } from './runtime/codecs';
 export type { EngineState } from './runtime/context';
 export type { LoudnessOptions, NormalizeFlag } from './runtime/loudness';
 export {
