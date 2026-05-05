@@ -1,6 +1,6 @@
 import { BusNotFoundError, EngineClosedError, SoundNotFoundError } from '../errors';
 import { Parameter } from '../params/parameter';
-import { pickSource } from '../runtime/codecs';
+import { pickSource, pickSourceOrder } from '../runtime/codecs';
 import { AudioContextHost, type EngineState } from '../runtime/context';
 import { type DecodeOptions, Decoder } from '../runtime/decode';
 import { applyLoudnessNormalization } from '../runtime/loudness';
@@ -28,8 +28,15 @@ export interface Engine {
    * Load and decode an audio asset.
    *
    * Pass an array of URLs to ship a codec ladder — e.g. ['coin.webm', 'coin.m4a'].
-   * The first URL the browser can decode wins; this is how you serve Opus to
-   * everyone except older iOS Safari without bloating the bundle.
+   * The list is walked in order (codecs the browser claims it can play
+   * float to the front), and the first URL that successfully fetches AND
+   * decodes wins. A 404, network error, or decode failure on one URL falls
+   * through to the next — so a broken CDN entry or under-reported codec
+   * doesn't bring the whole sound down.
+   *
+   * If every URL fails, throws AggregateDecodeError (a subclass of
+   * DecodeError) with per-URL causes attached. If only one URL was given,
+   * the underlying DecodeError is rethrown verbatim.
    */
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
   /** Register a Sound from an AudioBuffer you constructed yourself (procedural, custom-decoded, time-stretched). */
@@ -185,9 +192,9 @@ class EngineImpl implements Engine {
     this.host.touch();
     this.ensureGraph();
 
-    const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
+    const urls = typeof url === 'string' ? [url] : pickSourceOrder(url);
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    let buffer = await this.decoder.load(resolvedUrl, decodeOpts);
+    let buffer = await this.decoder.loadFirst(urls, decodeOpts);
 
     if (options.normalize) {
       buffer = applyLoudnessNormalization(buffer, options.normalize);
