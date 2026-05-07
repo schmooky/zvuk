@@ -1,0 +1,131 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Music {
+  readonly name: string;
+  readonly loopDuration: number;
+  readonly hasIntro: boolean;
+  readonly hasOutro: boolean;
+
+  play(options?: { volume?: number; fadeIn?: number }): MusicVoice;
+}
+
+class MusicVoice {
+  readonly currentPart: 'intro' | 'loop' | 'outro' | 'ended';
+  readonly ended: Promise<void>;
+
+  fade(opts: { to: number; duration: number; curve?: FadeCurve }): Promise<void>;
+  stop(opts?: { fade?: number }): void;
+  skipToOutro(opts?: { at?: 'loop-end' | 'now' }): void;
+}`;
+
+const load = `// engine.loadMusic — three parts; codec ladders allowed per part.
+await engine.loadMusic('boss-theme', {
+  intro: ['/music/boss-intro.webm', '/music/boss-intro.m4a'],
+  loop:  ['/music/boss-loop.webm',  '/music/boss-loop.m4a'],
+  outro: ['/music/boss-outro.webm', '/music/boss-outro.m4a'],
+}, { bus: 'music', loopCrossfade: 0.05 });`;
+
+const playBasic = `// Start the music. The intro plays once, then the loop runs forever.
+const m = engine.music('boss-theme').play({ volume: 0.7, fadeIn: 0.2 });
+
+// Later, when the user clears the room:
+m.skipToOutro();    // → finishes current loop iteration, then plays outro,
+                    // then resolves m.ended.
+
+await m.ended;`;
+
+const skipModes = `// Two ways to end the music.
+//
+// 'loop-end' (default) — wait for the current loop iteration to complete,
+// then play the outro at the natural loop boundary. The musical answer.
+m.skipToOutro({ at: 'loop-end' });
+
+// 'now' — fade the loop out (~50 ms) and start the outro immediately.
+// Less musical, more responsive — right call for "user pressed Stop."
+m.skipToOutro({ at: 'now' });
+
+// Hard cut, no outro.
+m.stop();           // ~8 ms click-free fade
+m.stop({ fade: 0 }); // immediate
+m.stop({ fade: 1 }); // 1-second fade-out`;
+
+const noOutro = `// Outro is optional. Loop-only assets work fine.
+await engine.loadMusic('menu', { loop: '/music/menu.webm' }, { bus: 'music' });
+const m = engine.music('menu').play({ fadeIn: 0.3 });
+m.skipToOutro(); // no outro buffer → falls through to a clean fade-out`;
+
+const crossfade = `// Click-free loop boundaries with loopCrossfade.
+await engine.loadMusic('combat', {
+  loop: '/music/combat-loop.webm',
+}, { bus: 'music', loopCrossfade: 0.05 });
+// Same trick as PlayOptions.loopCrossfade on a Voice — a parallel buffer
+// source spawns one crossfade-window before each boundary and equal-power
+// ramps between them. Off by default; set > 0 to opt in.`;
+---
+<Docs
+  title="Music"
+  description="Stinger → loop → outro, with skip-to-outro at the natural loop boundary."
+  eyebrow="Concept"
+>
+  <h2>TL;DR</h2>
+  <p>
+    A <code>Music</code> source is a three-part asset — optional intro,
+    mandatory loop, optional outro — that plays the way game music actually
+    works: stinger plays once, loop body runs forever, and (on cue) the
+    outro fires at the next loop boundary so the music ends musically
+    instead of cutting off mid-bar.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Music + MusicVoice — public interface" />
+
+  <h2>Load a three-part asset</h2>
+  <p>
+    Each part accepts the same shape as <code>loadSound</code>'s second
+    argument: a single URL or a codec ladder. Loading goes through the same
+    decoder cache and the same <a href="/guides/asset-resolution/"><code>resolveAsset</code></a>
+    hook, so codec fallback and external asset systems apply per part.
+  </p>
+  <Snippet code={load} lang="ts" />
+
+  <h2>Play it</h2>
+  <Snippet code={playBasic} lang="ts" />
+
+  <h2>How to end it</h2>
+  <Snippet code={skipModes} lang="ts" />
+
+  <h2>Outro is optional</h2>
+  <p>
+    If you skip <code>outro</code>, <code>skipToOutro()</code> falls through
+    to a clean stop — calling code doesn't need to branch on
+    <code>music.hasOutro</code>.
+  </p>
+  <Snippet code={noOutro} lang="ts" />
+
+  <h2>Click-free loops</h2>
+  <p>
+    <code>loopCrossfade</code> on <code>loadMusic</code> works the same way
+    as <a href="/concepts/voice/"><code>PlayOptions.loopCrossfade</code></a>
+    on a regular Voice: spawns a parallel buffer source one crossfade-window
+    before each loop boundary and equal-power-ramps between them. Off by
+    default; set non-zero to opt in.
+  </p>
+  <Snippet code={crossfade} lang="ts" />
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't use <code>Music</code> for short SFX.</div>
+    Each <code>play()</code> spawns a fresh chain of buffer-sources and a
+    couple of timers. For one-shot clicks and stingers, <a href="/concepts/sound/">Sound</a>
+    or <a href="/concepts/sound/">Sprite</a> is cheaper and the right shape.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Don't use <code>Music</code> for tracks &gt; 30 s.</div>
+    All three parts decode into RAM. For long tracks (background mixes,
+    streaming radio), use <a href="/guides/loading/"><code>loadStream</code></a>
+    instead — it routes through <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>
+    so memory stays flat.
+  </div>
+</Docs>

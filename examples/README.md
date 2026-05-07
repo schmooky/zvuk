@@ -10,6 +10,7 @@ illustrates one cluster of the engine that's hard to explain in isolation.
 | `match-3/`           | Concurrency limits + voice stealing as cascades stack.                          |
 | `fps-footsteps/`     | Spatializer (3D) live-steered from pointer position via `voice.spatializer`.    |
 | `rhythm-metronome/`  | `engine.scheduleAt` for sample-accurate clicks, plus live `bus.meter()` + `voice.level()` driving a VU meter and per-voice peak. |
+| `music-stinger-loop-tail/` | `engine.loadMusic({ intro, loop, outro })` — stinger plays once, loop body runs forever, outro fires at the next loop boundary so the music ends musically. |
 
 ## Running
 

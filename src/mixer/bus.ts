@@ -23,7 +23,6 @@ export class Bus {
 
   private _level: number;
   private _muted: boolean;
-  private _baseLevel: number;
   private readonly ctx: AudioContext;
   private _concurrency: ConcurrencyConfig | null;
   private _voices = new Set<Voice>();
@@ -38,7 +37,6 @@ export class Bus {
     this.name = name;
     this._level = config.level ?? 1;
     this._muted = config.mute ?? false;
-    this._baseLevel = this._level;
     this._concurrency = config.concurrency ?? null;
 
     this.input = ctx.createGain();
@@ -59,7 +57,6 @@ export class Bus {
 
   set level(v: number) {
     this._level = clamp01(v);
-    this._baseLevel = this._level;
     if (!this._muted) this.rampOutput(this._level, 0.01);
   }
 
@@ -76,7 +73,6 @@ export class Bus {
   fadeTo(target: number, duration: number, curve: FadeCurve = 'linear'): Promise<void> {
     const to = clamp01(target);
     this._level = to;
-    this._baseLevel = to;
     return this.ramp(to, duration, curve);
   }
 

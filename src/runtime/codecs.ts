@@ -53,7 +53,7 @@ export function canPlay(mime: AudioMimeType): boolean {
 
 export function mimeForUrl(url: string): AudioMimeType | null {
   const m = /\.([a-z0-9]+)(?:[?#]|$)/i.exec(url);
-  if (!m || !m[1]) return null;
+  if (!m?.[1]) return null;
   return EXT_TO_MIME[m[1].toLowerCase()] ?? null;
 }
 

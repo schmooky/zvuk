@@ -21,6 +21,18 @@ const v1_0_0: Item[] = [
   },
 ];
 
+// Things shipped between v1.4 and v1.8. Roughly one feature per minor.
+const recentMinors: Item[] = [
+  { title: 'Music source — stinger → loop → outro (v1.8)', why: 'engine.loadMusic(name, { intro, loop, outro }) + MusicVoice.skipToOutro({ at: "loop-end" | "now" }). The pattern every casino slot, action game, and rhythm game uses for combat/win/menu music. Click-free at the loop boundary via loopCrossfade.', size: 'L', link: '/concepts/music/' },
+  { title: 'voice.level() + bus.meter() — live amplitude readouts (v1.7)', why: 'Lazy AnalyserNode taps. Drove rhythm-metronome example, mixer dashboards, and the real "quietest" voice-stealing strategy.', size: 'M', link: '/concepts/bus/' },
+  { title: 'engine.preload(items, { signal, concurrency, onProgress }) (v1.6)', why: 'First-class bulk loader for loading screens. Per-item progress, concurrency cap, aggregated PreloadError.', size: 'M', link: '/guides/loading/#first-class-preloader-engine-preload' },
+  { title: 'loopCrossfade play option (v1.5)', why: 'Off-by-default equal-power crossfade at the loop boundary so non-zero-crossing music regions don\'t click.', size: 'M', link: '/concepts/voice/#loop-crossfade-off-by-default' },
+  { title: 'Audit cleanups (v1.4)', why: 'Real Filter bypass, dead BankNotLoadedError removed, honest \'quietest\' fallback warning until per-voice metering shipped in v1.7.', size: 'S' },
+  { title: 'createEngine({ resolveAsset }) hook (v1.3)', why: 'Adopt buffers from Pixi Assets.cache, IndexedDB, or any external asset system without zvuk depending on it.', size: 'M', link: '/guides/asset-resolution/' },
+  { title: 'tickSource injection + autoPauseOnHidden (v1.2)', why: 'Wire the scheduler into a host\'s render loop (Pixi/GSAP) instead of setTimeout, and opt out of visibility-pause for music players.', size: 'M', link: '/guides/runtime-timing/' },
+  { title: 'Click-free voice.stop() (v1.1)', why: 'Tiny gain ramp before source.stop() suppresses the click that fires when buffers are cut mid-waveform.', size: 'S' },
+];
+
 // Everything from the public roadmap that v0.0.2 shipped. These render in
 // the "Recently shipped" section so the page reflects current state instead
 // of pretending the work is still pending.
@@ -45,18 +57,87 @@ const recentlyShipped: Item[] = [
   { title: 'OG images', why: 'Per-page social cards via astro-og-canvas.', size: 'S' },
 ];
 
+// What's still on the table. Each line is roughly one minor release of work.
 const tier1: Item[] = [
   {
-    title: 'Touch handling polish',
-    why: 'Polished — the SpatialPanner demo now uses pointer events and exposes voice.spatializer for live binding instead of faking it. Listed here for the record; will move into the shipped block on the next pass.',
+    title: 'Bus sends / aux',
+    why: 'bus.send(target, { amount }) so you can route 30% of music through a verb-only bus instead of inserting reverb directly. The Wwise primitive the README claims and the API doesn\'t yet have.',
+    size: 'M',
+    link: '/concepts/bus/',
+  },
+  {
+    title: 'Solo + busGroup',
+    why: 'bus.solo() (mute everyone else), engine.busGroup(name, [...buses]) so snapshots and parameters can address logical groups instead of repeating bus names.',
     size: 'S',
-    link: '/concepts/spatializer/',
+  },
+  {
+    title: 'engine.masterMeter()',
+    why: 'Live RMS + peak on the master output. Same primitive as bus.meter() / voice.level(), just exposed at the top of the chain.',
+    size: 'S',
   },
 ];
 
-const tier2: Item[] = [];
-const tier3: Item[] = [];
-const tier4: Item[] = [];
+const tier2: Item[] = [
+  {
+    title: 'Spatializer 3D config',
+    why: 'Expose refDistance / maxDistance / rolloffFactor on Spatializer (currently hard-coded), plus a single-knob distance Parameter that drives attenuation + a low-pass for occlusion.',
+    size: 'M',
+    link: '/concepts/spatializer/',
+  },
+  {
+    title: 'Variants helper',
+    why: 'engine.loadVariants("coin", urls) + engine.variants("coin").play() picks one randomly. Slot games play random coin/win/reel-stop variants constantly — currently nightmare-ergonomic without this.',
+    size: 'S',
+  },
+  {
+    title: 'play({ fadeIn })',
+    why: 'Convenience for "drop into the menu" intros. Currently requires play({ volume: 0 }) + fade() — trivially the dual of the existing stop fade.',
+    size: 'S',
+    link: '/concepts/voice/',
+  },
+  {
+    title: 'engine.unloadSound(name, { evictBuffer: true })',
+    why: 'Currently removeSound() drops the registry entry but the buffer stays in the LRU. Hot-swappable themes (kiosks, slot lobbies) need explicit eviction.',
+    size: 'S',
+  },
+];
+
+const tier3: Item[] = [
+  {
+    title: 'Branded BusName / SoundName types',
+    why: 'engine.bus(name) and engine.sound(name) currently take any string. Inferring from createEngine({ buses: { ... } }) gives compile-time correctness on typos.',
+    size: 'M',
+  },
+  {
+    title: 'createEngine({ latencyHint })',
+    why: 'Maps to AudioContext.latencyHint. Slot games doing 60 fps reactive audio want \'interactive\'; long music players want \'playback\'. Currently we accept the default.',
+    size: 'S',
+  },
+  {
+    title: 'Per-voice FX',
+    why: 'FX inserts are bus-level today. No way to put a flanger on one voice without dedicating a bus to it.',
+    size: 'L',
+  },
+  {
+    title: 'Snapshot blend',
+    why: 'engine.blendSnapshots(\'menu\', \'combat\', t) for interpolated mixes driven by a Parameter. Wwise has it; we don\'t.',
+    size: 'M',
+    link: '/concepts/snapshot/',
+  },
+];
+
+const tier4: Item[] = [
+  {
+    title: 'engine.recordOutput()',
+    why: 'Capture the master to a Blob via MediaStreamDestination. Casino "show-mode" replays — niche but specific.',
+    size: 'M',
+  },
+  {
+    title: 'Android focus / interruption tracking',
+    why: 'iOS \'interrupted\' state is handled. Android focus loss is similar and we currently lean on visibilitychange only.',
+    size: 'M',
+  },
+];
 
 const sizeBadge = {
   S: { label: 'small', cls: 'border-primary/40 bg-primary/10 text-primary' },
@@ -97,10 +178,42 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.0.0</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.4 → v1.8</div>
         <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
       </div>
-      <p class="mb-5 text-sm text-muted-foreground">First stable release. The headline change is a unit normalization across the public API.</p>
+      <p class="mb-5 text-sm text-muted-foreground">Roughly one feature per minor release. Most recent first.</p>
+      <ol class="space-y-3">
+        {recentMinors.map((item) => {
+          const badge = sizeBadge[item.size ?? 'M'];
+          return (
+            <li class="rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+              <div class="flex flex-wrap items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold">
+                    <span class="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary/30 text-[10px] text-primary-foreground">✓</span>
+                    {item.title}
+                  </div>
+                  <p class="mt-1 text-sm text-muted-foreground">{item.why}</p>
+                  {item.link && (
+                    <a href={item.link} class="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-primary hover:underline">
+                      related: {item.link}
+                    </a>
+                  )}
+                </div>
+                <span class={`shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${badge.cls}`}>{badge.label}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+
+    <section class="mb-12">
+      <div class="mb-1 flex items-baseline gap-3">
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.0.0</div>
+        <h2 class="text-2xl font-semibold tracking-tight">First stable release</h2>
+      </div>
+      <p class="mb-5 text-sm text-muted-foreground">The headline change was a unit normalization across the public API.</p>
       <ol class="space-y-3">
         {v1_0_0.map((item) => {
           const badge = sizeBadge[item.size ?? 'M'];

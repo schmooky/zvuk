@@ -11,12 +11,21 @@ import { AudioContextHost, type EngineState } from '../runtime/context';
 import { type DecodeOptions, Decoder } from '../runtime/decode';
 import { applyLoudnessNormalization } from '../runtime/loudness';
 import { Scheduler } from '../runtime/scheduler';
+import { Music } from '../sources/music';
 import { Sound } from '../sources/sound';
 import { Sprite, type SpriteMap } from '../sources/sprite';
 import { StreamSound } from '../sources/stream';
 import type { Voice } from '../sources/voice';
 import { Spatializer } from '../spatial/spatializer';
-import type { EngineConfig, LoadSoundOptions, PreloadItem, PreloadOptions, SpatialOptions } from '../types';
+import type {
+  EngineConfig,
+  LoadSoundOptions,
+  MusicLoadOptions,
+  MusicParts,
+  PreloadItem,
+  PreloadOptions,
+  SpatialOptions,
+} from '../types';
 import { Bus } from './bus';
 import { Master } from './master';
 import { Snapshot, type SnapshotState } from './snapshot';
@@ -85,6 +94,23 @@ export interface Engine {
   sprite(name: string): Sprite;
   /** True if `name` was loaded as a sprite. */
   hasSprite(name: string): boolean;
+
+  /**
+   * Load a three-part music asset — optional intro, mandatory loop, optional
+   * outro — and register it as a `Music` source. Use this for combat/win/menu
+   * music where you need a stinger that plays once, a body that loops cleanly,
+   * and (optionally) an outro that fires at the next loop boundary so the
+   * music ends musically instead of cutting off mid-bar.
+   *
+   * Each part accepts the same shape as `loadSound`'s second argument —
+   * a single URL or a codec ladder — and is loaded through the same
+   * decoder cache, so codec fallback and `resolveAsset` apply per part.
+   */
+  loadMusic(name: string, parts: MusicParts, options?: MusicLoadOptions): Promise<Music>;
+  /** Look up a previously loaded music asset. Throws SoundNotFoundError on miss. */
+  music(name: string): Music;
+  /** True if `name` was loaded as a music asset. */
+  hasMusic(name: string): boolean;
 
   /**
    * Stream a long media file via HTMLAudioElement + MediaElementAudioSource.
@@ -157,6 +183,7 @@ class EngineImpl implements Engine {
   private sounds = new Map<string, Sound>();
   private sprites = new Map<string, Sprite>();
   private streams = new Map<string, StreamSound>();
+  private musics = new Map<string, Music>();
   private voices = new Map<string, Set<Voice>>();
   private parameters = new Map<string, Parameter>();
   private config: EngineConfig;
@@ -204,6 +231,7 @@ class EngineImpl implements Engine {
     this.master = null;
     this.sounds.clear();
     this.sprites.clear();
+    this.musics.clear();
     for (const s of this.streams.values()) s.dispose();
     this.streams.clear();
     this.parameters.clear();
@@ -317,6 +345,59 @@ class EngineImpl implements Engine {
 
   hasSprite(name: string): boolean {
     return this.sprites.has(name);
+  }
+
+  async loadMusic(name: string, parts: MusicParts, options: MusicLoadOptions = {}): Promise<Music> {
+    if (this.host.state === 'closed') throw new EngineClosedError();
+    this.host.touch();
+    this.ensureGraph();
+
+    const decodeOpts: DecodeOptions = { signal: options.signal };
+    const loopBuf = await this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts);
+    const introBuf = parts.intro
+      ? await this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
+      : undefined;
+    const outroBuf = parts.outro
+      ? await this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
+      : undefined;
+
+    const buffers = {
+      intro: introBuf
+        ? options.normalize
+          ? applyLoudnessNormalization(introBuf, options.normalize)
+          : introBuf
+        : undefined,
+      loop: options.normalize ? applyLoudnessNormalization(loopBuf, options.normalize) : loopBuf,
+      outro: outroBuf
+        ? options.normalize
+          ? applyLoudnessNormalization(outroBuf, options.normalize)
+          : outroBuf
+        : undefined,
+    };
+
+    const busName = options.bus ?? this.busOrder[0]!;
+    const bus = this.buses.get(busName);
+    if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
+
+    const music = new Music(name, {
+      ctx: this.host.touch(),
+      buffers,
+      destination: bus.input,
+      loopCrossfade: options.loopCrossfade ?? 0,
+      defaultStopFade: this.config.voice?.stopFade,
+    });
+    this.musics.set(name, music);
+    return music;
+  }
+
+  music(name: string): Music {
+    const m = this.musics.get(name);
+    if (!m) throw new SoundNotFoundError(suggest(name, [...this.musics.keys()]));
+    return m;
+  }
+
+  hasMusic(name: string): boolean {
+    return this.musics.has(name);
   }
 
   loadStream(name: string, url: string | readonly string[], options: LoadSoundOptions = {}): StreamSound {
