@@ -259,3 +259,50 @@ export interface LoadSoundOptions {
    */
   normalize?: boolean | LoudnessOptions;
 }
+
+/**
+ * One entry in a `engine.preload(...)` batch. Mirrors `engine.loadSound`'s
+ * signature so callers can hand the same data to either path.
+ */
+export interface PreloadItem {
+  /** Sound name, registered on `engine.sound(name)` after preload completes. */
+  name: string;
+  /** URL or codec ladder — same shape as `engine.loadSound`. */
+  url: string | readonly string[];
+  /** Per-item options (bus, normalize, etc.). Forwarded to `loadSound`. */
+  options?: LoadSoundOptions;
+}
+
+export interface PreloadProgressEvent {
+  /** Name of the item that just completed (success or failure). */
+  readonly name: string;
+  /** Outcome — `'loaded'` on decode success, `'failed'` otherwise. */
+  readonly status: 'loaded' | 'failed';
+  /** Error attached when `status === 'failed'`. */
+  readonly error?: unknown;
+  /** Items settled so far (loaded + failed). */
+  readonly completed: number;
+  /** Total items in the batch. */
+  readonly total: number;
+}
+
+export interface PreloadOptions {
+  /**
+   * Cancels the whole preload. In-flight fetches receive the abort; pending
+   * items aren't started. The promise rejects with the signal's abort reason.
+   */
+  signal?: AbortSignal;
+  /**
+   * Maximum concurrent loads. Default 4 — chosen for balance with browser
+   * connection limits (typically 6 per host) so the rest of the page's
+   * fetches don't starve. Lower for cheap mobile data plans, higher when
+   * you control the host and want to saturate.
+   */
+  concurrency?: number;
+  /**
+   * Fires once per item as it settles. Use this to drive a loading-screen
+   * progress bar. The event is cumulative — `event.completed / event.total`
+   * is a fraction in [0..1].
+   */
+  onProgress?: (event: PreloadProgressEvent) => void;
+}

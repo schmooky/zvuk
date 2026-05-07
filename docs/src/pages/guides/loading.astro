@@ -33,6 +33,37 @@ await Promise.all(
   }),
 );`;
 
+const preload = `// engine.preload(items) — bulk-load with progress + concurrency cap.
+await engine.preload(
+  [
+    { name: 'coin', url: ['/sfx/coin.webm', '/sfx/coin.m4a'], options: { bus: 'sfx' } },
+    { name: 'win',  url: ['/sfx/win.webm',  '/sfx/win.m4a'],  options: { bus: 'sfx' } },
+    { name: 'reel', url: ['/sfx/reel.webm', '/sfx/reel.m4a'], options: { bus: 'sfx' } },
+    // ... 100 more items
+  ],
+  {
+    concurrency: 4,                    // default — caps in-flight fetches
+    onProgress: ({ name, status, completed, total }) => {
+      bar.value = completed / total;
+      if (status === 'failed') log.warn(\`\${name} failed\`);
+    },
+  },
+);
+
+// On failure: PreloadError with .failures: { name, cause }[]
+// — the rest of the batch still completes; broken assets don't short-circuit
+// the loading screen.`;
+
+const preloadCancel = `// Cancellable preload — same shape as loadSound's signal.
+const ac = new AbortController();
+button.addEventListener('click', () => ac.abort());
+try {
+  await engine.preload(items, { signal: ac.signal });
+} catch (e) {
+  if ((e as Error).name === 'AbortError') console.log('user cancelled');
+  else throw e;
+}`;
+
 const cancel = `const ac = new AbortController();
 try {
   await Promise.all(
@@ -93,9 +124,32 @@ await loadBank(engine);`;
   <Snippet code={bulk} lang="ts" />
 
   <h2>Progress reporting</h2>
+  <p>
+    The DIY pattern with <code>Promise.all</code> works for small batches.
+  </p>
   <Snippet code={progress} lang="ts" />
 
-  <h2>Cancellable loads</h2>
+  <h2>
+    First-class preloader: <code>engine.preload</code>
+  </h2>
+  <p>
+    For loading screens that ship a fixed manifest, <code>engine.preload</code>
+    handles the boilerplate: per-item progress, a concurrency cap so the rest
+    of the page's network isn't starved, and aggregated failure reporting that
+    doesn't short-circuit on the first broken asset. Items match the
+    <code>loadSound</code> shape one-for-one.
+  </p>
+  <Snippet code={preload} lang="ts" />
+
+  <h2>Cancelling a preload</h2>
+  <p>
+    Pass an <code>AbortSignal</code> in <code>options</code>. The same
+    convention as a single <code>loadSound</code> call — pending items aren't
+    started, in-flight fetches receive the abort.
+  </p>
+  <Snippet code={preloadCancel} lang="ts" />
+
+  <h2>Cancellable single loads</h2>
   <p>
     Pass an <code>AbortSignal</code>. The fetch is cancelled mid-flight; in-progress
     decodes complete (Web Audio's <code>decodeAudioData</code> is not abortable).
