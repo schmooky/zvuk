@@ -43,6 +43,10 @@ for (let i = 0; i < 6; i++) {
   });
 }`;
 
+const fadeIn = `// "Drop in smoothly" — voice ramps from 0 → volume over fadeIn seconds.
+// The dual of the click-free stop fade.
+engine.sound('ambience').play({ loop: true, volume: 0.7, fadeIn: 0.5 });`;
+
 const cues = `const v = engine.sound('intro').play();
 for await (const cue of v.cues()) {
   if (cue === 'started') analytics.send('intro:start');
@@ -117,6 +121,15 @@ requestAnimationFrame(function tick() {
 
   <h3>Random pitch + volume jitter</h3>
   <Snippet code={jitter} lang="ts" />
+
+  <h3>Fade-in on start</h3>
+  <p>
+    <code>play({ fadeIn })</code> is the dual of the click-free stop
+    fade — voice ramps from <code>0</code> to <code>volume</code> over
+    the configured window. Convenience for ambient layers that should
+    drift in instead of pop in.
+  </p>
+  <Snippet code={fadeIn} lang="ts" />
 
   <h3>Async iterator for cues</h3>
   <Snippet code={cues} lang="ts" />

@@ -48,6 +48,8 @@ export { Sound } from './sources/sound';
 export type { SpriteMap, SpriteRegion, SpriteRegionPlayOptions } from './sources/sprite';
 export { Sprite } from './sources/sprite';
 export { StreamSound } from './sources/stream';
+export type { VariantStrategy, VariantsOptions } from './sources/variants';
+export { Variants } from './sources/variants';
 export { Voice } from './sources/voice';
 export { Spatializer } from './spatial/spatializer';
 export type {

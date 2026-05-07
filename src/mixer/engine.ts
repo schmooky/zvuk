@@ -15,6 +15,7 @@ import { Music } from '../sources/music';
 import { Sound } from '../sources/sound';
 import { Sprite, type SpriteMap } from '../sources/sprite';
 import { StreamSound } from '../sources/stream';
+import { Variants, type VariantsOptions } from '../sources/variants';
 import type { Voice } from '../sources/voice';
 import { Spatializer } from '../spatial/spatializer';
 import type {
@@ -32,7 +33,13 @@ import { BusGroup } from './bus-group';
 import { Master } from './master';
 import { Snapshot, type SnapshotState } from './snapshot';
 
-export interface Engine {
+/**
+ * The audio engine. Generic in `TBusName` so that `engine.bus(name)`
+ * type-checks against the bus names you declared in
+ * `createEngine({ buses })`. When the buses map is inferred from a
+ * literal, typos like `engine.bus('sxf')` fail at compile time.
+ */
+export interface Engine<TBusName extends string = string> {
   readonly state: EngineState;
   readonly now: number;
   /** Live AudioContext. Constructs one on first read. Throws if engine is closed. */
@@ -61,6 +68,30 @@ export interface Engine {
    */
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
   /**
+   * Load N alternate sounds and group them under a single name. The
+   * registered `Variants` instance picks one on each `play()` according
+   * to the configured strategy:
+   *
+   * - `'random'` — uniform random pick.
+   * - `'no-repeat'` (default) — uniform random, but never the same as the
+   *   previous pick. Eliminates the robotic "click click click" feel of
+   *   stacked SFX without needing a custom shuffler.
+   * - `'shuffle-bag'` — Tetris-style: cycle through every variant in a
+   *   random shuffle, then reshuffle.
+   *
+   * Each entry in `urls` accepts the same shape as `loadSound`'s second
+   * argument — a URL or codec ladder.
+   */
+  loadVariants(
+    name: string,
+    urls: readonly (string | readonly string[])[],
+    options?: LoadSoundOptions & VariantsOptions,
+  ): Promise<Variants>;
+  /** Look up a previously loaded variants bundle. Throws SoundNotFoundError on miss. */
+  variants(name: string): Variants;
+  /** True if `name` was loaded as a variants bundle. */
+  hasVariants(name: string): boolean;
+  /**
    * Bulk-load a batch of sounds with a shared progress reporter. Use this
    * to drive a loading screen — the `onProgress` callback fires once per
    * item as it settles, and the returned promise resolves when every item
@@ -80,6 +111,17 @@ export interface Engine {
   createSound(name: string, buffer: AudioBuffer, options?: { bus?: string }): Sound;
   /** Drop a sound from the registry. Active voices keep playing until they end naturally. */
   removeSound(name: string): void;
+  /**
+   * Drop a sound from the registry AND evict its decoded buffer from
+   * the internal LRU cache. Use this when hot-swapping themes or
+   * unloading content the user is unlikely to revisit — `removeSound`
+   * alone leaves the buffer hanging in the cache for re-use.
+   *
+   * Active voices keep playing until they end naturally; only future
+   * `play()` calls are affected. Pass `{ evictBuffer: false }` to skip
+   * the cache eviction (equivalent to `removeSound`).
+   */
+  unloadSound(name: string, options?: { evictBuffer?: boolean }): void;
   hasSound(name: string): boolean;
 
   /**
@@ -125,7 +167,7 @@ export interface Engine {
   hasStream(name: string): boolean;
 
   sound(name: string): Sound;
-  bus(name: string): Bus;
+  bus(name: TBusName): Bus;
 
   /**
    * Define (with `members`) or look up (without) a `BusGroup` — a logical
@@ -186,9 +228,16 @@ export interface CrossfadeOptions {
 /**
  * Construct a new engine. Does NOT touch the AudioContext — that happens on
  * the first unlock() or play() call. Safe to call before any user gesture.
+ *
+ * The bus-name union is inferred from the `buses` literal you pass in, so
+ * `engine.bus('typo')` becomes a compile-time error when the bus doesn't
+ * exist. If you pass an `EngineConfig` typed as `string`, `engine.bus()`
+ * falls back to accepting any string.
  */
-export function createEngine(config: EngineConfig = {}): Engine {
-  return new EngineImpl(config);
+export function createEngine<TBusName extends string = string>(
+  config: EngineConfig<TBusName> = {},
+): Engine<TBusName> {
+  return new EngineImpl(config) as unknown as Engine<TBusName>;
 }
 
 class EngineImpl implements Engine {
@@ -202,15 +251,25 @@ class EngineImpl implements Engine {
   private sprites = new Map<string, Sprite>();
   private streams = new Map<string, StreamSound>();
   private musics = new Map<string, Music>();
+  private variantsByName = new Map<string, Variants>();
   private busGroups = new Map<string, BusGroup>();
   private soloedBuses = new Set<Bus>();
+  /**
+   * URL fingerprint per loadSound call so `unloadSound` can evict the
+   * matching entries from the Decoder LRU. Sounds registered via
+   * `createSound` (procedural buffers) leave no fingerprint here.
+   */
+  private soundUrls = new Map<string, readonly string[]>();
   private voices = new Map<string, Set<Voice>>();
   private parameters = new Map<string, Parameter>();
   private config: EngineConfig;
 
   constructor(config: EngineConfig) {
     this.config = config;
-    this.host = new AudioContextHost({ autoPauseOnHidden: config.autoPauseOnHidden });
+    this.host = new AudioContextHost({
+      autoPauseOnHidden: config.autoPauseOnHidden,
+      latencyHint: config.latencyHint,
+    });
     this.decoder = new Decoder(() => this.host.touch());
     const declared = Object.keys(config.buses ?? {});
     this.busOrder = declared.length > 0 ? declared : ['default'];
@@ -252,6 +311,8 @@ class EngineImpl implements Engine {
     this.sounds.clear();
     this.sprites.clear();
     this.musics.clear();
+    this.variantsByName.clear();
+    this.soundUrls.clear();
     for (const s of this.streams.values()) s.dispose();
     this.streams.clear();
     this.parameters.clear();
@@ -275,6 +336,8 @@ class EngineImpl implements Engine {
       buffer = applyLoudnessNormalization(buffer, options.normalize);
     }
 
+    // Record the URL set so `unloadSound` can evict the cache entry later.
+    this.soundUrls.set(name, typeof url === 'string' ? [url] : [...url]);
     return this.createSound(name, buffer, { bus: options.bus });
   }
 
@@ -365,6 +428,34 @@ class EngineImpl implements Engine {
 
   hasSprite(name: string): boolean {
     return this.sprites.has(name);
+  }
+
+  async loadVariants(
+    name: string,
+    urls: readonly (string | readonly string[])[],
+    options: LoadSoundOptions & VariantsOptions = {},
+  ): Promise<Variants> {
+    if (urls.length === 0) {
+      throw new Error(`engine.loadVariants("${name}") requires at least one URL set`);
+    }
+    const { strategy, ...loadOpts } = options;
+    const sounds: Sound[] = [];
+    for (let i = 0; i < urls.length; i++) {
+      sounds.push(await this.loadSound(`__variant:${name}:${i}`, urls[i]!, loadOpts));
+    }
+    const v = new Variants(name, sounds, { strategy });
+    this.variantsByName.set(name, v);
+    return v;
+  }
+
+  variants(name: string): Variants {
+    const v = this.variantsByName.get(name);
+    if (!v) throw new SoundNotFoundError(suggest(name, [...this.variantsByName.keys()]));
+    return v;
+  }
+
+  hasVariants(name: string): boolean {
+    return this.variantsByName.has(name);
   }
 
   async loadMusic(name: string, parts: MusicParts, options: MusicLoadOptions = {}): Promise<Music> {
@@ -518,6 +609,17 @@ class EngineImpl implements Engine {
 
   removeSound(name: string): void {
     this.sounds.delete(name);
+  }
+
+  unloadSound(name: string, options: { evictBuffer?: boolean } = {}): void {
+    this.sounds.delete(name);
+    if (options.evictBuffer ?? true) {
+      const urls = this.soundUrls.get(name);
+      if (urls) {
+        for (const u of urls) this.decoder.evict(u);
+      }
+    }
+    this.soundUrls.delete(name);
   }
 
   hasSound(name: string): boolean {
