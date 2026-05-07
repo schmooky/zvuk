@@ -38,6 +38,29 @@ export interface DecodeAttempt {
   readonly cause: unknown;
 }
 
+export interface PreloadFailure {
+  readonly name: string;
+  readonly cause: unknown;
+}
+
+/**
+ * Thrown by `engine.preload(...)` when one or more items in the batch fail.
+ * Other items in the batch still complete; this only fires after every item
+ * has settled, so a single broken asset doesn't short-circuit the rest of a
+ * loading screen.
+ */
+export class PreloadError extends ZvukError {
+  readonly failures: readonly PreloadFailure[];
+  constructor(failures: readonly PreloadFailure[]) {
+    const summary = failures
+      .map((f) => `  - ${f.name}: ${f.cause instanceof Error ? f.cause.message : String(f.cause)}`)
+      .join('\n');
+    super(`Failed to preload ${failures.length} item(s):\n${summary}`);
+    this.name = 'PreloadError';
+    this.failures = failures;
+  }
+}
+
 /**
  * Thrown when every URL in a fallback list fails to load. Subclass of
  * DecodeError so existing `catch (e instanceof DecodeError)` paths still

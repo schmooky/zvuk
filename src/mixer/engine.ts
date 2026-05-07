@@ -1,4 +1,10 @@
-import { BusNotFoundError, EngineClosedError, SoundNotFoundError } from '../errors';
+import {
+  BusNotFoundError,
+  EngineClosedError,
+  PreloadError,
+  type PreloadFailure,
+  SoundNotFoundError,
+} from '../errors';
 import { Parameter } from '../params/parameter';
 import { pickSource, pickSourceOrder } from '../runtime/codecs';
 import { AudioContextHost, type EngineState } from '../runtime/context';
@@ -10,7 +16,7 @@ import { Sprite, type SpriteMap } from '../sources/sprite';
 import { StreamSound } from '../sources/stream';
 import type { Voice } from '../sources/voice';
 import { Spatializer } from '../spatial/spatializer';
-import type { EngineConfig, LoadSoundOptions, SpatialOptions } from '../types';
+import type { EngineConfig, LoadSoundOptions, PreloadItem, PreloadOptions, SpatialOptions } from '../types';
 import { Bus } from './bus';
 import { Master } from './master';
 import { Snapshot, type SnapshotState } from './snapshot';
@@ -43,6 +49,22 @@ export interface Engine {
    * `string` URL, or `undefined`/`null` to fall through to the URL list.
    */
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
+  /**
+   * Bulk-load a batch of sounds with a shared progress reporter. Use this
+   * to drive a loading screen — the `onProgress` callback fires once per
+   * item as it settles, and the returned promise resolves when every item
+   * has either succeeded or failed.
+   *
+   * If any items fail, the promise rejects with `PreloadError` after every
+   * item has settled (a single broken asset doesn't short-circuit the rest
+   * of the screen). On success the items are registered as if you'd called
+   * `engine.loadSound(...)` for each.
+   *
+   * Concurrency is capped (default 4) so the rest of the page's fetches
+   * aren't starved by a 100-asset preload competing for the browser's
+   * per-host connection budget.
+   */
+  preload(items: readonly PreloadItem[], options?: PreloadOptions): Promise<void>;
   /** Register a Sound from an AudioBuffer you constructed yourself (procedural, custom-decoded, time-stretched). */
   createSound(name: string, buffer: AudioBuffer, options?: { bus?: string }): Sound;
   /** Drop a sound from the registry. Active voices keep playing until they end naturally. */
@@ -230,6 +252,49 @@ class EngineImpl implements Engine {
     }
     const urls = typeof url === 'string' ? [url] : pickSourceOrder(url);
     return await this.decoder.loadFirst(urls, decodeOpts);
+  }
+
+  async preload(items: readonly PreloadItem[], options: PreloadOptions = {}): Promise<void> {
+    if (this.host.state === 'closed') throw new EngineClosedError();
+    if (items.length === 0) return;
+    const concurrency = Math.max(1, options.concurrency ?? 4);
+    const onProgress = options.onProgress;
+    const batchSignal = options.signal;
+    const total = items.length;
+    let completed = 0;
+    const failures: PreloadFailure[] = [];
+
+    let nextIdx = 0;
+    const workerCount = Math.min(concurrency, total);
+    const workers: Promise<void>[] = [];
+    for (let w = 0; w < workerCount; w++) {
+      workers.push(
+        (async () => {
+          while (true) {
+            const idx = nextIdx++;
+            if (idx >= total) return;
+            if (batchSignal?.aborted) {
+              throw batchSignal.reason ?? new DOMException('preload aborted', 'AbortError');
+            }
+            const item = items[idx]!;
+            const itemSignal = combineSignals(batchSignal, item.options?.signal);
+            const opts: LoadSoundOptions = { ...(item.options ?? {}), signal: itemSignal };
+            try {
+              await this.loadSound(item.name, item.url, opts);
+              completed++;
+              onProgress?.({ name: item.name, status: 'loaded', completed, total });
+            } catch (e) {
+              if ((e as Error).name === 'AbortError') throw e;
+              completed++;
+              failures.push({ name: item.name, cause: e });
+              onProgress?.({ name: item.name, status: 'failed', error: e, completed, total });
+            }
+          }
+        })(),
+      );
+    }
+    await Promise.all(workers);
+    if (failures.length > 0) throw new PreloadError(failures);
   }
 
   async loadSprite(
@@ -458,6 +523,24 @@ function suggest(missing: string, candidates: readonly string[]): string {
     return `${missing}"; did you mean "${best}`;
   }
   return missing;
+}
+
+/**
+ * Compose two AbortSignals: the result aborts when either source aborts.
+ * Returns the lone signal if only one is given (no allocation), or undefined
+ * if neither is given.
+ */
+function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  if (a.aborted) return a;
+  if (b.aborted) return b;
+  const ac = new AbortController();
+  const onAbortA = (): void => ac.abort(a.reason);
+  const onAbortB = (): void => ac.abort(b.reason);
+  a.addEventListener('abort', onAbortA, { once: true });
+  b.addEventListener('abort', onAbortB, { once: true });
+  return ac.signal;
 }
 
 function levenshtein(a: string, b: string): number {

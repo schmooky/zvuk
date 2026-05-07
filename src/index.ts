@@ -1,9 +1,10 @@
-export type { DecodeAttempt } from './errors';
+export type { DecodeAttempt, PreloadFailure } from './errors';
 export {
   AggregateDecodeError,
   BusNotFoundError,
   DecodeError,
   EngineClosedError,
+  PreloadError,
   SoundNotFoundError,
   ZvukError,
 } from './errors';
@@ -58,6 +59,9 @@ export type {
   MasterConfig,
   MasterLimiterConfig,
   PlayOptions,
+  PreloadItem,
+  PreloadOptions,
+  PreloadProgressEvent,
   ResolveAssetContext,
   ResolvedAsset,
   SidechainConfig,
