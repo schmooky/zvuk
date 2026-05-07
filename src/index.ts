@@ -50,6 +50,7 @@ export { Voice } from './sources/voice';
 export { Spatializer } from './spatial/spatializer';
 export type {
   AssetResolver,
+  AudioLevel,
   BusConfig,
   ConcurrencyConfig,
   EngineConfig,

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · rhythm metronome example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 560px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; font-size: 0.95rem; cursor: pointer; }
+      button[disabled] { opacity: 0.4; cursor: not-allowed; }
+      button.bpm { background: #15151b; color: #c8c8d0; border: 1px solid #2a2a32; }
+      button.bpm.active { background: #4f6cf7; color: #fff; border-color: #4f6cf7; }
+      .row { display: flex; gap: 8px; align-items: center; margin: 16px 0; flex-wrap: wrap; }
+      .label { color: #888; font-family: ui-monospace, monospace; font-size: 0.85rem; min-width: 80px; }
+      .meter { font-family: ui-monospace, monospace; color: #6a6a78; }
+      .stage {
+        position: relative;
+        height: 80px;
+        background: #15151b;
+        border: 1px solid #2a2a32;
+        border-radius: 8px;
+        margin: 16px 0;
+        overflow: hidden;
+      }
+      .pulse {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 36px;
+        height: 36px;
+        margin: -18px 0 0 -18px;
+        background: #4f6cf7;
+        border-radius: 50%;
+        opacity: 0;
+        transition: opacity 70ms linear, transform 70ms linear;
+        pointer-events: none;
+      }
+      .pulse.flash { opacity: 1; transform: scale(1.4); }
+      .vu {
+        position: relative;
+        height: 14px;
+        background: #15151b;
+        border: 1px solid #2a2a32;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .vu-fill { height: 100%; background: linear-gradient(90deg, #4f6cf7, #f47c4f); width: 0%; }
+      .vu-peak { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; left: 0%; }
+      .vu-tag { font-family: ui-monospace, monospace; font-size: 0.75rem; color: #6a6a78; min-width: 60px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Rhythm metronome</h1>
+      <p>
+        Sample-accurate clicks via <code>engine.scheduleAt</code>, with a
+        live VU meter on the bus output and per-voice peak readouts —
+        a single-page demo of <code>bus.meter()</code> and
+        <code>voice.level()</code> driving real visuals.
+      </p>
+
+      <div class="row">
+        <button id="play">Start</button>
+        <span class="label">BPM</span>
+        <button class="bpm" data-bpm="60">60</button>
+        <button class="bpm" data-bpm="90">90</button>
+        <button class="bpm active" data-bpm="120">120</button>
+        <button class="bpm" data-bpm="180">180</button>
+      </div>
+
+      <div class="stage">
+        <div class="pulse" id="pulse"></div>
+      </div>
+
+      <div class="row">
+        <div class="vu-tag">bus rms</div>
+        <div class="vu" style="flex:1">
+          <div class="vu-fill" id="busRms"></div>
+          <div class="vu-peak" id="busPeak"></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="vu-tag">last voice peak</div>
+        <div class="vu" style="flex:1">
+          <div class="vu-fill" id="voicePeak"></div>
+        </div>
+      </div>
+
+      <div class="meter" id="meter">awaiting unlock…</div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 import type { FxInsert } from '../fx/types';
 import type { Voice } from '../sources/voice';
-import type { BusConfig, ConcurrencyConfig, FadeCurve } from '../types';
+import type { AudioLevel, BusConfig, ConcurrencyConfig, FadeCurve } from '../types';
 import { applyRamp } from './curve';
 
 /**
@@ -28,6 +28,10 @@ export class Bus {
   private _concurrency: ConcurrencyConfig | null;
   private _voices = new Set<Voice>();
   private _fxChain: FxInsert[] = [];
+  // Lazy meter tap. Connected as a passive sibling of bus.output → master.input
+  // so the audio path is unchanged.
+  private _meterAnalyser: AnalyserNode | null = null;
+  private _meterBuf: Float32Array | null = null;
 
   constructor(ctx: AudioContext, name: string, config: BusConfig = {}) {
     this.ctx = ctx;
@@ -150,6 +154,36 @@ export class Bus {
     return this._fxChain;
   }
 
+  /**
+   * Live amplitude readout on the bus output. Returns `{ rms, peak }` as
+   * linear values in [0..1]. The first call lazily attaches an AnalyserNode
+   * as a passive sibling of `bus.output → master.input`; subsequent calls
+   * reuse it.
+   *
+   * Use this to drive a mixer-dashboard VU meter, drive automation that
+   * reacts to overall bus level, or implement custom voice-stealing rules.
+   */
+  meter(): AudioLevel {
+    if (!this._meterAnalyser) {
+      const a = this.ctx.createAnalyser();
+      a.fftSize = 1024;
+      this.output.connect(a);
+      this._meterAnalyser = a;
+      this._meterBuf = new Float32Array(a.fftSize);
+    }
+    const buf = this._meterBuf as Float32Array;
+    this._meterAnalyser.getFloatTimeDomainData(buf as Float32Array<ArrayBuffer>);
+    let sumSq = 0;
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const s = buf[i] ?? 0;
+      sumSq += s * s;
+      const a = Math.abs(s);
+      if (a > peak) peak = a;
+    }
+    return { rms: Math.sqrt(sumSq / buf.length), peak };
+  }
+
   private rewireFxChain(): void {
     try {
       this.fxInput.disconnect();
@@ -181,9 +215,12 @@ export class Bus {
       this.input.disconnect();
       this.fxInput.disconnect();
       this.output.disconnect();
+      this._meterAnalyser?.disconnect();
     } catch {
       /* already disconnected */
     }
+    this._meterAnalyser = null;
+    this._meterBuf = null;
   }
 }
 
@@ -197,23 +234,15 @@ function wait(seconds: number): Promise<void> {
   return new Promise((res) => setTimeout(res, seconds * 1000));
 }
 
-let warnedQuietest = false;
-
 function pickVictim(
   voices: ReadonlySet<Voice>,
   strategy: NonNullable<ConcurrencyConfig['steal']>,
   newVoice: Voice,
 ): Voice | null {
-  let effective = strategy;
-  if (effective === 'quietest') {
-    if (!warnedQuietest) {
-      warnedQuietest = true;
-      console.warn(
-        "[zvuk] concurrency.steal: 'quietest' currently falls back to 'oldest' — per-voice level metering ships in a follow-up release. Use 'lowest-priority' if you need explicit control today.",
-      );
-    }
-    effective = 'oldest';
-  }
+  // Snapshot RMS once per candidate up-front for 'quietest' so the comparison
+  // doesn't re-poll the AnalyserNode for every pair.
+  const rmsCache: Map<Voice, number> | null = strategy === 'quietest' ? new Map<Voice, number>() : null;
+  if (rmsCache) for (const v of voices) if (v !== newVoice) rmsCache.set(v, v.level().rms);
 
   let victim: Voice | null = null;
   for (const v of voices) {
@@ -222,13 +251,19 @@ function pickVictim(
       victim = v;
       continue;
     }
-    switch (effective) {
+    switch (strategy) {
       case 'oldest':
         if (v.startedAt < victim.startedAt) victim = v;
         break;
       case 'lowest-priority':
         if (v.priority < victim.priority) victim = v;
         break;
+      case 'quietest': {
+        const a = rmsCache?.get(v) ?? 0;
+        const b = rmsCache?.get(victim) ?? 0;
+        if (a < b) victim = v;
+        break;
+      }
       default:
         break;
     }

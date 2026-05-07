@@ -41,7 +41,7 @@ describe('Bus concurrency', () => {
     await engine.close();
   });
 
-  it("steal: 'quietest' warns once and falls back to oldest until metering ships", async () => {
+  it("steal: 'quietest' picks the voice with the lowest live RMS — no console warnings", async () => {
     const engine = createEngine({
       buses: { sfx: { concurrency: { max: 2, steal: 'quietest' } } },
     });
@@ -50,15 +50,21 @@ describe('Bus concurrency', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
-      const a = engine.sound('hit').play();
+      // Force two voices with deterministically different live levels by
+      // overriding their level() method. Production paths use the analyser.
+      const loud = engine.sound('hit').play();
+      const quiet = engine.sound('hit').play();
+      Object.defineProperty(loud, 'level', { value: () => ({ rms: 0.9, peak: 1 }) });
+      Object.defineProperty(quiet, 'level', { value: () => ({ rms: 0.01, peak: 0.05 }) });
+
+      // Spawn a third voice — must steal the quietest, not the oldest.
       engine.sound('hit').play();
-      engine.sound('hit').play();
+
       const bus = engine.bus('sfx');
       expect(bus.voiceCount).toBe(2);
-      // Falls back to 'oldest' — `a` is gone.
-      expect(bus.voices()).not.toContain(a);
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0] ?? '').toContain("'quietest'");
+      expect(bus.voices()).toContain(loud);
+      expect(bus.voices()).not.toContain(quiet);
+      expect(warn).not.toHaveBeenCalled();
     } finally {
       warn.mockRestore();
     }

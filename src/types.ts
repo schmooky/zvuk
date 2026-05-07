@@ -1,5 +1,23 @@
 export type FadeCurve = 'linear' | 'equal-power' | 'easeIn' | 'easeOut' | 'easeInOut';
 
+/**
+ * Live amplitude readout, returned by `voice.level()` and `bus.meter()`.
+ * Values are linear (0..1). Convert to dB with `20 * log10(value)`.
+ *
+ * - `rms` — root-mean-square over the most recent ~10 ms window. Smooth,
+ *   matches what a VU meter shows.
+ * - `peak` — maximum absolute sample in the same window. Fast-moving,
+ *   matches what a peak meter / clip indicator shows.
+ *
+ * Both numbers come from a single AnalyserNode read; calling `level()` more
+ * than ~60 Hz is wasted work because the underlying time-domain buffer
+ * doesn't refresh faster than the audio thread fills it.
+ */
+export interface AudioLevel {
+  rms: number;
+  peak: number;
+}
+
 export interface ConcurrencyConfig {
   /** Max simultaneous voices on this bus. */
   max: number;

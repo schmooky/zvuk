@@ -21,7 +21,19 @@ const surface = `class Voice {
   setPlaybackRate(rate: number, opts?: { duration?: number; curve?: FadeCurve }): void;
   stop(opts?: { fade?: number }): void;     // ~8 ms click-free fade by default
   cues(): AsyncIterableIterator<'started' | 'paused' | 'resumed' | 'ended'>;
+  level(): { rms: number; peak: number };   // live amplitude readout (lazy analyser tap)
 }`;
+
+const liveLevel = `// Per-voice peak meter — useful for "show the loudest voice" UI,
+// or for driving custom voice-stealing rules beyond the built-in strategies.
+function tick() {
+  for (const v of engine.activeVoices()) {
+    const lv = v.level();
+    if (lv.peak > 0.95) flashClipIndicator(v.id);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);`;
 
 const jitter = `// Stacked SFX with variation so they don't sound robotic.
 for (let i = 0; i < 6; i++) {
@@ -138,6 +150,18 @@ requestAnimationFrame(function tick() {
     pitch-preserving stretch see <a href="/fx/pitch/">pitch &amp; time-stretch</a>.
   </p>
   <Snippet code={liveRate} lang="ts" />
+
+  <h3>Per-voice level readout</h3>
+  <p>
+    <code>voice.level()</code> returns <code>{ '{ rms, peak }' }</code> as
+    linear values in <code>[0..1]</code>. The first call lazily attaches an
+    AnalyserNode to the voice's gain stage — no cost when nothing reads.
+    Powers the <code>'quietest'</code> voice-stealing strategy and any UI
+    that needs per-voice meters; see the
+    <a href="https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome"><code>rhythm-metronome</code> example</a>
+    for a runnable demo.
+  </p>
+  <Snippet code={liveLevel} lang="ts" />
 
   <h3>Live spatial control</h3>
   <p>
