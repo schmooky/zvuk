@@ -6,6 +6,9 @@ import entries from '../../content/changelog.json';
 interface ChangelogItem {
   /** Cleaned body of the changelog bullet (without the `Thanks @user` prefix). */
   body: string;
+  /** Pre-rendered HTML for `body` — produced at build time so the page
+   *  doesn't ship a markdown parser to the browser. */
+  bodyHtml?: string;
   /** Short commit SHA, when present in the changeset bullet. */
   commitSha?: string;
   commitUrl?: string;
@@ -76,10 +79,14 @@ function bucketsFor(v: ChangelogVersion): { bump: 'major' | 'minor' | 'patch'; i
                   <span class={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] ${bumpStyle[bump]}`}>{bump}</span>
                   <span class="text-xs text-muted-foreground">{items.length} change{items.length === 1 ? '' : 's'}</span>
                 </div>
-                <ul class="space-y-3 pl-2">
+                <ul class="space-y-4 pl-2">
                   {items.map((item) => (
                     <li class="text-sm text-muted-foreground">
-                      <pre class="whitespace-pre-wrap font-sans">{item.body}</pre>
+                      {item.bodyHtml ? (
+                        <div class="changelog-prose" set:html={item.bodyHtml} />
+                      ) : (
+                        <p class="whitespace-pre-wrap">{item.body}</p>
+                      )}
                       {(item.commitSha || item.author) && (
                         <div class="mt-1 flex flex-wrap gap-3 font-mono text-[10px] text-muted-foreground/70">
                           {item.commitSha && (
@@ -100,4 +107,75 @@ function bucketsFor(v: ChangelogVersion): { bump: 'major' | 'minor' | 'patch'; i
       </ol>
     )}
   </div>
+
+  <style is:global>
+    /* Prose styling for the rendered changelog markdown. Scoped to
+       .changelog-prose so it doesn't leak into the rest of the site, and
+       intentionally light — these blocks are short release notes, not
+       articles, so we mostly just need readable spacing for paragraphs +
+       lists + inline code + fenced blocks. */
+    .changelog-prose {
+      color: var(--color-foreground);
+      line-height: 1.6;
+    }
+    .changelog-prose p {
+      margin: 0.4em 0;
+      color: hsl(var(--muted-foreground));
+    }
+    .changelog-prose p:first-child { margin-top: 0; }
+    .changelog-prose p:last-child  { margin-bottom: 0; }
+    .changelog-prose strong {
+      color: var(--color-foreground);
+      font-weight: 600;
+    }
+    .changelog-prose em { font-style: italic; }
+    .changelog-prose ul,
+    .changelog-prose ol {
+      margin: 0.4em 0 0.4em 1.1em;
+      padding: 0;
+      color: hsl(var(--muted-foreground));
+    }
+    .changelog-prose li { margin: 0.2em 0; }
+    .changelog-prose ul { list-style: disc; }
+    .changelog-prose ol { list-style: decimal; }
+    .changelog-prose a {
+      color: hsl(var(--primary));
+      text-underline-offset: 3px;
+    }
+    .changelog-prose a:hover { text-decoration: underline; }
+    .changelog-prose code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.875em;
+      padding: 0.1em 0.3em;
+      border-radius: 0.25rem;
+      background: hsl(var(--secondary) / 0.6);
+      color: var(--color-foreground);
+    }
+    .changelog-prose pre {
+      margin: 0.6em 0;
+      padding: 0.85rem 1rem;
+      border-radius: 0.5rem;
+      background: hsl(var(--card) / 0.6);
+      border: 1px solid hsl(var(--border));
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      color: var(--color-foreground);
+    }
+    .changelog-prose pre code {
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+      font-size: inherit;
+    }
+    .changelog-prose h2,
+    .changelog-prose h3,
+    .changelog-prose h4 {
+      color: var(--color-foreground);
+      font-weight: 600;
+      margin: 0.8em 0 0.3em;
+      font-size: 0.95em;
+    }
+  </style>
 </Base>

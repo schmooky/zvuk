@@ -29,6 +29,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { marked } from 'marked';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -53,6 +54,20 @@ function parse(raw) {
   const versions = [];
   let current = null;
   let bucket = null; // 'major' | 'minor' | 'patch' — the section we're adding into
+  // Blank lines between indented continuation lines belong to the bullet's
+  // body (they delimit paragraphs). We can't tell at the moment we see a
+  // blank whether the next non-blank line will continue the bullet — so we
+  // defer them and only flush onto the bullet when the next continuation
+  // arrives. If a non-continuation interrupts (new ## / ### / -, or an
+  // unindented line), we drop the pending blanks.
+  let pendingBlanks = 0;
+
+  const flushPending = (last) => {
+    while (pendingBlanks > 0) {
+      last.raw += '\n';
+      pendingBlanks--;
+    }
+  };
 
   for (const line of lines) {
     // ## 0.1.0 — start a new version
@@ -61,6 +76,7 @@ function parse(raw) {
       if (current) versions.push(current);
       current = { version: versionMatch[1], major: [], minor: [], patch: [] };
       bucket = null;
+      pendingBlanks = 0;
       continue;
     }
     if (!current) continue;
@@ -69,6 +85,7 @@ function parse(raw) {
     const sectionMatch = /^###\s+(Major|Minor|Patch)\s+Changes\s*$/i.exec(line);
     if (sectionMatch) {
       bucket = sectionMatch[1].toLowerCase();
+      pendingBlanks = 0;
       continue;
     }
 
@@ -76,14 +93,26 @@ function parse(raw) {
     const itemMatch = /^-\s+(.+)$/.exec(line);
     if (itemMatch && bucket && current[bucket]) {
       current[bucket].push({ raw: itemMatch[1], body: '' });
+      pendingBlanks = 0;
+      continue;
+    }
+
+    // Blank line — might belong to the current bullet, defer until we know.
+    if (line.trim() === '') {
+      if (bucket && current[bucket].length > 0) pendingBlanks++;
       continue;
     }
 
     // Continuation line of the previous bullet (indented).
     if (bucket && current[bucket].length > 0 && /^\s+\S/.test(line)) {
       const last = current[bucket][current[bucket].length - 1];
+      flushPending(last);
       last.raw += `\n${line.replace(/^\s{2}/, '')}`;
+      continue;
     }
+
+    // Anything else interrupts — discard any pending blanks.
+    pendingBlanks = 0;
   }
   if (current) versions.push(current);
 
@@ -96,10 +125,15 @@ function parse(raw) {
 }
 
 /**
- * Split a raw bullet into `{ commitSha?, commitUrl?, author?, body }`. The
- * standard changesets/changelog-github format is:
+ * Split a raw bullet into `{ commitSha?, commitUrl?, author?, body, bodyHtml }`.
+ * The standard changesets/changelog-github format is:
  *
  *   [`<sha>`](commit-url) Thanks [@user](profile-url)! - <body>
+ *
+ * `body` keeps the original markdown (useful for llms.txt / search). `bodyHtml`
+ * is the rendered HTML — what the /changelog/ page injects via set:html so
+ * bullets, bold, code spans, and fenced blocks come out formatted instead of
+ * appearing as raw markdown noise.
  */
 function formatItem(item) {
   const result = { body: item.raw };
@@ -110,6 +144,7 @@ function formatItem(item) {
     result.author = m[3];
     result.body = m[4].trim();
   }
+  result.bodyHtml = marked.parse(result.body, { gfm: true, breaks: false });
   return result;
 }
 
