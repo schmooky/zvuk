@@ -1,7 +1,6 @@
 export type { DecodeAttempt } from './errors';
 export {
   AggregateDecodeError,
-  BankNotLoadedError,
   BusNotFoundError,
   DecodeError,
   EngineClosedError,

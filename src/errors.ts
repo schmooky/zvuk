@@ -26,13 +26,6 @@ export class SoundNotFoundError extends ZvukError {
   }
 }
 
-export class BankNotLoadedError extends ZvukError {
-  constructor(id: string) {
-    super(`Bank "${id}" is not loaded. Call engine.loadBank() before requesting its sounds.`);
-    this.name = 'BankNotLoadedError';
-  }
-}
-
 export class DecodeError extends ZvukError {
   constructor(url: string, cause: unknown) {
     super(`Failed to decode audio at "${url}": ${cause instanceof Error ? cause.message : String(cause)}`);
