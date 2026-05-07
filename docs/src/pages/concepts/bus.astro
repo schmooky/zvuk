@@ -24,7 +24,21 @@ const surface = `class Bus {
   addFx(fx: FxInsert): void;
   removeFx(fx: FxInsert): void;
   fx(): readonly FxInsert[];
+
+  meter(): { rms: number; peak: number };  // live amplitude readout (lazy analyser tap)
 }`;
+
+const meter = `// Drive a VU bar from bus.meter() inside your render loop.
+function tick() {
+  const m = engine.bus('music').meter();
+  vuBar.style.width = (m.rms * 200) + '%';
+  peakDot.style.left = (m.peak * 100) + '%';
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// First call lazily attaches an AnalyserNode as a sibling of bus.output —
+// no cost until you read. Subsequent calls reuse the same analyser.`;
 
 const fade = `// Smooth fade — won't pop because of the 10ms internal ramp on direct writes,
 // or use fadeTo() with a curve for longer transitions.
@@ -66,6 +80,16 @@ for (const v of bus.voices()) v.fade({ to: 0, duration: 0.2 });`;
 
   <h3>Enumerate active voices on a bus</h3>
   <Snippet code={enumerate} lang="ts" />
+
+  <h3>Live VU meter via <code>bus.meter()</code></h3>
+  <p>
+    Returns <code>{ '{ rms, peak }' }</code> as linear values in <code>[0..1]</code>.
+    The first call attaches a passive AnalyserNode tap — no cost until you read,
+    no audio-path change. See the <code>rhythm-metronome</code> example
+    (<a href="https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome"><code>examples/rhythm-metronome/</code></a>)
+    for a full demo.
+  </p>
+  <Snippet code={meter} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

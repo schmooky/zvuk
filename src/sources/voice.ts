@@ -1,6 +1,6 @@
 import { applyRamp } from '../mixer/curve';
 import type { Spatializer } from '../spatial/spatializer';
-import type { FadeOptions, PlayOptions, StopOptions } from '../types';
+import type { AudioLevel, FadeOptions, PlayOptions, StopOptions } from '../types';
 
 type VoiceCue = 'started' | 'paused' | 'resumed' | 'ended';
 
@@ -66,6 +66,12 @@ export class Voice {
   private crossfadeRegionLen = 0;
   private crossfadeChain: { source: AudioBufferSourceNode; gain: GainNode; startTime: number }[] = [];
   private crossfadeArmTimer: ReturnType<typeof setTimeout> | null = null;
+  // Lazily-allocated meter tap. Created on first level() read; kept alive
+  // until finish(). The tap connects voice gain → analyser as a sibling of
+  // gain → destination, so the audio path is unchanged and the analyser is
+  // a passive read-only observer.
+  private levelAnalyser: AnalyserNode | null = null;
+  private levelBuf: Float32Array | null = null;
 
   static nextId = 1;
 
@@ -327,6 +333,34 @@ export class Voice {
     return this._spatializer;
   }
 
+  /**
+   * Live amplitude readout. Returns `{ rms, peak }` as linear values in
+   * [0..1]. The first call lazily attaches an AnalyserNode to the voice's
+   * gain stage; subsequent calls reuse it. Returns zeros once the voice has
+   * finished.
+   */
+  level(): AudioLevel {
+    if (this.done) return { rms: 0, peak: 0 };
+    if (!this.levelAnalyser) {
+      const a = this.ctx.createAnalyser();
+      a.fftSize = 512;
+      this.gain.connect(a);
+      this.levelAnalyser = a;
+      this.levelBuf = new Float32Array(a.fftSize);
+    }
+    const buf = this.levelBuf as Float32Array;
+    this.levelAnalyser.getFloatTimeDomainData(buf as Float32Array<ArrayBuffer>);
+    let sumSq = 0;
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const s = buf[i] ?? 0;
+      sumSq += s * s;
+      const a = Math.abs(s);
+      if (a > peak) peak = a;
+    }
+    return { rms: Math.sqrt(sumSq / buf.length), peak };
+  }
+
   /** Async iterator of lifecycle cues — yields started, optional paused, ended. */
   async *cues(): AsyncIterableIterator<VoiceCue> {
     const queue: VoiceCue[] = [];
@@ -378,10 +412,13 @@ export class Voice {
     try {
       for (const src of this.activeSources()) src.disconnect();
       for (const e of this.crossfadeChain) e.gain.disconnect();
+      this.levelAnalyser?.disconnect();
       this.gain.disconnect();
     } catch {
       /* already gone */
     }
+    this.levelAnalyser = null;
+    this.levelBuf = null;
     this.crossfadeChain = [];
     this.emit(reason);
     this.resolveEnded();
