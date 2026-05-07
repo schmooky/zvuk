@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * One bus, one slider, two buttons. Direct level write vs. fadeTo() — you
@@ -12,6 +13,7 @@ export default function BusFader() {
   const [level, setLevel] = useState(0.6);
   const [busy, setBusy] = useState(false);
   const [voice, setVoice] = useState<{ stop: () => void } | null>(null);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -23,6 +25,7 @@ export default function BusFader() {
       const v = e.sound('loop').play({ loop: true });
       setVoice(v);
     }
+    setBusNode(e.bus('music').output);
   }
 
   function setLevelLive(v: number) {
@@ -56,6 +59,7 @@ export default function BusFader() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
           <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">music.level</span>
             <span className="text-muted-foreground">{level.toFixed(2)}</span>

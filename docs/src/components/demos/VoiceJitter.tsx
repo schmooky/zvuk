@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * Spam button. Each press fires a Voice with random pitch + volume jitter,
@@ -11,6 +12,7 @@ export default function VoiceJitter() {
   const [pitchJitter, setPitchJitter] = useState(0.08);
   const [volumeJitter, setVolumeJitter] = useState(0.1);
   const [count, setCount] = useState(0);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -19,6 +21,7 @@ export default function VoiceJitter() {
       await e.loadSound('hit', [...SAMPLES.chip], { bus: 'sfx' });
       setLoaded(true);
     }
+    setBusNode(e.bus('sfx').output);
   }
 
   function spam() {
@@ -43,6 +46,7 @@ export default function VoiceJitter() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">pitch jitter</span>

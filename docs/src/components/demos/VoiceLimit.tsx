@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ConcurrencyConfig } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 type Strategy = NonNullable<ConcurrencyConfig['steal']>;
 
@@ -13,6 +14,7 @@ export default function VoiceLimit() {
   const [strategy, setStrategy] = useState<Strategy>('oldest');
   const [active, setActive] = useState(0);
   const [spawnedTotal, setSpawnedTotal] = useState(0);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -21,6 +23,7 @@ export default function VoiceLimit() {
       await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
       setLoaded(true);
     }
+    setBusNode(e.bus('sfx').output);
   }
 
   // Apply changes to the bus live.
@@ -59,6 +62,7 @@ export default function VoiceLimit() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">max</span>

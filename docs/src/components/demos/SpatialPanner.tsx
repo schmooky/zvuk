@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Voice } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * Spatializer demo — drag (mouse, touch, stylus) to pan the looping sound.
@@ -15,6 +16,7 @@ import { SAMPLES, useDemoEngine } from './useDemoEngine';
 export default function SpatialPanner() {
   const { engine, state, error, unlock } = useDemoEngine({ buses: { sfx: {} } });
   const [pan, setPan] = useState(0);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
   const voiceRef = useRef<Voice | null>(null);
   const draggingId = useRef<number | null>(null);
@@ -26,6 +28,7 @@ export default function SpatialPanner() {
       await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
     }
     voiceRef.current = e.sound('loop').play({ loop: true, spatializer: { pan: 0 } });
+    setBusNode(e.bus('sfx').output);
   }
 
   useEffect(() => {
@@ -85,6 +88,7 @@ export default function SpatialPanner() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
           <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">spatializer.pan</span>
             <span className="text-muted-foreground">{pan.toFixed(2)}</span>

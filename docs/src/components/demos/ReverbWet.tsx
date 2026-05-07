@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Reverb } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 export default function ReverbWet() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -10,6 +11,7 @@ export default function ReverbWet() {
   const [wet, setWet] = useState(0.3);
   const [decay, setDecay] = useState(1.5);
   const [bypass, setBypass] = useState(false);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -22,6 +24,7 @@ export default function ReverbWet() {
       e.bus('music').addFx(reverbRef.current);
     }
     e.sound('loop').play({ loop: true });
+    setBusNode(e.bus('music').output);
   }
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function ReverbWet() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="bus output (post-reverb)" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Voice } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 type Track = 'a' | 'b';
 
@@ -17,6 +18,7 @@ export default function CrossfadeDemo() {
   const [active, setActive] = useState<Track | null>(null);
   const [busy, setBusy] = useState(false);
   const voiceRef = useRef<Voice | null>(null);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   useEffect(() => {
     return () => {
@@ -32,6 +34,7 @@ export default function CrossfadeDemo() {
     if (!e.hasSound('musicB')) await e.loadSound('musicB', [...SAMPLES.musicB], { bus: 'music' });
     voiceRef.current = e.sound('musicA').play({ loop: true });
     setActive('a');
+    setBusNode(e.bus('music').output);
   }
 
   async function swap(): Promise<void> {
@@ -61,6 +64,7 @@ export default function CrossfadeDemo() {
         </button>
       ) : (
         <div className="flex flex-col gap-3">
+          <Waveform audioNode={busNode} variant="wave" label="bus output" />
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <Pill on={active === 'a'}>music A</Pill>

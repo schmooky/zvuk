@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * Three-reel slot machine recipe. Demonstrates layered SFX, sample-accurate
@@ -14,6 +15,7 @@ export default function SlotReel() {
   });
   const [loaded, setLoaded] = useState(false);
   const [spinning, setSpinning] = useState<boolean[]>([false, false, false]);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -25,6 +27,7 @@ export default function SlotReel() {
       e.loadSound('win-sting', [...SAMPLES.dice], { bus: 'sfx' }),
     ]);
     setLoaded(true);
+    setBusNode(e.bus('sfx').output);
   }
 
   function spin() {
@@ -65,6 +68,7 @@ export default function SlotReel() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
           <div className="mb-4 grid grid-cols-3 gap-2">
             {spinning.map((s, i) => (
               <div

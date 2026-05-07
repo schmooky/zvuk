@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { StretchProcessor } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * Two ways to change "speed":
@@ -16,6 +17,7 @@ export default function PitchStretch() {
   const [rate, setRate] = useState(1);
   const [stretchFactor, setStretchFactor] = useState(1);
   const [stretching, setStretching] = useState(false);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -31,6 +33,7 @@ export default function PitchStretch() {
       sourceBufferRef.current = await e.context.decodeAudioData(ab);
       void sound;
     }
+    setBusNode(e.bus('sfx').output);
   }
 
   function playRate() {
@@ -62,7 +65,9 @@ export default function PitchStretch() {
           Unlock & load
         </button>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <>
+          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
+          <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-primary">
               1. playbackRate (pitch + tempo)
@@ -120,7 +125,8 @@ export default function PitchStretch() {
               {stretching ? 'rendering…' : `render & play at ${stretchFactor.toFixed(2)}×`}
             </button>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

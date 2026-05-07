@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Snapshot } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 const PRESETS = ['menu', 'gameplay', 'boss'] as const;
 type Preset = (typeof PRESETS)[number];
@@ -18,6 +19,7 @@ export default function SnapshotCrossfade() {
   const [snaps, setSnaps] = useState<Record<Preset, Snapshot> | null>(null);
   const [active, setActive] = useState<Preset>('menu');
   const [busy, setBusy] = useState(false);
+  const [musicNode, setMusicNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -39,6 +41,7 @@ export default function SnapshotCrossfade() {
       });
     }
     setSnaps(built);
+    setMusicNode(e.bus('music').output);
   }
 
   async function apply(name: Preset) {
@@ -58,6 +61,7 @@ export default function SnapshotCrossfade() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={musicNode} variant="wave" label="music bus" className="mb-3" />
           <div className="grid gap-2 sm:grid-cols-3">
             {PRESETS.map((p) => (
               <button

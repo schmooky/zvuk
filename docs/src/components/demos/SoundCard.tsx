@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 /**
  * Single sound, single button. Demonstrates loadSound + Sound.play in
@@ -8,6 +9,7 @@ import { SAMPLES, useDemoEngine } from './useDemoEngine';
 export default function SoundCard() {
   const { engine, state, error, unlock } = useDemoEngine({ buses: { sfx: {} } });
   const [loaded, setLoaded] = useState(false);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -16,6 +18,7 @@ export default function SoundCard() {
       await e.loadSound('hit', [...SAMPLES.chip], { bus: 'sfx' });
       setLoaded(true);
     }
+    setBusNode(e.bus('sfx').output);
   }
 
   function play() {
@@ -35,14 +38,17 @@ export default function SoundCard() {
           Unlock & load
         </button>
       ) : (
-        <button
-          type="button"
-          onClick={play}
-          disabled={state !== 'live' || !loaded}
-          className="rounded-lg bg-secondary px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-40"
-        >
-          Play sound
-        </button>
+        <>
+          <Waveform audioNode={busNode} variant="wave" className="mb-3" />
+          <button
+            type="button"
+            onClick={play}
+            disabled={state !== 'live' || !loaded}
+            className="rounded-lg bg-secondary px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-40"
+          >
+            Play sound
+          </button>
+        </>
       )}
       <p className="mt-3 text-xs text-muted-foreground font-mono">engine.sound("hit").play()</p>
     </div>
