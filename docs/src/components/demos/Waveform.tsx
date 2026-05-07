@@ -13,11 +13,16 @@ export interface WaveformProps {
   /** CSS class for the canvas (border, rounding, margin, etc.). */
   className?: string;
   /**
-   * Time-domain oscilloscope (`'wave'`, default) or frequency-domain bars
-   * (`'bars'`). Wave reads better for FX and routing demos; bars are clearer
-   * for filter sweeps.
+   * - `'wave'` — time-domain oscilloscope.
+   * - `'bars'` — frequency-domain spectrum (default — reads well across
+   *   filters, routing, fades, anything where "what's loud right now" is
+   *   what you want to debug).
+   * - `'bars-stereo'` — two parallel spectrum panels, one per channel.
+   *   Splits `audioNode` through a `ChannelSplitterNode` so the L and R
+   *   spectra are independent. Right call for spatial / panning demos
+   *   where the mono sum doesn't reflect the change.
    */
-  variant?: 'wave' | 'bars';
+  variant?: 'wave' | 'bars' | 'bars-stereo';
   /** Stroke / fill color. Defaults to the page primary if not provided. */
   color?: string;
   /** Optional caption rendered above the canvas. */
@@ -53,18 +58,68 @@ export default function Waveform({
     }
     // BaseAudioContext is the lowest type that exposes `createAnalyser`.
     const ctx = (audioNode as unknown as { context: BaseAudioContext }).context;
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = variant === 'bars' ? 256 : 1024;
-    analyser.smoothingTimeConstant = variant === 'bars' ? 0.85 : 0.6;
-    try {
-      audioNode.connect(analyser);
-    } catch {
-      /* destination already connected — ignore */
+
+    // Stereo path: split the source into L/R channels and run an analyser
+    // on each. The mono path uses a single analyser tap.
+    let splitter: ChannelSplitterNode | null = null;
+    let analysers: AnalyserNode[];
+    let freqBufs: Uint8Array[];
+    let timeBufs: Float32Array[];
+
+    if (variant === 'bars-stereo') {
+      splitter = ctx.createChannelSplitter(2);
+      try {
+        audioNode.connect(splitter);
+      } catch {
+        /* already connected */
+      }
+      analysers = [ctx.createAnalyser(), ctx.createAnalyser()];
+      for (let ch = 0; ch < 2; ch++) {
+        const a = analysers[ch]!;
+        a.fftSize = 256;
+        a.smoothingTimeConstant = 0.85;
+        splitter.connect(a, ch);
+      }
+      freqBufs = analysers.map((a) => new Uint8Array(a.frequencyBinCount));
+      timeBufs = analysers.map((a) => new Float32Array(a.fftSize));
+    } else {
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = variant === 'bars' ? 256 : 1024;
+      analyser.smoothingTimeConstant = variant === 'bars' ? 0.85 : 0.6;
+      try {
+        audioNode.connect(analyser);
+      } catch {
+        /* already connected */
+      }
+      analysers = [analyser];
+      freqBufs = [new Uint8Array(analyser.frequencyBinCount)];
+      timeBufs = [new Float32Array(analyser.fftSize)];
     }
-    const timeBuf = new Float32Array(analyser.fftSize);
-    const freqBuf = new Uint8Array(analyser.frequencyBinCount);
+
     let raf = 0;
     let stopped = false;
+
+    const drawSpectrum = (
+      c2d: CanvasRenderingContext2D,
+      freqBuf: Uint8Array,
+      x: number,
+      y: number,
+      w: number,
+      h: number,
+      stroke: string,
+      dpr: number,
+    ): void => {
+      // Skip the very top of the spectrum (mostly empty for music) and
+      // emphasise the lower 75% of bins where the action is.
+      const usefulBins = Math.floor(freqBuf.length * 0.75);
+      const barWidth = w / usefulBins;
+      c2d.fillStyle = stroke;
+      for (let i = 0; i < usefulBins; i++) {
+        const v = (freqBuf[i] ?? 0) / 255;
+        const barH = v * h;
+        c2d.fillRect(x + i * barWidth, y + h - barH, Math.max(1, barWidth - 1 * dpr), barH);
+      }
+    };
 
     const draw = (): void => {
       if (stopped) return;
@@ -84,15 +139,16 @@ export default function Waveform({
       const stroke = color ?? (getComputedStyle(canvas).getPropertyValue('--wave-color').trim() || '#4f6cf7');
 
       if (variant === 'wave') {
-        analyser.getFloatTimeDomainData(timeBuf as Float32Array<ArrayBuffer>);
+        analysers[0]!.getFloatTimeDomainData(timeBufs[0] as Float32Array<ArrayBuffer>);
+        const buf = timeBufs[0]!;
         c2d.lineWidth = 1.5 * dpr;
         c2d.strokeStyle = stroke;
         c2d.beginPath();
         const w = canvas.width;
         const h = canvas.height;
-        const step = w / timeBuf.length;
-        for (let i = 0; i < timeBuf.length; i++) {
-          const v = (timeBuf[i] ?? 0) * 0.95;
+        const step = w / buf.length;
+        for (let i = 0; i < buf.length; i++) {
+          const v = (buf[i] ?? 0) * 0.95;
           const x = i * step;
           const y = (1 - v) * 0.5 * h;
           if (i === 0) c2d.moveTo(x, y);
@@ -106,20 +162,20 @@ export default function Waveform({
         c2d.moveTo(0, h / 2);
         c2d.lineTo(w, h / 2);
         c2d.stroke();
+      } else if (variant === 'bars') {
+        analysers[0]!.getByteFrequencyData(freqBufs[0] as Uint8Array<ArrayBuffer>);
+        drawSpectrum(c2d, freqBufs[0]!, 0, 0, canvas.width, canvas.height, stroke, dpr);
       } else {
-        analyser.getByteFrequencyData(freqBuf as Uint8Array<ArrayBuffer>);
-        c2d.fillStyle = stroke;
-        const w = canvas.width;
-        const h = canvas.height;
-        // Skip the very top of the spectrum (mostly empty for music) and
-        // emphasise the lower 75% of bins where the action is.
-        const usefulBins = Math.floor(freqBuf.length * 0.75);
-        const barWidth = w / usefulBins;
-        for (let i = 0; i < usefulBins; i++) {
-          const v = (freqBuf[i] ?? 0) / 255;
-          const barH = v * h;
-          c2d.fillRect(i * barWidth, h - barH, Math.max(1, barWidth - 1 * dpr), barH);
-        }
+        // bars-stereo: half-width per channel, with a hairline divider down
+        // the middle so it reads as L | R.
+        analysers[0]!.getByteFrequencyData(freqBufs[0] as Uint8Array<ArrayBuffer>);
+        analysers[1]!.getByteFrequencyData(freqBufs[1] as Uint8Array<ArrayBuffer>);
+        const halfW = canvas.width / 2;
+        const gutter = Math.max(1, Math.round(2 * dpr));
+        drawSpectrum(c2d, freqBufs[0]!, 0, 0, halfW - gutter, canvas.height, stroke, dpr);
+        drawSpectrum(c2d, freqBufs[1]!, halfW + gutter, 0, halfW - gutter, canvas.height, stroke, dpr);
+        c2d.fillStyle = `${stroke}33`;
+        c2d.fillRect(halfW - 0.5 * dpr, 0, 1 * dpr, canvas.height);
       }
       raf = requestAnimationFrame(draw);
     };
@@ -129,12 +185,14 @@ export default function Waveform({
       stopped = true;
       cancelAnimationFrame(raf);
       try {
-        audioNode.disconnect(analyser);
+        if (splitter) audioNode.disconnect(splitter);
+        else audioNode.disconnect(analysers[0]!);
       } catch {
         /* already disconnected */
       }
       try {
-        analyser.disconnect();
+        splitter?.disconnect();
+        for (const a of analysers) a.disconnect();
       } catch {
         /* */
       }

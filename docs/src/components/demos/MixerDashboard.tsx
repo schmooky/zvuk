@@ -213,7 +213,7 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
                 <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                   level: {levels[name].toFixed(2)}
                 </div>
-                <Waveform audioNode={busNodes[name]} variant="wave" height={36} className="mt-2" />
+                <Waveform audioNode={busNodes[name]} variant="bars" height={36} className="mt-2" />
               </div>
             ))}
           </div>

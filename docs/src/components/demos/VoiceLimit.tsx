@@ -62,7 +62,7 @@ export default function VoiceLimit() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">max</span>

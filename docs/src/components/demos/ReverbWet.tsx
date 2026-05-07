@@ -59,7 +59,7 @@ export default function ReverbWet() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="bus output (post-reverb)" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output (post-reverb)" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">

@@ -88,7 +88,7 @@ export default function SpatialPanner() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars-stereo" label="sfx bus · L | R" className="mb-3" />
           <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">spatializer.pan</span>
             <span className="text-muted-foreground">{pan.toFixed(2)}</span>

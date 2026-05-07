@@ -59,7 +59,7 @@ export default function BusFader() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">music.level</span>
             <span className="text-muted-foreground">{level.toFixed(2)}</span>
