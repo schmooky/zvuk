@@ -95,8 +95,16 @@ export class Voice {
     this.stopFade = Math.max(0, deps.defaultStopFade ?? DEFAULT_STOP_FADE_SEC);
 
     this.gain = ctx.createGain();
-    const initialVolume = resolveJittered(options.volume ?? 1);
-    this.gain.gain.value = clamp01(initialVolume);
+    const initialVolume = clamp01(resolveJittered(options.volume ?? 1));
+    const fadeIn = Math.max(0, options.fadeIn ?? 0);
+    if (fadeIn > 0) {
+      // Ramp 0 → target volume over `fadeIn` seconds. Mirror MusicVoice
+      // semantics so the convenience reads identically across sources.
+      this.gain.gain.setValueAtTime(0, ctx.currentTime);
+      this.gain.gain.linearRampToValueAtTime(initialVolume, ctx.currentTime + fadeIn);
+    } else {
+      this.gain.gain.value = initialVolume;
+    }
     this.gain.connect(destination);
 
     this.startCtxTime = ctx.currentTime;

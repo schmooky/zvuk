@@ -161,10 +161,27 @@ export interface VoiceDefaults {
   stopFade?: number;
 }
 
-export interface EngineConfig {
-  buses?: Record<string, BusConfig>;
+export interface EngineConfig<TBusName extends string = string> {
+  buses?: Record<TBusName, BusConfig>;
   master?: MasterConfig;
   voice?: VoiceDefaults;
+  /**
+   * Hint to the underlying `AudioContext` about the desired latency /
+   * battery trade-off. Maps to `AudioContextOptions.latencyHint`:
+   *
+   * - `'interactive'` — the default Web Audio behaviour. Right call for
+   *   game audio, slot machines, anything where 60 fps reactive sound
+   *   matters more than power consumption.
+   * - `'playback'` — longer buffers, lower CPU, higher latency. Right
+   *   call for music players, podcasting tools, anything where the user
+   *   isn't expecting input-to-sound to feel "instant."
+   * - `'balanced'` — the browser picks.
+   * - A number — explicit latency in seconds. Browsers honour it on a
+   *   best-effort basis.
+   *
+   * Default: undefined (the browser picks; usually `'interactive'`).
+   */
+  latencyHint?: AudioContextLatencyCategory | number;
   /**
    * External ticker (e.g. Pixi `app.ticker`, GSAP `gsap.ticker`) that drives
    * scheduler dispatch. Without one, the scheduler uses `setTimeout` —
@@ -272,6 +289,13 @@ export interface SpatialOptions {
 export interface PlayOptions {
   /** Initial volume (0..1). Default 1. */
   volume?: number | VoiceJitter;
+  /**
+   * Fade-in duration (seconds) applied to the voice's gain at start.
+   * Default 0 (instant). Convenience for "drop in smoothly" — the dual
+   * of the click-free stop fade. Equivalent to playing at `volume: 0`
+   * and immediately calling `voice.fade({ to: volume, duration: fadeIn })`.
+   */
+  fadeIn?: number;
   /** Playback rate. 1 = source speed. Random jitter optional. */
   pitch?: number | VoiceJitter;
   /** Loop the voice. Default false. */

@@ -12,6 +12,8 @@ type ExtAudioContextState = AudioContextState | 'interrupted';
 export interface AudioContextHostOptions {
   /** When false, the host won't suspend the context on tab hide. Default true. */
   autoPauseOnHidden?: boolean;
+  /** Forwarded to `new AudioContext({ latencyHint })`. */
+  latencyHint?: AudioContextLatencyCategory | number;
 }
 
 /**
@@ -45,7 +47,9 @@ export class AudioContextHost {
   touch(): AudioContext {
     if (this._state === 'closed') throw new EngineClosedError();
     if (!this._ctx) {
-      this._ctx = new AudioContext();
+      const opts: AudioContextOptions = {};
+      if (this.opts.latencyHint != null) opts.latencyHint = this.opts.latencyHint;
+      this._ctx = new AudioContext(opts);
       this.attachVisibilityHandler();
       this.attachStateChangeHandler(this._ctx);
     }

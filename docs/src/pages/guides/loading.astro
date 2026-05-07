@@ -89,6 +89,29 @@ await engine.loadSprite('reel', '/sfx/reel.webm', {
   'win-sting': { start: 0.5, duration: 1.2 },
 }, { bus: 'sfx' });`;
 
+const variants = `// Variants — N alternate one-shots; spam picks one each play() so
+// stacked SFX don't sound robotic.
+await engine.loadVariants(
+  'coin',
+  [
+    ['/sfx/coin-1.webm', '/sfx/coin-1.m4a'],
+    ['/sfx/coin-2.webm', '/sfx/coin-2.m4a'],
+    ['/sfx/coin-3.webm', '/sfx/coin-3.m4a'],
+  ],
+  { bus: 'sfx', strategy: 'no-repeat' },     // 'random' | 'no-repeat' | 'shuffle-bag'
+);
+
+engine.variants('coin').play();
+engine.variants('coin').play({ pitch: { jitter: 0.04 } });`;
+
+const unload = `// Drop a sound from the registry AND evict its buffer from the LRU.
+engine.unloadSound('coin');                  // default: evictBuffer: true
+engine.unloadSound('coin', { evictBuffer: false }); // registry only
+
+// Active voices keep playing until they end naturally — only future
+// play() calls are affected. Use this for hot-swappable themes
+// (kiosks, slot lobbies).`;
+
 const normalize = `// Normalize on load — uniform perceived loudness without re-mastering.
 await engine.loadSound('crowd', '/sfx/crowd.webm', {
   bus: 'sfx',
@@ -172,6 +195,28 @@ await loadBank(engine);`;
     separate <code>loadSound</code> calls.
   </p>
   <Snippet code={sprite} lang="ts" />
+
+  <h2>Variants — randomise stacked SFX</h2>
+  <p>
+    Slot games play coin/win/reel-stop variants on every interaction. A
+    pure random picker can play the same one twice in a row, which sounds
+    robotic. <code>engine.loadVariants</code> bundles N alternates and
+    picks one per <code>play()</code> using a configurable strategy:
+    <code>'random'</code>, <code>'no-repeat'</code> (default — never the
+    same as the previous pick), or <code>'shuffle-bag'</code> (Tetris-style
+    cycle through every variant before reshuffling).
+  </p>
+  <Snippet code={variants} lang="ts" />
+
+  <h2>Unloading sounds</h2>
+  <p>
+    <code>removeSound(name)</code> drops the registry entry. The buffer
+    stays in the internal LRU cache so a re-load is free. Use
+    <code>unloadSound(name)</code> (default <code>evictBuffer: true</code>)
+    when the user is unlikely to revisit the asset — the canonical
+    hot-swap-themes use case.
+  </p>
+  <Snippet code={unload} lang="ts" />
 
   <h2>Loudness normalization on load</h2>
   <Snippet code={normalize} lang="ts" />

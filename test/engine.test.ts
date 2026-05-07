@@ -46,7 +46,9 @@ describe('createEngine', () => {
 
     expect(engine.bus('music').level).toBe(0.8);
     expect(engine.bus('sfx').level).toBe(1);
-    expect(() => engine.bus('voice')).toThrow(BusNotFoundError);
+    // Intentional miss: cast through to bypass the literal-name brand and
+    // exercise the runtime BusNotFoundError path.
+    expect(() => engine.bus('voice' as 'music' | 'sfx')).toThrow(BusNotFoundError);
 
     await engine.close();
   });
