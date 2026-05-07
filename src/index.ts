@@ -55,6 +55,7 @@ export type {
   AudioLevel,
   BusConfig,
   ConcurrencyConfig,
+  DistanceModel,
   EngineConfig,
   FadeCurve,
   FadeOptions,
