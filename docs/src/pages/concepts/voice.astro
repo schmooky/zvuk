@@ -56,6 +56,20 @@ const liveRate = `// Slow-mo sting on a boss intro — ramp the rate over 800 ms
 const v = engine.sound('boss-stinger').play();
 v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
 
+const loopCrossfade = `// Off by default. Set loopCrossfade > 0 to splice an equal-power
+// crossfade at the loop boundary — masks the click from non-zero-crossing
+// loop regions without needing to re-edit the asset.
+const v = engine.sound('music-bed').play({
+  loop: true,
+  loopStart: 0.04,        // skip a fade-in
+  loopEnd: 31.96,         // and fade-out
+  loopCrossfade: 0.05,    // 50 ms equal-power overlap
+});
+
+// Cost: one extra AudioBufferSourceNode + GainNode per loop iteration.
+// Ignored when loop is false, or when the region is shorter than 2× the
+// crossfade window (silent fallback to native hard-cut loop).`;
+
 const liveSpatial = `// Hold the voice and steer the spatializer as the source moves.
 const v = engine.sound('engine').play({
   loop: true,
@@ -105,6 +119,17 @@ requestAnimationFrame(function tick() {
     that offset — for looping voices this round-trips through the loop region.
   </p>
   <Snippet code={pauseResume} lang="ts" />
+
+  <h3>Loop crossfade (off by default)</h3>
+  <p>
+    AudioBufferSourceNode's native loop is a hard cut from
+    <code>loopEnd</code> back to <code>loopStart</code>. If those points
+    don't sit on a zero crossing, you get a click every loop. Setting
+    <code>loopCrossfade</code> spawns a parallel buffer source one
+    crossfade-window before the boundary and equal-power-ramps between
+    them — same trick a sample editor would offer.
+  </p>
+  <Snippet code={loopCrossfade} lang="ts" />
 
   <h3>Live playback-rate ramp</h3>
   <p>
