@@ -1,7 +1,60 @@
 import type { FxInsert } from '../fx/types';
 import type { Voice } from '../sources/voice';
-import type { AudioLevel, BusConfig, ConcurrencyConfig, FadeCurve } from '../types';
+import type { AudioLevel, BusConfig, ConcurrencyConfig, FadeCurve, SendOptions } from '../types';
 import { applyRamp } from './curve';
+
+/**
+ * One configured send from a source bus to a target bus. Returned by
+ * `bus.send(target, ...)`; held by callers so the level can be adjusted
+ * (or the send removed) at runtime.
+ */
+export class Send {
+  readonly source: Bus;
+  readonly target: Bus;
+  readonly post: boolean;
+  private gainNode: GainNode;
+  private ctx: AudioContext;
+  private disposed = false;
+
+  constructor(source: Bus, target: Bus, options: SendOptions, ctx: AudioContext) {
+    this.source = source;
+    this.target = target;
+    this.post = options.post ?? true;
+    this.ctx = ctx;
+    this.gainNode = ctx.createGain();
+    this.gainNode.gain.value = clamp01(options.amount ?? 1);
+    const tap = this.post ? source.output : source.input;
+    tap.connect(this.gainNode);
+    this.gainNode.connect(target.input);
+  }
+
+  /** Live send level (0..1). Setter ramps over 10 ms to avoid clicks. */
+  get amount(): number {
+    return this.gainNode.gain.value;
+  }
+  set amount(v: number) {
+    if (this.disposed) return;
+    applyRamp(this.gainNode.gain, this.ctx.currentTime, clamp01(v), 0.01, 'linear');
+  }
+
+  /** Fade the send to `target` over `duration` seconds. */
+  fadeTo(target: number, duration: number, curve: FadeCurve = 'linear'): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    applyRamp(this.gainNode.gain, this.ctx.currentTime, clamp01(target), duration, curve);
+    if (duration <= 0) return Promise.resolve();
+    return new Promise((res) => setTimeout(res, duration * 1000));
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    try {
+      this.gainNode.disconnect();
+    } catch {
+      /* */
+    }
+  }
+}
 
 /**
  * A Bus is a named mix bucket with its own gain stage, optional FX inserts,
@@ -23,14 +76,23 @@ export class Bus {
 
   private _level: number;
   private _muted: boolean;
+  private _soloed = false;
   private readonly ctx: AudioContext;
   private _concurrency: ConcurrencyConfig | null;
   private _voices = new Set<Voice>();
   private _fxChain: FxInsert[] = [];
+  private _sends: Send[] = [];
   // Lazy meter tap. Connected as a passive sibling of bus.output → master.input
   // so the audio path is unchanged.
   private _meterAnalyser: AnalyserNode | null = null;
   private _meterBuf: Float32Array | null = null;
+  /**
+   * Engine-injected callback fired when this bus's solo state changes.
+   * The Engine uses it to coordinate the global "any soloed → mute the
+   * rest" rule across every bus in the graph. Bus does not depend on
+   * Engine; the callback is the only escape hatch.
+   */
+  notifySoloChange?: (bus: Bus, soloed: boolean) => void;
 
   constructor(ctx: AudioContext, name: string, config: BusConfig = {}) {
     this.ctx = ctx;
@@ -178,6 +240,76 @@ export class Bus {
       if (a > peak) peak = a;
     }
     return { rms: Math.sqrt(sumSq / buf.length), peak };
+  }
+
+  /**
+   * Route a copy of this bus's signal into another bus at the configured
+   * level. `target.input` mixes the send naturally with whatever else is
+   * already feeding it, so the typical pattern — "send 30 % of music to a
+   * dedicated reverb bus" — is just two lines:
+   *
+   * ```ts
+   * const verbSend = engine.bus('music').send(engine.bus('reverb'), { amount: 0.3 });
+   * verbSend.amount = 0.5; // turn it up live
+   * verbSend.dispose();    // remove the send entirely
+   * ```
+   *
+   * Default tap is post-fader / post-FX (`post: true`); set `post: false`
+   * if you want a monitor send that hears the dry pre-fader signal.
+   */
+  send(target: Bus, options: SendOptions = {}): Send {
+    const send = new Send(this, target, options, this.ctx);
+    this._sends.push(send);
+    return send;
+  }
+
+  /** Remove a previously-created send. Idempotent. */
+  removeSend(send: Send): void {
+    const idx = this._sends.indexOf(send);
+    if (idx === -1) return;
+    this._sends.splice(idx, 1);
+    send.dispose();
+  }
+
+  /** Read-only snapshot of every active send originating on this bus. */
+  sends(): readonly Send[] {
+    return this._sends;
+  }
+
+  /**
+   * Solo this bus. The engine coordinates the global rule: while any bus
+   * is soloed, every non-soloed bus is muted. Soloing multiple buses is
+   * additive — they all stay audible. Calling `unsolo()` (or `solo(false)`)
+   * removes this bus from the soloed set.
+   *
+   * Solo state is independent of `muted`; un-soloing returns the bus to
+   * whatever its `muted` setting was. Useful in mixer UIs where the user
+   * wants to A/B a single channel without disturbing the rest of the mix.
+   */
+  solo(on = true): void {
+    if (this._soloed === on) return;
+    this._soloed = on;
+    this.notifySoloChange?.(this, on);
+  }
+
+  /** Turn solo off on this bus. Equivalent to `solo(false)`. */
+  unsolo(): void {
+    this.solo(false);
+  }
+
+  /** True when this bus is in the engine's solo set. */
+  get soloed(): boolean {
+    return this._soloed;
+  }
+
+  /**
+   * Engine-only. Apply a transient mute (or restore) driven by the global
+   * solo state. Distinct from `muted` so un-soloing returns the bus to its
+   * user-visible mute state without re-rendering.
+   */
+  applySoloVeil(soloMute: boolean): void {
+    const target = this._muted ? 0 : soloMute ? 0 : this._level;
+    this.rampOutput(target, 0.01);
   }
 
   private rewireFxChain(): void {

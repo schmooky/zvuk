@@ -26,6 +26,14 @@ const surface = `class Bus {
   fx(): readonly FxInsert[];
 
   meter(): { rms: number; peak: number };  // live amplitude readout (lazy analyser tap)
+
+  send(target: Bus, options?: { amount?: number; post?: boolean }): Send;
+  removeSend(send: Send): void;
+  sends(): readonly Send[];
+
+  solo(on?: boolean): void;                // engine coordinates "any soloed → mute the rest"
+  unsolo(): void;
+  readonly soloed: boolean;
 }`;
 
 const meter = `// Drive a VU bar from bus.meter() inside your render loop.
@@ -48,6 +56,47 @@ await engine.bus('music').fadeTo(0, 1.2, 'equal-power');`;
 const enumerate = `const bus = engine.bus('sfx');
 console.log('voices on this bus:', bus.voiceCount);
 for (const v of bus.voices()) v.fade({ to: 0, duration: 0.2 });`;
+
+const sends = `// Send 30% of music to a dedicated reverb bus.
+const verbSend = engine.bus('music').send(engine.bus('reverb'), { amount: 0.3 });
+
+// Adjust live; the setter ramps over 10ms to avoid clicks.
+verbSend.amount = 0.5;
+await verbSend.fadeTo(0, 1.2);   // smooth fade-out
+
+// Remove the send entirely.
+verbSend.dispose();
+// or
+engine.bus('music').removeSend(verbSend);
+
+// Pre-fader / pre-FX tap (rare — useful for monitor sends that should
+// hear the dry signal regardless of how the source bus is faded).
+engine.bus('music').send(engine.bus('monitor'), { post: false });`;
+
+const solo = `// Solo this bus — every other bus is muted while the solo set is non-empty.
+engine.bus('voice').solo();
+engine.bus('music').solo();      // additive — both still audible
+
+engine.bus('voice').unsolo();    // music is still soloed; everyone else still muted
+engine.bus('music').unsolo();    // solo set drains — every bus restored
+
+// Solo state is independent of muted: un-soloing returns each bus to its
+// own .muted setting, not unconditionally to "audible".`;
+
+const groups = `// Group several buses so a single call addresses all of them.
+const combat = engine.busGroup('combat', [
+  engine.bus('weapons'),
+  engine.bus('enemies'),
+  engine.bus('environment'),
+]);
+
+combat.level = 0.5;              // sets every member's level
+await combat.fadeTo(0, 0.8);     // fades every member in parallel
+combat.muted = true;             // mutes the whole group
+combat.solo();                   // solos every member at once
+
+// Look up later by name.
+engine.busGroup('combat').level = 1;`;
 ---
 <Docs
   title="Bus"
@@ -90,6 +139,34 @@ for (const v of bus.voices()) v.fade({ to: 0, duration: 0.2 });`;
     for a full demo.
   </p>
   <Snippet code={meter} lang="ts" />
+
+  <h3>Sends — route a copy of one bus into another</h3>
+  <p>
+    The Wwise primitive: send a configurable share of a bus's signal into
+    another bus, instead of inserting an FX directly on the source. A
+    typical reverb routing — "send 30 % of music to a verb-only bus" — is
+    two lines and adjustable live.
+  </p>
+  <Snippet code={sends} lang="ts" />
+
+  <h3>Solo — A/B one bus without disturbing the rest</h3>
+  <p>
+    The engine coordinates the global rule: while any bus is in the solo set,
+    every non-soloed bus is muted via a tiny ramp; when the solo set drains,
+    every bus is restored. Solo state is independent of <code>muted</code>,
+    so un-soloing returns each bus to its user-visible mute setting.
+  </p>
+  <Snippet code={solo} lang="ts" />
+
+  <h3>Bus groups — address several buses at once</h3>
+  <p>
+    A <code>BusGroup</code> is a logical handle, not an audio node — it
+    applies <code>level</code> / <code>fadeTo</code> / <code>muted</code> /
+    <code>solo</code> to every member in parallel. Useful when several
+    buses always move together (combat = weapons + enemies + environment;
+    voice = dialogue + effort sounds; etc).
+  </p>
+  <Snippet code={groups} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

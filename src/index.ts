@@ -26,7 +26,8 @@ export {
   ensureStretchWorklet,
 } from './fx/stretch-worklet';
 export type { FxInsert } from './fx/types';
-export { Bus } from './mixer/bus';
+export { Bus, Send } from './mixer/bus';
+export { BusGroup } from './mixer/bus-group';
 export type { CrossfadeOptions, Engine } from './mixer/engine';
 export { createEngine } from './mixer/engine';
 export { Master } from './mixer/master';
@@ -70,6 +71,7 @@ export type {
   PreloadProgressEvent,
   ResolveAssetContext,
   ResolvedAsset,
+  SendOptions,
   SidechainConfig,
   SkipToOutroOptions,
   SpatialOptions,
