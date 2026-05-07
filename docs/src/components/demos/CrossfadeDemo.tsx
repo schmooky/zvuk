@@ -64,7 +64,7 @@ export default function CrossfadeDemo() {
         </button>
       ) : (
         <div className="flex flex-col gap-3">
-          <Waveform audioNode={busNode} variant="wave" label="bus output" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
               <Pill on={active === 'a'}>music A</Pill>

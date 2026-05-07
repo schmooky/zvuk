@@ -66,7 +66,7 @@ export default function PitchStretch() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-primary">

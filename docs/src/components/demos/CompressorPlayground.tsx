@@ -65,7 +65,7 @@ export default function CompressorPlayground() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="bus output (post-compressor)" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output (post-compressor)" className="mb-3" />
           <div className="mb-4 rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
               <span className="text-primary">gain reduction</span>

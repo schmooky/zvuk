@@ -68,7 +68,7 @@ export default function SlotReel() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="sfx bus" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
           <div className="mb-4 grid grid-cols-3 gap-2">
             {spinning.map((s, i) => (
               <div

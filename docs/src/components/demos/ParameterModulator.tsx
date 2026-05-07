@@ -43,7 +43,7 @@ export default function ParameterModulator() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <label className="block mb-4">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">parameter("intensity")</span>

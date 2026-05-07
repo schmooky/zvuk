@@ -39,7 +39,7 @@ export default function SoundCard() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="wave" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars" className="mb-3" />
           <button
             type="button"
             onClick={play}

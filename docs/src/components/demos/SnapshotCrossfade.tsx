@@ -61,7 +61,7 @@ export default function SnapshotCrossfade() {
         </button>
       ) : (
         <>
-          <Waveform audioNode={musicNode} variant="wave" label="music bus" className="mb-3" />
+          <Waveform audioNode={musicNode} variant="bars" label="music bus" className="mb-3" />
           <div className="grid gap-2 sm:grid-cols-3">
             {PRESETS.map((p) => (
               <button
