@@ -43,6 +43,19 @@ export interface BusConfig {
   sidechain?: SidechainConfig;
 }
 
+export interface SendOptions {
+  /** Send level (0..1). Default 1. */
+  amount?: number;
+  /**
+   * Tap the source bus's output (post-fader, post-FX) when `true`,
+   * or input (pre-fader, pre-FX) when `false`. Default `true` — almost
+   * always what you want. Pre-fader sends are mainly useful for
+   * monitoring buses that should hear the dry signal regardless of how
+   * the user has faded the source bus down.
+   */
+  post?: boolean;
+}
+
 export interface MasterLimiterConfig {
   /** Threshold in dB. Default -1 (just below 0 dBFS). */
   threshold?: number;

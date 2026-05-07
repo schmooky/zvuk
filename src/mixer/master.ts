@@ -1,4 +1,4 @@
-import type { MasterConfig, MasterLimiterConfig } from '../types';
+import type { AudioLevel, MasterConfig, MasterLimiterConfig } from '../types';
 
 /**
  * The Master stage. Headroom-aware gain into an optional brick-wall limiter,
@@ -15,6 +15,8 @@ export class Master {
   private limiterNode: DynamicsCompressorNode | null = null;
   private limiterCfg: MasterLimiterConfig | null;
   private destination: AudioNode;
+  private _meterAnalyser: AnalyserNode | null = null;
+  private _meterBuf: Float32Array | null = null;
 
   constructor(ctx: AudioContext, config: MasterConfig = {}) {
     this.ctx = ctx;
@@ -49,14 +51,44 @@ export class Master {
     return this.limiterNode?.reduction ?? 0;
   }
 
+  /**
+   * Live amplitude readout on the master input. Returns `{ rms, peak }`
+   * as linear values in [0..1]. The first call lazily attaches an
+   * AnalyserNode as a passive sibling of the master gain — no audio-path
+   * change. Same shape as `bus.meter()` and `voice.level()`.
+   */
+  meter(): AudioLevel {
+    if (!this._meterAnalyser) {
+      const a = this.ctx.createAnalyser();
+      a.fftSize = 1024;
+      this.input.connect(a);
+      this._meterAnalyser = a;
+      this._meterBuf = new Float32Array(a.fftSize);
+    }
+    const buf = this._meterBuf as Float32Array;
+    this._meterAnalyser.getFloatTimeDomainData(buf as Float32Array<ArrayBuffer>);
+    let sumSq = 0;
+    let peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const s = buf[i] ?? 0;
+      sumSq += s * s;
+      const a = Math.abs(s);
+      if (a > peak) peak = a;
+    }
+    return { rms: Math.sqrt(sumSq / buf.length), peak };
+  }
+
   dispose(): void {
     try {
       this.input.disconnect();
       this.limiterNode?.disconnect();
+      this._meterAnalyser?.disconnect();
     } catch {
       /* already disconnected */
     }
     this.limiterNode = null;
+    this._meterAnalyser = null;
+    this._meterBuf = null;
   }
 
   private rewire(): void {

@@ -18,6 +18,7 @@ import { StreamSound } from '../sources/stream';
 import type { Voice } from '../sources/voice';
 import { Spatializer } from '../spatial/spatializer';
 import type {
+  AudioLevel,
   EngineConfig,
   LoadSoundOptions,
   MusicLoadOptions,
@@ -27,6 +28,7 @@ import type {
   SpatialOptions,
 } from '../types';
 import { Bus } from './bus';
+import { BusGroup } from './bus-group';
 import { Master } from './master';
 import { Snapshot, type SnapshotState } from './snapshot';
 
@@ -126,6 +128,22 @@ export interface Engine {
   bus(name: string): Bus;
 
   /**
+   * Define (with `members`) or look up (without) a `BusGroup` — a logical
+   * handle that addresses several buses at once. Setting `group.level` or
+   * `group.muted`, calling `group.fadeTo`, or `group.solo()` applies to
+   * every member in parallel. Doesn't change the audio graph; pure
+   * convenience for sub-mixes that always move together.
+   */
+  busGroup(name: string, members?: readonly Bus[]): BusGroup;
+
+  /**
+   * Live amplitude readout on the master input. Same `{ rms, peak }`
+   * shape as `bus.meter()` and `voice.level()`, just at the top of the
+   * chain. First call lazily attaches a passive AnalyserNode tap.
+   */
+  masterMeter(): AudioLevel;
+
+  /**
    * Crossfade helper. Stops `from` over `duration` seconds while playing `to`
    * over the same window with `equal-power` curves so the perceived loudness
    * stays flat.
@@ -184,6 +202,8 @@ class EngineImpl implements Engine {
   private sprites = new Map<string, Sprite>();
   private streams = new Map<string, StreamSound>();
   private musics = new Map<string, Music>();
+  private busGroups = new Map<string, BusGroup>();
+  private soloedBuses = new Set<Bus>();
   private voices = new Map<string, Set<Voice>>();
   private parameters = new Map<string, Parameter>();
   private config: EngineConfig;
@@ -517,6 +537,25 @@ class EngineImpl implements Engine {
     return b;
   }
 
+  busGroup(name: string, members?: readonly Bus[]): BusGroup {
+    if (members != null) {
+      // Define (or redefine) the group.
+      const group = new BusGroup(name, members);
+      this.busGroups.set(name, group);
+      return group;
+    }
+    const existing = this.busGroups.get(name);
+    if (!existing) {
+      throw new BusNotFoundError(suggest(name, [...this.busGroups.keys()]));
+    }
+    return existing;
+  }
+
+  masterMeter(): AudioLevel {
+    this.ensureGraph();
+    return this.master!.meter();
+  }
+
   scheduleAt(audioTime: number, fn: () => void): () => void {
     this.host.touch();
     this.ensureGraph();
@@ -573,8 +612,29 @@ class EngineImpl implements Engine {
       const cfg = this.config.buses?.[name] ?? {};
       const bus = new Bus(ctx, name, cfg);
       bus.output.connect(this.master.input);
+      bus.notifySoloChange = (b, soloed) => this.handleSoloChange(b, soloed);
       this.buses.set(name, bus);
       if (!this.voices.has(name)) this.voices.set(name, new Set());
+    }
+  }
+
+  /**
+   * Coordinate the global solo rule. When any bus is in the solo set,
+   * every non-soloed bus is muted via `applySoloVeil(true)`. When the
+   * solo set drains, every bus is restored via `applySoloVeil(false)` —
+   * which honours the bus's own `muted` setting independently.
+   */
+  private handleSoloChange(bus: Bus, soloed: boolean): void {
+    if (soloed) this.soloedBuses.add(bus);
+    else this.soloedBuses.delete(bus);
+
+    const anySoloed = this.soloedBuses.size > 0;
+    for (const b of this.buses.values()) {
+      if (!anySoloed) {
+        b.applySoloVeil(false);
+      } else {
+        b.applySoloVeil(!this.soloedBuses.has(b));
+      }
     }
   }
 }
