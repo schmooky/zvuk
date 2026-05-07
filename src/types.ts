@@ -279,6 +279,52 @@ export interface LoadSoundOptions {
 }
 
 /**
+ * A three-part music asset: optional intro stinger, mandatory loop body,
+ * optional outro tail. Modelled on the Wwise / FMOD pattern every casino
+ * slot, action game, and rhythm game uses for combat/win/menu music.
+ *
+ * Each part accepts a single URL or a codec ladder — the same shape as
+ * `engine.loadSound`'s second argument.
+ */
+export interface MusicParts {
+  intro?: string | readonly string[];
+  loop: string | readonly string[];
+  outro?: string | readonly string[];
+}
+
+export interface MusicLoadOptions extends LoadSoundOptions {
+  /**
+   * Equal-power crossfade (seconds) at the loop boundary. Mirrors
+   * `PlayOptions.loopCrossfade` — masks the click that would otherwise
+   * fire if the loop region doesn't end on a zero crossing. Default `0`.
+   */
+  loopCrossfade?: number;
+}
+
+export interface MusicPlayOptions {
+  /** Initial volume (0..1). Default 1. */
+  volume?: number;
+  /**
+   * Fade-in duration (seconds) applied to the music's gain stage at start.
+   * Default 0 (instant). Convenience for "drop into the menu" style intros.
+   */
+  fadeIn?: number;
+}
+
+export interface SkipToOutroOptions {
+  /**
+   * - `'loop-end'` (default) — finish the current loop iteration, then play
+   *   the outro at the natural loop boundary. Musical, no click.
+   * - `'now'` — fade out whatever's playing right now (~50 ms equal-power)
+   *   and start the outro immediately. Right call for "user pressed Stop"
+   *   where waiting feels unresponsive.
+   */
+  at?: 'loop-end' | 'now';
+}
+
+export type MusicState = 'intro' | 'loop' | 'outro' | 'ended';
+
+/**
  * One entry in a `engine.preload(...)` batch. Mirrors `engine.loadSound`'s
  * signature so callers can hand the same data to either path.
  */

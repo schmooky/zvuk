@@ -42,6 +42,7 @@ export {
   applyLoudnessNormalization,
   computeNormalizationGain,
 } from './runtime/loudness';
+export { Music, MusicVoice } from './sources/music';
 export { Sound } from './sources/sound';
 export type { SpriteMap, SpriteRegion, SpriteRegionPlayOptions } from './sources/sprite';
 export { Sprite } from './sources/sprite';
@@ -59,6 +60,10 @@ export type {
   LoadSoundOptions,
   MasterConfig,
   MasterLimiterConfig,
+  MusicLoadOptions,
+  MusicParts,
+  MusicPlayOptions,
+  MusicState,
   PlayOptions,
   PreloadItem,
   PreloadOptions,
@@ -66,6 +71,7 @@ export type {
   ResolveAssetContext,
   ResolvedAsset,
   SidechainConfig,
+  SkipToOutroOptions,
   SpatialOptions,
   StopOptions,
   TickSource,

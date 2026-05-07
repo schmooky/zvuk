@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · stinger → loop → outro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 540px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 16px; font-size: 0.95rem; cursor: pointer; }
+      button[disabled] { opacity: 0.4; cursor: not-allowed; }
+      button.secondary { background: #15151b; color: #c8c8d0; border: 1px solid #2a2a32; }
+      button.danger { background: #15151b; color: #f47c4f; border: 1px solid #f47c4f44; }
+      .row { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
+      .label { color: #888; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+      .stage {
+        position: relative;
+        height: 64px;
+        background: #15151b;
+        border: 1px solid #2a2a32;
+        border-radius: 8px;
+        margin: 16px 0;
+        overflow: hidden;
+        display: flex;
+      }
+      .seg {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: ui-monospace, monospace;
+        font-size: 0.8rem;
+        color: #6a6a78;
+        border-right: 1px solid #2a2a32;
+        transition: background 120ms linear, color 120ms linear;
+      }
+      .seg:last-child { border-right: 0; }
+      .seg.active { background: #4f6cf7; color: #fff; }
+      .meter { font-family: ui-monospace, monospace; color: #6a6a78; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Stinger → loop → outro</h1>
+      <p>
+        <code>engine.loadMusic(name, { intro, loop, outro }, options)</code>.
+        The intro plays once, the loop runs forever, and the outro fires at
+        the next loop boundary so the music ends musically. Try the two
+        skip-to-outro modes:
+      </p>
+      <p>
+        <strong>loop-end</strong> waits for the current iteration to finish
+        before triggering the outro — musically clean. <strong>now</strong>
+        fades the loop out (~50 ms) and starts the outro immediately —
+        responsive but less musical.
+      </p>
+
+      <div class="stage">
+        <div class="seg" id="seg-intro">intro</div>
+        <div class="seg" id="seg-loop">loop</div>
+        <div class="seg" id="seg-outro">outro</div>
+      </div>
+
+      <div class="row">
+        <button id="play">Start</button>
+        <button id="skipLoopEnd" class="secondary">Skip to outro · loop-end</button>
+        <button id="skipNow" class="secondary">Skip to outro · now</button>
+        <button id="stop" class="danger">Hard stop</button>
+      </div>
+
+      <div class="meter" id="meter">awaiting unlock…</div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

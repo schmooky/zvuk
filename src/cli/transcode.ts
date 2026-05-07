@@ -86,7 +86,7 @@ async function expandGlob(pattern: string): Promise<string[]> {
   }
   const dir = dirname(pattern);
   const base = basename(pattern);
-  const re = new RegExp('^' + base.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+  const re = new RegExp(`^${base.replace(/\./g, '\\.').replace(/\*/g, '.*')}$`);
   try {
     const entries = await readdir(dir);
     return entries.filter((n) => re.test(n)).map((n) => join(dir, n));
