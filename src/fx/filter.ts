@@ -12,38 +12,41 @@ export interface FilterConfig {
   gain?: number;
 }
 
+/**
+ * Biquad filter as a bus FX insert. Bypass is a graph swap, not a parameter
+ * trick — when bypassed, input is connected directly to output, leaving the
+ * biquad fully detached so its delay-line state can't bleed into the dry
+ * signal.
+ */
 export class Filter implements FxInsert {
-  readonly input: BiquadFilterNode;
-  readonly output: BiquadFilterNode;
-  private bypassPath: GainNode;
-  private direct: GainNode;
+  readonly input: GainNode;
+  readonly output: GainNode;
+  private filter: BiquadFilterNode;
   private ctx: AudioContext;
   private _bypassed = false;
 
   constructor(ctx: AudioContext, config: FilterConfig = {}) {
     this.ctx = ctx;
-    const node = ctx.createBiquadFilter();
-    node.type = config.type ?? 'lowpass';
-    node.frequency.value = config.frequency ?? 1000;
-    node.Q.value = config.q ?? 1;
-    node.gain.value = config.gain ?? 0;
-    this.input = node;
-    this.output = node;
-    this.bypassPath = ctx.createGain();
-    this.direct = ctx.createGain();
-    this.direct.connect(node);
+    this.input = ctx.createGain();
+    this.output = ctx.createGain();
+    this.filter = ctx.createBiquadFilter();
+    this.filter.type = config.type ?? 'lowpass';
+    this.filter.frequency.value = config.frequency ?? 1000;
+    this.filter.Q.value = config.q ?? 1;
+    this.filter.gain.value = config.gain ?? 0;
+    this.wire();
   }
 
   setFrequency(hz: number): void {
-    this.input.frequency.setValueAtTime(hz, this.ctx.currentTime);
+    this.filter.frequency.setValueAtTime(hz, this.ctx.currentTime);
   }
 
   setQ(q: number): void {
-    this.input.Q.setValueAtTime(q, this.ctx.currentTime);
+    this.filter.Q.setValueAtTime(q, this.ctx.currentTime);
   }
 
   setType(t: FilterKind): void {
-    this.input.type = t;
+    this.filter.type = t;
   }
 
   get bypassed(): boolean {
@@ -53,16 +56,31 @@ export class Filter implements FxInsert {
   set bypassed(v: boolean) {
     if (this._bypassed === v) return;
     this._bypassed = v;
-    this.input.frequency.value = v ? 22050 : this.input.frequency.value || 1000;
+    this.wire();
   }
 
   dispose(): void {
     try {
       this.input.disconnect();
-      this.bypassPath.disconnect();
-      this.direct.disconnect();
+      this.filter.disconnect();
+      this.output.disconnect();
     } catch {
       /* already disconnected */
+    }
+  }
+
+  private wire(): void {
+    try {
+      this.input.disconnect();
+      this.filter.disconnect();
+    } catch {
+      /* fresh */
+    }
+    if (this._bypassed) {
+      this.input.connect(this.output);
+    } else {
+      this.input.connect(this.filter);
+      this.filter.connect(this.output);
     }
   }
 }

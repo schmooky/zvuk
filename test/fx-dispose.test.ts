@@ -64,15 +64,30 @@ describe('FX dispose', () => {
     await engine.close();
   });
 
-  it('Filter.dispose is idempotent (input === output, same node)', async () => {
+  it('Filter has separate input/output gains spliced around the biquad, and dispose is idempotent', async () => {
     const engine = createEngine({ buses: { sfx: {} } });
     await engine.unlock();
     const fx = new Filter(engine.context);
-    expect(fx.input).toBe(fx.output);
+    // Separate input + output GainNodes (mirrors Compressor/Reverb FxInsert
+    // shape) so bypass can rewire the graph instead of faking it on the
+    // biquad's frequency.
+    expect(fx.input).not.toBe(fx.output);
     expect(() => {
       fx.dispose();
       fx.dispose();
     }).not.toThrow();
+    await engine.close();
+  });
+
+  it('Filter bypass rewires the graph (input → output direct, biquad detached)', async () => {
+    const engine = createEngine({ buses: { sfx: {} } });
+    await engine.unlock();
+    const fx = new Filter(engine.context, { type: 'lowpass', frequency: 800 });
+    fx.bypassed = true;
+    expect(fx.bypassed).toBe(true);
+    fx.bypassed = false;
+    expect(fx.bypassed).toBe(false);
+    fx.dispose();
     await engine.close();
   });
 });

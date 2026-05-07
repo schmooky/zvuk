@@ -197,11 +197,24 @@ function wait(seconds: number): Promise<void> {
   return new Promise((res) => setTimeout(res, seconds * 1000));
 }
 
+let warnedQuietest = false;
+
 function pickVictim(
   voices: ReadonlySet<Voice>,
   strategy: NonNullable<ConcurrencyConfig['steal']>,
   newVoice: Voice,
 ): Voice | null {
+  let effective = strategy;
+  if (effective === 'quietest') {
+    if (!warnedQuietest) {
+      warnedQuietest = true;
+      console.warn(
+        "[zvuk] concurrency.steal: 'quietest' currently falls back to 'oldest' — per-voice level metering ships in a follow-up release. Use 'lowest-priority' if you need explicit control today.",
+      );
+    }
+    effective = 'oldest';
+  }
+
   let victim: Voice | null = null;
   for (const v of voices) {
     if (v === newVoice) continue;
@@ -209,16 +222,12 @@ function pickVictim(
       victim = v;
       continue;
     }
-    switch (strategy) {
+    switch (effective) {
       case 'oldest':
         if (v.startedAt < victim.startedAt) victim = v;
         break;
       case 'lowest-priority':
         if (v.priority < victim.priority) victim = v;
-        break;
-      case 'quietest':
-        // Voice doesn't expose a meter yet — fall back to oldest.
-        if (v.startedAt < victim.startedAt) victim = v;
         break;
       default:
         break;

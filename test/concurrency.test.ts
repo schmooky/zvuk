@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createEngine } from '../src/index';
 
 describe('Bus concurrency', () => {
@@ -37,6 +37,31 @@ describe('Bus concurrency', () => {
     const bus = engine.bus('sfx');
     expect(bus.voiceCount).toBe(1);
     expect(bus.voices()).not.toContain(rejected);
+
+    await engine.close();
+  });
+
+  it("steal: 'quietest' warns once and falls back to oldest until metering ships", async () => {
+    const engine = createEngine({
+      buses: { sfx: { concurrency: { max: 2, steal: 'quietest' } } },
+    });
+    await engine.unlock();
+    await engine.loadSound('hit', 'mock://hit.wav', { bus: 'sfx' });
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const a = engine.sound('hit').play();
+      engine.sound('hit').play();
+      engine.sound('hit').play();
+      const bus = engine.bus('sfx');
+      expect(bus.voiceCount).toBe(2);
+      // Falls back to 'oldest' — `a` is gone.
+      expect(bus.voices()).not.toContain(a);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0] ?? '').toContain("'quietest'");
+    } finally {
+      warn.mockRestore();
+    }
 
     await engine.close();
   });
