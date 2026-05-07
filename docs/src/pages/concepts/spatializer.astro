@@ -36,6 +36,37 @@ requestAnimationFrame(function tick() {
 // 2D — same shape with setPan.
 const swarm = engine.sound('bee').play({ spatializer: { pan: 0 } });
 swarm.spatializer?.setPan(-0.6);`;
+
+const distance3D = `// 3D config exposed: tune the distance-attenuation curve to your scene.
+engine.sound('engine').play({
+  spatializer: {
+    position: [10, 0, 0],
+    refDistance: 5,            // full volume within 5 units of the listener
+    maxDistance: 250,          // 'linear' model reaches zero here
+    rolloffFactor: 1.5,        // steeper than the natural rolloff
+    distanceModel: 'inverse',  // 'linear' | 'inverse' | 'exponential'
+  },
+});
+
+// Live setters for moving sources / dynamic environments:
+v.spatializer?.setRefDistance(8);
+v.spatializer?.setMaxDistance(500);
+v.spatializer?.setRolloffFactor(2);
+v.spatializer?.setDistanceModel('linear');`;
+
+const occlusion = `// Occlusion — single 0..1 knob driving an internal lowpass + small gain dip.
+// 0 = clear; 1 = behind a wall (cutoff sweeps to ~500 Hz, level drops -6 dB).
+engine.sound('boss-roar').play({
+  spatializer: { position: [50, 0, 0], occlusion: 0 },
+});
+
+// Drive it from a Parameter so a single knob can occlude every relevant voice.
+const occlusion = engine.parameter('boss-occlusion', 0);
+v.spatializer && occlusion.bindTo((amount) => v.spatializer!.setOcclusion(amount));
+occlusion.set(0.7);          // boss is now mostly muffled
+
+// Combine with distance for a "behind a wall, far away" feel — bind the
+// same parameter to both setOcclusion() and a position update.`;
 ---
 <Docs
   title="Spatializer"
@@ -90,6 +121,27 @@ class Spatializer {
     returned voice. No more re-attaching, no separate ref to manage.
   </p>
   <Snippet code={livePerVoice} lang="ts" />
+
+  <h3>3D distance config</h3>
+  <p>
+    Previously hard-coded; now exposed both as construction options and
+    live setters. <code>refDistance</code> is the no-attenuation radius;
+    <code>maxDistance</code> anchors the rolloff curve;
+    <code>rolloffFactor</code> scales how aggressively distance bites;
+    <code>distanceModel</code> picks the curve shape
+    (<code>'inverse'</code>, <code>'linear'</code>, or <code>'exponential'</code>).
+  </p>
+  <Snippet code={distance3D} lang="ts" />
+
+  <h3>Occlusion — "behind a wall"</h3>
+  <p>
+    A single 0..1 knob driving an internal lowpass filter (cutoff sweeps
+    log-style from 22050 Hz to ~500 Hz) plus a small gain dip
+    (up to -6 dB at amount = 1). The standard shape of a sound that's
+    obstructed — bind it to a <code>Parameter</code> and you get a single
+    handle for whole-room occlusion changes.
+  </p>
+  <Snippet code={occlusion} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

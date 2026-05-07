@@ -224,11 +224,49 @@ export interface VoiceJitter {
   jitter?: number;
 }
 
+/**
+ * Distance-attenuation curve. Mirrors `PannerNode.distanceModel`:
+ * - `'inverse'` (default) — natural-sounding rolloff, matches outdoor sound.
+ * - `'linear'` — straight-line attenuation between `refDistance` and `maxDistance`.
+ * - `'exponential'` — steeper than inverse; useful for tight environments.
+ */
+export type DistanceModel = 'linear' | 'inverse' | 'exponential';
+
 export interface SpatialOptions {
   /** [-1, 1] stereo pan (2D). Mutually exclusive with `position`. */
   pan?: number;
   /** [x, y, z] world-space position (3D). Mutually exclusive with `pan`. */
   position?: [number, number, number];
+  /**
+   * Distance below which the source is at full volume. Default 1.
+   * 3D only; ignored when `pan` is used.
+   */
+  refDistance?: number;
+  /**
+   * Distance beyond which `'linear'` attenuation reaches zero. The
+   * `'inverse'` and `'exponential'` models keep falling off but use this
+   * as the curve's anchor. Default 10000.
+   * 3D only; ignored when `pan` is used.
+   */
+  maxDistance?: number;
+  /**
+   * How aggressively distance attenuates the sound. 1 is the natural
+   * rolloff for the chosen `distanceModel`; higher values produce a
+   * more dramatic falloff. Default 1.
+   * 3D only; ignored when `pan` is used.
+   */
+  rolloffFactor?: number;
+  /** Distance-attenuation curve. Default `'inverse'`. 3D only. */
+  distanceModel?: DistanceModel;
+  /**
+   * Occlusion amount (0..1). Drives an internal low-pass filter that
+   * sweeps cutoff from 22050 Hz (transparent) down to ~500 Hz (heavily
+   * muffled), plus a small gain dip — the standard "behind a wall"
+   * effect. Independent of distance attenuation; combine via a
+   * `Parameter` if you want one knob to drive both.
+   * 3D only; ignored when `pan` is used.
+   */
+  occlusion?: number;
 }
 
 export interface PlayOptions {
