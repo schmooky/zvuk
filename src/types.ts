@@ -223,6 +223,21 @@ export interface PlayOptions {
   loopStart?: number;
   /** When loop=true, end of the loop region (seconds). */
   loopEnd?: number;
+  /**
+   * Equal-power crossfade duration (seconds) at the loop boundary. When
+   * `loop` is true and this is non-zero, zvuk spawns a parallel buffer
+   * source at every loop point and ramps between them — masking the click
+   * that AudioBufferSourceNode's native loop produces when the region
+   * doesn't end on a zero crossing.
+   *
+   * Default `0` (off — native hard-cut loop). Cost is one extra
+   * AudioBufferSourceNode + GainNode per loop iteration; with default
+   * Web Audio dispatch this is well under 1% CPU per voice.
+   *
+   * Ignored if `loop` is false, or if the loop region is shorter than
+   * twice the crossfade window (silent fallback to native loop).
+   */
+  loopCrossfade?: number;
 }
 
 export interface LoudnessOptions {

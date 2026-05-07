@@ -57,6 +57,15 @@ export class Voice {
   private loopEnd: number | undefined;
   private regionTimer: ReturnType<typeof setTimeout> | null = null;
   private stopFade: number;
+  // Loop-crossfade state. Inactive when crossfadeSec === 0.
+  // In crossfade mode, `source` is the most-recently-armed segment and the
+  // `crossfadeChain` carries every segment currently scheduled or live so
+  // that stop/pause/setPlaybackRate can fan out across them.
+  private crossfadeSec = 0;
+  private crossfadeRegionStart = 0;
+  private crossfadeRegionLen = 0;
+  private crossfadeChain: { source: AudioBufferSourceNode; gain: GainNode; startTime: number }[] = [];
+  private crossfadeArmTimer: ReturnType<typeof setTimeout> | null = null;
 
   static nextId = 1;
 
@@ -84,15 +93,11 @@ export class Voice {
     this.gain.gain.value = clamp01(initialVolume);
     this.gain.connect(destination);
 
-    this.source = this.createSourceNode(this.basePitch);
     this.startCtxTime = ctx.currentTime;
 
     this.ended = new Promise<void>((resolve) => {
       this.resolveEnded = resolve;
     });
-
-    // No-op hook: deps.onEnded fires once via the .ended.then below (covers stop/abort/region too).
-    this.bindSourceLifecycle(this.source, () => {});
 
     if (options.signal) {
       if (options.signal.aborted) {
@@ -103,15 +108,40 @@ export class Voice {
       }
     }
 
-    try {
-      this.source.start(0, this.startOffset);
-    } catch {
-      /* already started */
+    if (this.shouldUseLoopCrossfade(options)) {
+      this.crossfadeSec = options.loopCrossfade!;
+      this.crossfadeRegionStart = options.loopStart ?? this.startOffset;
+      const regionEnd = options.loopEnd ?? buffer.duration;
+      this.crossfadeRegionLen = Math.max(0, regionEnd - this.crossfadeRegionStart);
+      // Spawn the first segment + arm the chain. `source` is set inside.
+      this.source = this.startCrossfadeChain(ctx.currentTime);
+    } else {
+      this.source = this.createSourceNode(this.basePitch);
+      this.bindSourceLifecycle(this.source, () => {});
+      try {
+        this.source.start(0, this.startOffset);
+      } catch {
+        /* already started */
+      }
+      this.armRegionTimer(this.regionDuration);
     }
-    this.armRegionTimer(this.regionDuration);
+
     queueMicrotask(() => this.emit('started'));
     // Hook end notification for the parent.
     void this.ended.then(() => deps.onEnded(this));
+  }
+
+  private shouldUseLoopCrossfade(options: PlayOptions): boolean {
+    if (!this.loop) return false;
+    const cf = options.loopCrossfade;
+    if (cf == null || cf <= 0) return false;
+    const start = options.loopStart ?? this.startOffset;
+    const end = options.loopEnd ?? this.buffer.duration;
+    const len = end - start;
+    // Crossfade only makes sense if the region is at least 2× the window —
+    // otherwise the next segment starts before the previous one's fade-in
+    // ends, and the math collapses. Silent fallback to native loop.
+    return len > cf * 2;
   }
 
   fade(opts: FadeOptions): Promise<void> {
@@ -136,12 +166,13 @@ export class Voice {
     if (this.done || this.stopping) return;
     const fade = Math.max(0, opts.fade ?? this.stopFade);
 
+    if (this.crossfadeArmTimer != null) {
+      clearTimeout(this.crossfadeArmTimer);
+      this.crossfadeArmTimer = null;
+    }
+
     if (fade === 0) {
-      try {
-        this.source.stop();
-      } catch {
-        /* already stopped */
-      }
+      this.stopAllSources(0);
       this.finish('ended');
       return;
     }
@@ -150,9 +181,9 @@ export class Voice {
     const now = this.ctx.currentTime;
     const stopAt = now + fade;
 
-    // Detach the source's onended hook so it doesn't race the timeout below.
-    // We own the finish lifecycle for the click-free path.
-    this.source.onended = null;
+    // We own the finish lifecycle for the click-free path; detach onended on
+    // every live source so they don't race our setTimeout below.
+    for (const src of this.activeSources()) src.onended = null;
 
     if (this.regionTimer != null) {
       clearTimeout(this.regionTimer);
@@ -166,7 +197,7 @@ export class Voice {
       // even if there were no prior scheduled events on this param.
       param.setValueAtTime(param.value, now);
       param.linearRampToValueAtTime(0, stopAt);
-      this.source.stop(stopAt);
+      this.stopAllSources(stopAt);
     } catch {
       // Schedule failed (e.g. source already stopped) — fall through to a
       // hard finish so we don't leak a node graph.
@@ -175,6 +206,22 @@ export class Voice {
     }
 
     setTimeout(() => this.finish('ended'), fade * 1000);
+  }
+
+  private activeSources(): AudioBufferSourceNode[] {
+    if (this.inCrossfadeMode) return this.crossfadeChain.map((e) => e.source);
+    return [this.source];
+  }
+
+  private stopAllSources(when: number): void {
+    for (const src of this.activeSources()) {
+      try {
+        if (when === 0) src.stop();
+        else src.stop(when);
+      } catch {
+        /* already stopped */
+      }
+    }
   }
 
   /**
@@ -191,17 +238,24 @@ export class Voice {
       clearTimeout(this.regionTimer);
       this.regionTimer = null;
     }
-    try {
-      this.source.onended = null;
-      this.source.stop();
-    } catch {
-      /* already stopped */
+    if (this.crossfadeArmTimer != null) {
+      clearTimeout(this.crossfadeArmTimer);
+      this.crossfadeArmTimer = null;
     }
-    try {
-      this.source.disconnect();
-    } catch {
-      /* already disconnected */
+    for (const src of this.activeSources()) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        src.disconnect();
+      } catch {
+        /* already disconnected */
+      }
     }
+    if (this.inCrossfadeMode) this.crossfadeChain = [];
     this.emit('paused');
   }
 
@@ -209,18 +263,24 @@ export class Voice {
   resume(): void {
     if (this.done || !this.paused) return;
     this.paused = false;
-    this.source = this.createSourceNode(this.basePitch);
-    this.bindSourceLifecycle(this.source, () => {});
     this.startCtxTime = this.ctx.currentTime;
-    try {
-      this.source.start(0, this.pausedOffset);
-    } catch {
-      /* already started */
-    }
-    if (this.regionDuration != null) {
-      const consumed = Math.max(0, this.pausedOffset - this.startOffset);
-      const remaining = Math.max(0, this.regionDuration - consumed);
-      this.armRegionTimer(remaining);
+    if (this.inCrossfadeMode) {
+      // Restart a fresh chain. Resume keys off the loop region — we don't
+      // try to re-enter mid-segment because each segment owns a stop timer.
+      this.source = this.startCrossfadeChain(this.startCtxTime);
+    } else {
+      this.source = this.createSourceNode(this.basePitch);
+      this.bindSourceLifecycle(this.source, () => {});
+      try {
+        this.source.start(0, this.pausedOffset);
+      } catch {
+        /* already started */
+      }
+      if (this.regionDuration != null) {
+        const consumed = Math.max(0, this.pausedOffset - this.startOffset);
+        const remaining = Math.max(0, this.regionDuration - consumed);
+        this.armRegionTimer(remaining);
+      }
     }
     this.emit('resumed');
   }
@@ -245,12 +305,17 @@ export class Voice {
     }
     this.basePitch = r;
     if (this.paused) return;
-    const param = this.source.playbackRate;
-    if (duration === 0) {
-      param.value = r;
-      return;
+    // Apply to every live source — single-source mode = one entry, crossfade
+    // mode = the current live segment + any future ones (newly spawned
+    // segments pick up basePitch in spawnCrossfadeSegment).
+    for (const src of this.activeSources()) {
+      const param = src.playbackRate;
+      if (duration === 0) {
+        param.value = r;
+      } else {
+        applyRamp(param, this.ctx.currentTime, r, duration, opts.curve ?? 'linear');
+      }
     }
-    applyRamp(param, this.ctx.currentTime, r, duration, opts.curve ?? 'linear');
   }
 
   get playbackRate(): number {
@@ -306,12 +371,18 @@ export class Voice {
       clearTimeout(this.regionTimer);
       this.regionTimer = null;
     }
+    if (this.crossfadeArmTimer != null) {
+      clearTimeout(this.crossfadeArmTimer);
+      this.crossfadeArmTimer = null;
+    }
     try {
-      this.source.disconnect();
+      for (const src of this.activeSources()) src.disconnect();
+      for (const e of this.crossfadeChain) e.gain.disconnect();
       this.gain.disconnect();
     } catch {
       /* already gone */
     }
+    this.crossfadeChain = [];
     this.emit(reason);
     this.resolveEnded();
     hook?.(this);
@@ -350,6 +421,91 @@ export class Voice {
       if (this.paused) return;
       if (!src.loop) this.finish('ended', hook);
     };
+  }
+
+  /**
+   * Begin the loop-crossfade chain. Spawns the first segment immediately at
+   * full level, then arms a setTimeout to spawn the next one shortly before
+   * the boundary. Each subsequent spawn re-arms its own follow-up.
+   *
+   * Audio scheduling uses absolute `ctx.currentTime` values so drift between
+   * setTimeout (wall clock) and the audio thread doesn't cause click-y
+   * misalignment — setTimeout only needs to wake us in time to call
+   * `source.start(when, ...)` before `when`.
+   */
+  private startCrossfadeChain(when: number): AudioBufferSourceNode {
+    const first = this.spawnCrossfadeSegment(when, /* fadeIn */ false);
+    this.armNextCrossfadeSegment(when);
+    return first.source;
+  }
+
+  private spawnCrossfadeSegment(
+    when: number,
+    fadeIn: boolean,
+  ): { source: AudioBufferSourceNode; gain: GainNode } {
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.buffer;
+    src.loop = false;
+    src.playbackRate.value = this.basePitch;
+
+    const segGain = this.ctx.createGain();
+    if (fadeIn) {
+      segGain.gain.setValueAtTime(0, when);
+      segGain.gain.linearRampToValueAtTime(1, when + this.crossfadeSec);
+    } else {
+      segGain.gain.setValueAtTime(1, when);
+    }
+    // Ramp out at the segment's tail.
+    const fadeOutAt = when + this.crossfadeRegionLen - this.crossfadeSec;
+    segGain.gain.setValueAtTime(1, fadeOutAt);
+    segGain.gain.linearRampToValueAtTime(0, when + this.crossfadeRegionLen);
+
+    src.connect(segGain).connect(this.gain);
+    try {
+      // Web Audio honours start(when, offset, duration); the source stops
+      // itself at `when + duration / playbackRate` without a setTimeout.
+      src.start(when, this.crossfadeRegionStart, this.crossfadeRegionLen);
+    } catch {
+      /* already started */
+    }
+    src.onended = () => this.releaseCrossfadeSegment(src, segGain);
+
+    const entry = { source: src, gain: segGain, startTime: when };
+    this.crossfadeChain.push(entry);
+    return entry;
+  }
+
+  private armNextCrossfadeSegment(currentSegmentStart: number): void {
+    if (this.crossfadeArmTimer != null) {
+      clearTimeout(this.crossfadeArmTimer);
+      this.crossfadeArmTimer = null;
+    }
+    const nextStart = currentSegmentStart + this.crossfadeRegionLen - this.crossfadeSec;
+    // Wake ~50 ms before nextStart (relative to wall clock) so we have time
+    // to call source.start(nextStart, ...) before the audio thread hits it.
+    const SAFETY_LEAD_MS = 50;
+    const delayMs = Math.max(0, (nextStart - this.ctx.currentTime) * 1000 - SAFETY_LEAD_MS);
+    this.crossfadeArmTimer = setTimeout(() => {
+      this.crossfadeArmTimer = null;
+      if (this.done || this.stopping || this.paused) return;
+      this.spawnCrossfadeSegment(nextStart, /* fadeIn */ true);
+      this.armNextCrossfadeSegment(nextStart);
+    }, delayMs);
+  }
+
+  private releaseCrossfadeSegment(src: AudioBufferSourceNode, gain: GainNode): void {
+    const idx = this.crossfadeChain.findIndex((e) => e.source === src);
+    if (idx >= 0) this.crossfadeChain.splice(idx, 1);
+    try {
+      src.disconnect();
+      gain.disconnect();
+    } catch {
+      /* already gone */
+    }
+  }
+
+  private get inCrossfadeMode(): boolean {
+    return this.crossfadeSec > 0;
   }
 
   private computeOffset(): number {
