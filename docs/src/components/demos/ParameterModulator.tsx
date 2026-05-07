@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Parameter } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 export default function ParameterModulator() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -10,6 +11,7 @@ export default function ParameterModulator() {
   const [intensity, setIntensity] = useState(0.3);
   const [musicLevel, setMusicLevel] = useState(0.6);
   const [pitch, setPitch] = useState(1.0);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -25,6 +27,7 @@ export default function ParameterModulator() {
       setMusicLevel(v);
     }, { from: 0.3, to: 1, curve: 'easeInOut' });
     p.bindTo((v) => setPitch(v), { from: 0.85, to: 1.15, curve: 'easeInOut' });
+    setBusNode(e.bus('music').output);
   }
 
   useEffect(() => {
@@ -40,6 +43,7 @@ export default function ParameterModulator() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="bus output" className="mb-3" />
           <label className="block mb-4">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">parameter("intensity")</span>

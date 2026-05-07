@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Filter, type FilterKind } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 export default function FilterSweep() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -10,6 +11,7 @@ export default function FilterSweep() {
   const [type, setType] = useState<FilterKind>('lowpass');
   const [freq, setFreq] = useState(1200);
   const [q, setQ] = useState(1);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
   async function start() {
     const e = await unlock();
@@ -22,6 +24,7 @@ export default function FilterSweep() {
       e.bus('music').addFx(filterRef.current);
     }
     e.sound('loop').play({ loop: true });
+    setBusNode(e.bus('music').output);
   }
 
   useEffect(() => { filterRef.current?.setType(type); }, [type]);
@@ -37,6 +40,7 @@ export default function FilterSweep() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <label className="block mb-3">
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">type</div>
             <select

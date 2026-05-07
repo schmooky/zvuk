@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Compressor } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import Waveform from './Waveform';
 
 export default function CompressorPlayground() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -9,6 +10,7 @@ export default function CompressorPlayground() {
   const compRef = useRef<Compressor | null>(null);
   const [bypass, setBypass] = useState(false);
   const [reduction, setReduction] = useState(0);
+  const [busNode, setBusNode] = useState<AudioNode | null>(null);
   const [cfg, setCfg] = useState({
     threshold: -24,
     ratio: 6,
@@ -28,6 +30,7 @@ export default function CompressorPlayground() {
       e.bus('music').addFx(compRef.current);
     }
     e.sound('loop').play({ loop: true });
+    setBusNode(e.bus('music').output);
   }
 
   useEffect(() => {
@@ -62,6 +65,7 @@ export default function CompressorPlayground() {
         </button>
       ) : (
         <>
+          <Waveform audioNode={busNode} variant="wave" label="bus output (post-compressor)" className="mb-3" />
           <div className="mb-4 rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
               <span className="text-primary">gain reduction</span>

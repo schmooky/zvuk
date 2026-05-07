@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Bus, type Engine, type Voice, createEngine } from '@schmooky/zvuk';
+import Waveform from './Waveform';
 
 type Sample = { name: string; sources: string[]; bus: 'music' | 'sfx' | 'ui' };
 
@@ -28,6 +29,11 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
   const [voices, setVoices] = useState<number>(0);
   const [loadedSet, setLoadedSet] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [busNodes, setBusNodes] = useState<Record<BusName, AudioNode | null>>({
+    music: null,
+    sfx: null,
+    ui: null,
+  });
 
   // Build the engine on first interaction so React's StrictMode double-mount
   // doesn't create two contexts in dev.
@@ -67,6 +73,11 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
     try {
       const engine = ensureEngine();
       await engine.unlock();
+      setBusNodes({
+        music: engine.bus('music').output,
+        sfx: engine.bus('sfx').output,
+        ui: engine.bus('ui').output,
+      });
       // Pre-load samples in parallel.
       await Promise.all(
         SAMPLES.map(async (s) => {
@@ -202,6 +213,7 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
                 <div className="mt-1 font-mono text-[10px] text-muted-foreground">
                   level: {levels[name].toFixed(2)}
                 </div>
+                <Waveform audioNode={busNodes[name]} variant="wave" height={36} className="mt-2" />
               </div>
             ))}
           </div>
