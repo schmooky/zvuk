@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      eventemitter3:
-        specifier: ^5.0.1
-        version: 5.0.4
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.0
