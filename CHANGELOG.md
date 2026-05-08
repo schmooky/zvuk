@@ -1,5 +1,13 @@
 # @schmooky/zvuk
 
+## 1.11.1
+
+### Patch Changes
+
+- [#42](https://github.com/schmooky/zvuk/pull/42) [`818bbd9`](https://github.com/schmooky/zvuk/commit/818bbd9235c1c80543ce7b8dd2122c1b9eb613be) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Drop `eventemitter3` runtime dependency.
+
+  It was declared in `dependencies` but never imported anywhere in the package — a leftover that slipped in by mistake. `Voice` cue listeners use a plain `Set<fn>` walker, not an `EventEmitter`. zvuk now has zero runtime dependencies, matching the pitch in the README.
+
 ## 1.11.0
 
 ### Minor Changes
