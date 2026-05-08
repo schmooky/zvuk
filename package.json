@@ -81,9 +81,6 @@
     "release": "pnpm build && changeset publish",
     "snapshot": "pnpm build && changeset version --snapshot \"${SNAPSHOT_TAG:-snapshot}\" && changeset publish --tag \"${SNAPSHOT_TAG:-snapshot}\" --no-git-tag"
   },
-  "dependencies": {
-    "eventemitter3": "^5.0.1"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.3.0",
     "@changesets/changelog-github": "^0.5.0",

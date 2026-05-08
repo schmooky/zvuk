@@ -48,7 +48,7 @@ engine.bus('music').fadeTo(0.1, 0.8);
 
 `HTMLAudioElement` doesn't scale past one menu sound. The Web Audio API does, but you end up writing your own bus graph, your own scheduler, your own iOS unlock dance, your own codec ladder, your own sidechain envelope, your own snapshot crossfader — every time.
 
-zvuk is the layer above. It gives you the routing primitives a real game audio team uses (Wwise / FMOD / RAD) without a 60 MB editor, behind an API surface small enough to fit in your head. ESM-only, type-safe, no dependencies beyond `eventemitter3`, ~16 KB min+gzip.
+zvuk is the layer above. It gives you the routing primitives a real game audio team uses (Wwise / FMOD / RAD) without a 60 MB editor, behind an API surface small enough to fit in your head. ESM-only, type-safe, zero runtime dependencies, ~16 KB min+gzip.
 
 ## Features
 
