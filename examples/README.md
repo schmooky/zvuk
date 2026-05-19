@@ -1,6 +1,6 @@
 # zvuk examples
 
-Three deployable demos showing zvuk in real shapes — no React, no Vue, no
+Deployable demos showing zvuk in real shapes — no React, no Vue, no
 Svelte. Just `index.html` + a small TypeScript module per example. Each one
 illustrates one cluster of the engine that's hard to explain in isolation.
 
@@ -11,6 +11,7 @@ illustrates one cluster of the engine that's hard to explain in isolation.
 | `fps-footsteps/`     | Spatializer (3D) live-steered from pointer position via `voice.spatializer`.    |
 | `rhythm-metronome/`  | `engine.scheduleAt` for sample-accurate clicks, plus live `bus.meter()` + `voice.level()` driving a VU meter and per-voice peak. |
 | `music-stinger-loop-tail/` | `engine.loadMusic({ intro, loop, outro })` — stinger plays once, loop body runs forever, outro fires at the next loop boundary so the music ends musically. |
+| `snapshot-blend/`    | `engine.captureSnapshot()` + `engine.blendSnapshots(a, b, t)` — a slider drives a Parameter that interpolates the live mix between a `calm` and `combat` shape. |
 
 ## Running
 

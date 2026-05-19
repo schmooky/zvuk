@@ -210,6 +210,21 @@ export interface Engine<TBusName extends string = string> {
 
   /** Build a Snapshot from explicit state without capturing the live engine. */
   snapshot(name: string, state: SnapshotState): Snapshot;
+
+  /**
+   * Snap the live mix to a linear interpolation between two snapshots.
+   * `t` is clamped to [0, 1]: `t = 0` matches `a`, `t = 1` matches `b`,
+   * intermediate values lerp every shared bus level and parameter.
+   *
+   * Drive a `Parameter` to animate over time — each call snaps instantly,
+   * so a per-frame subscriber gives a continuous blend without scheduling
+   * fades. Use `snapshot.apply({ fade })` for one-shot crossfades.
+   *
+   *   const tension = engine.parameter('tension', 0);
+   *   tension.bindTo((t) => engine.blendSnapshots(calm, combat, t));
+   *   tension.set(0.4);  // mix is now 40% of the way to combat
+   */
+  blendSnapshots(a: Snapshot, b: Snapshot, t: number): void;
 }
 
 export interface CrossfadeOptions {
@@ -698,6 +713,10 @@ class EngineImpl implements Engine {
       (busName) => this.buses.get(busName),
       (paramName) => this.parameters.get(paramName),
     );
+  }
+
+  blendSnapshots(a: Snapshot, b: Snapshot, t: number): void {
+    a.blendWith(b, t);
   }
 
   /**

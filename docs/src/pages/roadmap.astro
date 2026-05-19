@@ -23,6 +23,7 @@ const v1_0_0: Item[] = [
 
 // Things shipped between v1.4 and v1.8. Roughly one feature per minor.
 const recentMinors: Item[] = [
+  { title: 'Snapshot blend (v1.12)', why: 'engine.blendSnapshots(a, b, t) snaps the mix to a linear interpolation between two captured snapshots. Wire it through a Parameter and you get continuous "calm ↔ combat" or "menu ↔ game" mix automation driven by one knob. The Wwise primitive the roadmap pointed at.', size: 'M', link: '/concepts/snapshot/' },
   { title: 'Music source — stinger → loop → outro (v1.8)', why: 'engine.loadMusic(name, { intro, loop, outro }) + MusicVoice.skipToOutro({ at: "loop-end" | "now" }). The pattern every casino slot, action game, and rhythm game uses for combat/win/menu music. Click-free at the loop boundary via loopCrossfade.', size: 'L', link: '/concepts/music/' },
   { title: 'voice.level() + bus.meter() — live amplitude readouts (v1.7)', why: 'Lazy AnalyserNode taps. Drove rhythm-metronome example, mixer dashboards, and the real "quietest" voice-stealing strategy.', size: 'M', link: '/concepts/bus/' },
   { title: 'engine.preload(items, { signal, concurrency, onProgress }) (v1.6)', why: 'First-class bulk loader for loading screens. Per-item progress, concurrency cap, aggregated PreloadError.', size: 'M', link: '/guides/loading/#first-class-preloader-engine-preload' },
@@ -117,12 +118,6 @@ const tier3: Item[] = [
     title: 'Per-voice FX',
     why: 'FX inserts are bus-level today. No way to put a flanger on one voice without dedicating a bus to it.',
     size: 'L',
-  },
-  {
-    title: 'Snapshot blend',
-    why: 'engine.blendSnapshots(\'menu\', \'combat\', t) for interpolated mixes driven by a Parameter. Wwise has it; we don\'t.',
-    size: 'M',
-    link: '/concepts/snapshot/',
   },
 ];
 
