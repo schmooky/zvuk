@@ -52,6 +52,13 @@ export const DOCS_NAV: NavSection[] = [
       { href: '/guides/migration/', label: 'Migrating from Howler' },
     ],
   },
+  {
+    title: 'Examples',
+    items: [
+      { href: '/examples/', label: 'All examples' },
+      { href: '/examples/snapshot-blend/', label: 'Snapshot blend (live)' },
+    ],
+  },
 ];
 
 export const TOP_NAV = [
@@ -60,6 +67,7 @@ export const TOP_NAV = [
   { href: '/fx/', label: 'FX' },
   { href: '/guides/', label: 'Guides' },
   { href: '/recipes/', label: 'Recipes' },
+  { href: '/examples/', label: 'Examples' },
 ];
 
 /** Smaller utility links rendered next to the GitHub button. */

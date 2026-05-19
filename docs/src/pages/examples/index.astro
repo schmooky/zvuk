@@ -1,0 +1,109 @@
+---
+import Docs from '../../layouts/Docs.astro';
+
+interface Example {
+  slug: string;
+  label: string;
+  blurb: string;
+  /** True if the example has a live demo embedded on the docs site. */
+  live: boolean;
+  /** The vanilla source on GitHub — always present. */
+  source: string;
+}
+
+const examples: Example[] = [
+  {
+    slug: 'snapshot-blend',
+    label: 'Snapshot blend',
+    blurb: 'Slider drives a tension Parameter — engine.blendSnapshots(calm, combat, t) interpolates two captured mix shapes per frame.',
+    live: true,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/snapshot-blend',
+  },
+  {
+    slug: 'slot-machine',
+    label: 'Slot machine',
+    blurb: 'Streaming music, sidechain ducking under big wins, loudness normalize on load.',
+    live: false,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/slot-machine',
+  },
+  {
+    slug: 'match-3',
+    label: 'Match-3 cascade',
+    blurb: 'Concurrency limits + voice stealing as cascades stack — watch the live voice count climb.',
+    live: false,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/match-3',
+  },
+  {
+    slug: 'fps-footsteps',
+    label: 'FPS footsteps',
+    blurb: 'Spatializer (3D) live-steered from pointer position via voice.spatializer.setPosition.',
+    live: false,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/fps-footsteps',
+  },
+  {
+    slug: 'rhythm-metronome',
+    label: 'Rhythm metronome',
+    blurb: 'engine.scheduleAt for sample-accurate clicks plus live bus.meter() + voice.level() driving a VU meter.',
+    live: false,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome',
+  },
+  {
+    slug: 'music-stinger-loop-tail',
+    label: 'Music stinger → loop → tail',
+    blurb: 'engine.loadMusic({ intro, loop, outro }) — stinger plays once, loop body runs forever, outro fires at the next loop boundary so the music ends musically.',
+    live: false,
+    source: 'https://github.com/schmooky/zvuk/tree/main/examples/music-stinger-loop-tail',
+  },
+];
+---
+<Docs
+  title="Examples"
+  description="Deployable demos. Each one shows one cluster of the engine that's hard to explain in isolation."
+  eyebrow="Examples"
+>
+  <p>
+    Each example is a zero-build app — <code>index.html</code> plus a small
+    TypeScript module — sitting under <code>examples/</code> in the repo.
+    Where a live, playable version is hosted on this docs site, it's marked
+    <span class="inline-block rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary">live</span>.
+    The full vanilla source is on GitHub.
+  </p>
+
+  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
+    {examples.map(({ slug, label, blurb, live, source }) => (
+      <div class="group flex flex-col gap-2 rounded-xl border border-border bg-card/30 p-4 transition-colors hover:border-primary/40 hover:bg-card/50">
+        <div class="flex items-center justify-between gap-2">
+          <div class="font-semibold">{label}</div>
+          {live && (
+            <span class="shrink-0 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-primary">
+              live
+            </span>
+          )}
+        </div>
+        <p class="flex-1 text-sm text-muted-foreground">{blurb}</p>
+        <div class="flex flex-wrap gap-3 pt-1 text-[12px]">
+          {live ? (
+            <a href={`/examples/${slug}/`} class="font-mono text-primary hover:underline">
+              run live →
+            </a>
+          ) : (
+            <span class="font-mono text-muted-foreground/70">live: coming soon</span>
+          )}
+          <a href={source} target="_blank" rel="noopener" class="font-mono text-muted-foreground hover:text-foreground hover:underline">
+            source on github ↗
+          </a>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <h2>Running locally</h2>
+  <p>
+    Examples import the workspace <code>zvuk</code> package straight from
+    <code>src/index.ts</code>, and reference the same audio assets the docs
+    site ships at <code>docs/public/audio/</code>. Serve from the repo root
+    with any static server:
+  </p>
+  <pre><code>npx serve .
+# then open http://localhost:3000/examples/snapshot-blend/</code></pre>
+</Docs>
