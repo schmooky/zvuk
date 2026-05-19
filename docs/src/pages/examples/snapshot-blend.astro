@@ -1,0 +1,52 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import SnapshotBlend from '../../components/demos/SnapshotBlend.tsx';
+import Docs from '../../layouts/Docs.astro';
+
+const code = `// Capture two mix shapes — calm and combat.
+engine.bus('music').level = 0.6;
+engine.bus('drums').level = 0.0;
+const calm = engine.captureSnapshot('calm');
+
+engine.bus('music').level = 0.25;
+engine.bus('drums').level = 0.85;
+const combat = engine.captureSnapshot('combat');
+
+// Drive blendSnapshots from a Parameter — the slider feeds 'tension'.
+const tension = engine.parameter('tension', 0);
+tension.subscribe((t) => engine.blendSnapshots(calm, combat, t));
+
+slider.addEventListener('input', () => tension.set(Number(slider.value)));`;
+---
+<Docs
+  title="Snapshot blend"
+  description="Two captured snapshots, one Parameter, interpolated mix per frame. The full vanilla source is on GitHub."
+  eyebrow="Example"
+>
+  <p>
+    Click <strong>Unlock &amp; start</strong> to load two music layers and
+    begin looping them. Drag the slider — <code>engine.blendSnapshots(calm,
+    combat, t)</code> snaps the live mix to <code>lerp(calm, combat, t)</code>
+    on every change. Music bus fades in, drums bus fades up, all from one
+    knob.
+  </p>
+
+  <SnapshotBlend client:visible />
+
+  <h2>How it's wired</h2>
+  <Snippet code={code} lang="ts" title="snapshot-blend (excerpt)" />
+
+  <p>
+    The vanilla version of this demo lives at
+    <a href="https://github.com/schmooky/zvuk/tree/main/examples/snapshot-blend"><code>examples/snapshot-blend/</code></a>
+    — a zero-build <code>index.html</code> + <code>main.ts</code> pair you
+    can deploy as-is.
+  </p>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/snapshot/">Snapshot</a> — capture + apply + blend.</li>
+    <li><a href="/concepts/parameter/">Parameter</a> — the named knob driving the blend.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

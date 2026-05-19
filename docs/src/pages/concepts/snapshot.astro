@@ -21,6 +21,17 @@ const boss = engine.snapshot('boss', {
 
 const apply = `await menu.apply({ fade: 0.25 });        // crossfade everything in 250ms
 await boss.apply({ fade: 0.8 });`;
+
+const blend = `const calm   = engine.captureSnapshot('calm');
+// ...switch the mix to its combat shape, then re-capture.
+const combat = engine.captureSnapshot('combat');
+
+// Snap the mix to lerp(calm, combat, t). Drive a Parameter to animate.
+engine.blendSnapshots(calm, combat, 0.4);   // 40% of the way to combat
+
+const tension = engine.parameter('tension', 0);
+tension.subscribe((t) => engine.blendSnapshots(calm, combat, t));
+tension.set(0.75);                          // per-frame friendly`;
 ---
 <Docs
   title="Snapshot"
@@ -43,11 +54,13 @@ await boss.apply({ fade: 0.8 });`;
   <h2>API surface</h2>
   <Snippet code={`engine.captureSnapshot(name): Snapshot
 engine.snapshot(name, state): Snapshot
+engine.blendSnapshots(a, b, t): void   // snap mix to lerp(a, b, t)
 
 class Snapshot {
   readonly name: string;
   readonly state: SnapshotState;
   apply(options?: { fade?: number }): Promise<void>;
+  blendWith(other: Snapshot, t: number): void;
 }`} lang="ts" title="Snapshot" />
 
   <h2>Live demo</h2>
@@ -64,6 +77,23 @@ class Snapshot {
 
   <h3>Switch with crossfade</h3>
   <Snippet code={apply} lang="ts" />
+
+  <h3>Blend continuously between two snapshots</h3>
+  <p>
+    <code>apply</code> is a one-shot crossfade. For an interpolated mix that
+    follows a knob — game tension, distance to a boss room, time of day —
+    capture two snapshots and let a <a href="/concepts/parameter/">Parameter</a>
+    drive <code>blendSnapshots</code>.
+  </p>
+  <Snippet code={blend} lang="ts" />
+  <p>
+    Each call snaps the mix instantly (every bus level setter still rides a
+    10&nbsp;ms anti-click ramp internally), so calling it on every frame is
+    cheap. Buses or parameters that aren't present in both snapshots are
+    skipped. Mute flips at <code>t = 0.5</code> rather than interpolating.
+    The <a href="/examples/snapshot-blend/">snapshot-blend example</a> wires
+    a slider through a Parameter end-to-end.
+  </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

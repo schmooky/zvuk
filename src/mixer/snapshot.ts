@@ -59,4 +59,40 @@ export class Snapshot {
 
     return Promise.all(tasks).then(() => undefined);
   }
+
+  /**
+   * Snap the live mix to a linear interpolation between this snapshot and
+   * `other`. `t` is clamped to [0, 1]: `t = 0` matches this snapshot,
+   * `t = 1` matches `other`, and intermediate values lerp every shared
+   * bus level and parameter.
+   *
+   * Designed to be called continuously (e.g. from a `Parameter` subscriber)
+   * — each call snaps instantly. For a one-shot crossfade with a fade
+   * duration, use `apply({ fade })` instead.
+   *
+   * Buses or parameters present in only one of the two snapshots are
+   * skipped. Mute flags are not interpolated: `t < 0.5` uses this
+   * snapshot's mute, `t >= 0.5` uses `other`'s.
+   */
+  blendWith(other: Snapshot, t: number): void {
+    const u = t < 0 ? 0 : t > 1 ? 1 : t;
+    const v = 1 - u;
+
+    for (const [name, busA] of Object.entries(this.state.buses)) {
+      const busB = other.state.buses[name];
+      if (!busB) continue;
+      const bus = this.getBus(name);
+      if (!bus) continue;
+      bus.muted = u < 0.5 ? busA.muted : busB.muted;
+      bus.level = busA.level * v + busB.level * u;
+    }
+
+    for (const [name, valA] of Object.entries(this.state.parameters)) {
+      const valB = other.state.parameters[name];
+      if (valB === undefined) continue;
+      const param = this.getParam(name);
+      if (!param) continue;
+      param.set(valA * v + valB * u);
+    }
+  }
 }

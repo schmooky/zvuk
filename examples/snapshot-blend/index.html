@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>zvuk · snapshot-blend example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; background: #0c0c10; color: #e4e4e8; margin: 0; padding: 32px; }
+      main { max-width: 520px; margin: 0 auto; }
+      h1 { font-size: 1.4rem; margin: 0 0 4px; }
+      p { color: #888; line-height: 1.5; }
+      button { background: #4f6cf7; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 1rem; cursor: pointer; margin-right: 6px; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      .row { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+      label { font-family: ui-monospace, monospace; font-size: 0.85rem; color: #a8a8b4; min-width: 80px; }
+      input[type=range] { flex: 1; }
+      .preset-row { display: flex; gap: 8px; flex-wrap: wrap; }
+      .preset-row button { background: #15151b; color: #c4c4cc; border: 1px solid #2a2a32; padding: 6px 12px; font-size: 0.85rem; }
+      .preset-row button:hover { border-color: #4f6cf7; color: #fff; }
+      .meter { font-family: ui-monospace, monospace; color: #6a6a78; font-size: 0.85rem; padding: 12px; background: #11111a; border: 1px solid #1f1f2a; border-radius: 8px; }
+      .meter-row { display: flex; justify-content: space-between; }
+      .meter-row + .meter-row { margin-top: 4px; }
+      .bar { display: inline-block; height: 8px; background: #4f6cf7; border-radius: 4px; vertical-align: middle; transition: width 60ms linear; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Snapshot blend</h1>
+      <p>
+        Two snapshots — <code>calm</code> and <code>combat</code> — captured from
+        the live mix. The slider drives a <code>tension</code> parameter, which
+        feeds <code>engine.blendSnapshots(calm, combat, t)</code> on every change.
+        Bus levels lerp continuously between the two captured shapes.
+      </p>
+
+      <div class="row">
+        <button id="start">Start</button>
+        <button id="stop" disabled>Stop</button>
+      </div>
+
+      <div class="row">
+        <label for="tension">tension</label>
+        <input id="tension" type="range" min="0" max="1" step="0.01" value="0" disabled />
+        <span id="tension-val" style="font-family: ui-monospace, monospace; min-width: 32px;">0.00</span>
+      </div>
+
+      <div class="preset-row">
+        <button id="preset-calm">calm (t=0)</button>
+        <button id="preset-mid">mid (t=0.5)</button>
+        <button id="preset-combat">combat (t=1)</button>
+      </div>
+
+      <div class="meter" id="meter" style="margin-top: 20px;">
+        <div class="meter-row">music bus level: <span id="music-level">—</span></div>
+        <div class="meter-row">drums bus level: <span id="drums-level">—</span></div>
+      </div>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
