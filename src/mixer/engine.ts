@@ -799,10 +799,23 @@ function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefin
   if (a.aborted) return a;
   if (b.aborted) return b;
   const ac = new AbortController();
-  const onAbortA = (): void => ac.abort(a.reason);
-  const onAbortB = (): void => ac.abort(b.reason);
-  a.addEventListener('abort', onAbortA, { once: true });
-  b.addEventListener('abort', onAbortB, { once: true });
+  // Remove BOTH listeners as soon as either fires, so a long-lived source
+  // signal (e.g. a batch-wide signal reused across every preload item) doesn't
+  // accumulate one stale listener per combined child.
+  const cleanup = (): void => {
+    a.removeEventListener('abort', onAbortA);
+    b.removeEventListener('abort', onAbortB);
+  };
+  const onAbortA = (): void => {
+    cleanup();
+    ac.abort(a.reason);
+  };
+  const onAbortB = (): void => {
+    cleanup();
+    ac.abort(b.reason);
+  };
+  a.addEventListener('abort', onAbortA);
+  b.addEventListener('abort', onAbortB);
   return ac.signal;
 }
 
