@@ -157,7 +157,13 @@ try {
   <h3>Watch state transitions</h3>
   <Snippet code={observe} lang="ts" />
 
-  <h3>Sample-accurate scheduling</h3>
+  <h3>Audio-clock scheduling</h3>
+  <p>
+    <code>scheduleAt</code> dispatches a callback against the audio clock. It
+    runs on the main thread, so timing is within a tick (a few ms) — not
+    sample-accurate. For sample-accurate playback, stamp Web Audio parameters
+    (e.g. <code>source.start(t)</code>) with the audio time directly.
+  </p>
   <Snippet code={schedule} lang="ts" />
 
   <h3>Audio sprites — one buffer, many regions</h3>

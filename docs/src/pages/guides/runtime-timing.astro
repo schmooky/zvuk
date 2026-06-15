@@ -181,7 +181,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
       </tr>
       <tr>
         <td>You need sample-accurate sample triggers</td>
-        <td>Stamp <code>AudioParam</code> values directly with the <code>audioTime</code> passed to your callback. The ticker only affects when your JS confirmation runs, not when the audio fires.</td>
+        <td>Stamp <code>AudioParam</code> values directly with the <code>audioTime</code> you scheduled against (close over it — the callback isn't passed it). The ticker only affects when your JS confirmation runs, not when the audio fires.</td>
       </tr>
     </tbody>
   </table>
