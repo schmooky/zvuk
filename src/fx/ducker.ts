@@ -31,6 +31,8 @@ export class Ducker implements FxInsert {
   private analyser: AnalyserNode;
   private buf: Float32Array;
   private rafId: number | null = null;
+  /** Timestamp of the previous tick (ms), for measuring the real frame delta. */
+  private lastTickMs = 0;
   private envelope = 0;
   private targetGain = 1;
   private ctx: AudioContext;
@@ -99,7 +101,16 @@ export class Ducker implements FxInsert {
     }
   }
 
-  private tick = (): void => {
+  private tick = (timeMs?: number): void => {
+    // Measure the real frame delta (rAF passes a timestamp), clamped so a
+    // 120 Hz display doesn't duck twice as fast and a throttled/backgrounded
+    // tab doesn't produce a huge jump. Fall back to 1/60 on the first tick.
+    let dtSec = 1 / 60;
+    if (timeMs != null && this.lastTickMs > 0) {
+      dtSec = Math.min(0.1, Math.max(0.001, (timeMs - this.lastTickMs) / 1000));
+    }
+    if (timeMs != null) this.lastTickMs = timeMs;
+
     if (this._bypassed) {
       this.rafId = requestAnimationFrame(this.tick);
       return;
@@ -114,7 +125,6 @@ export class Ducker implements FxInsert {
     const exceeded = Math.max(0, rms - this.cfg.threshold);
     const target = exceeded > 0 ? 1 - this.cfg.amount : 1;
     // Single-pole envelope follower: τ in seconds → coefficient per frame.
-    const dtSec = 1 / 60;
     const useAttack = target < this.envelope;
     const tau = (useAttack ? this.cfg.attack : this.cfg.release) || 0.001;
     const alpha = 1 - Math.exp(-dtSec / tau);
