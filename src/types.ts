@@ -238,6 +238,13 @@ export interface StopOptions {
 }
 
 export interface VoiceJitter {
+  /**
+   * Center value the jitter varies around. Defaults to 1 (the neutral
+   * volume / playback rate). Set it to combine a base with jitter, e.g.
+   * `{ base: 1.5, jitter: 0.1 }` plays at 1.5 ± 0.1 per voice.
+   */
+  base?: number;
+  /** Maximum ± random deviation from `base`, drawn once per voice. */
   jitter?: number;
 }
 
