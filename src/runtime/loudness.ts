@@ -1,10 +1,14 @@
 /**
  * RMS-based loudness normalization on a decoded AudioBuffer.
  *
- * `engine.loadSound(..., { normalize: true })` runs this at decode-time
- * and produces a buffer pre-scaled so all sounds sit at the same perceived
- * loudness — removing a workflow tax that game-audio teams currently pay
- * in their DAW. Pass an object to override the target RMS or peak ceiling.
+ * `engine.loadSound(..., { normalize: true })` runs this at decode-time and
+ * produces a buffer pre-scaled so all sounds sit at the same RMS level —
+ * removing a workflow tax that game-audio teams currently pay in their DAW.
+ * Pass an object to override the target RMS or peak ceiling.
+ *
+ * NOTE: this is full-band RMS, not perceptual (K-weighted / LUFS) loudness —
+ * two spectrally different clips at equal RMS may still differ in perceived
+ * loudness.
  */
 
 export interface LoudnessOptions {
@@ -21,12 +25,16 @@ const DEFAULTS: Required<LoudnessOptions> = {
   peakCeiling: 0.99,
 };
 
-export function applyLoudnessNormalization(buffer: AudioBuffer, flag: NormalizeFlag): AudioBuffer {
+export function applyLoudnessNormalization(
+  buffer: AudioBuffer,
+  flag: NormalizeFlag,
+  ctx?: BaseAudioContext,
+): AudioBuffer {
   if (!flag) return buffer;
   const opts = { ...DEFAULTS, ...(typeof flag === 'object' ? flag : {}) };
   const gain = computeNormalizationGain(buffer, opts);
   if (Math.abs(gain - 1) < 1e-3) return buffer;
-  return scaleBuffer(buffer, gain);
+  return scaleBuffer(buffer, gain, ctx);
 }
 
 export function computeNormalizationGain(buffer: AudioBuffer, opts: Required<LoudnessOptions>): number {
@@ -62,8 +70,20 @@ function measurePeak(buffer: AudioBuffer): number {
   return peak;
 }
 
-function scaleBuffer(src: AudioBuffer, gain: number): AudioBuffer {
-  // Scale in place — the buffer is always freshly decoded, never shared.
+function scaleBuffer(src: AudioBuffer, gain: number, ctx?: BaseAudioContext): AudioBuffer {
+  // Scale into a fresh buffer when a context is available, so we never mutate
+  // a buffer the caller might still hold (e.g. one returned from a
+  // `resolveAsset` cache). Without a context, fall back to in-place scaling —
+  // the caller then guarantees the buffer is freshly decoded and unshared.
+  if (ctx) {
+    const out = ctx.createBuffer(src.numberOfChannels, src.length, src.sampleRate);
+    for (let c = 0; c < src.numberOfChannels; c++) {
+      const from = src.getChannelData(c);
+      const to = out.getChannelData(c);
+      for (let i = 0; i < from.length; i++) to[i] = from[i]! * gain;
+    }
+    return out;
+  }
   for (let c = 0; c < src.numberOfChannels; c++) {
     const data = src.getChannelData(c);
     for (let i = 0; i < data.length; i++) data[i] = data[i]! * gain;
