@@ -566,11 +566,12 @@ export class Voice {
   }
 }
 
-function resolveJittered(v: number | { jitter?: number }, base = 1): number {
+function resolveJittered(v: number | { base?: number; jitter?: number }, fallbackBase = 1): number {
   if (typeof v === 'number') return v;
-  if (!v || v.jitter == null) return base;
-  const j = v.jitter;
-  return base + (Math.random() * 2 - 1) * j;
+  if (!v) return fallbackBase;
+  const center = v.base ?? fallbackBase;
+  if (v.jitter == null) return center;
+  return center + (Math.random() * 2 - 1) * v.jitter;
 }
 
 function clamp01(v: number): number {
