@@ -354,8 +354,9 @@ export interface LoadSoundOptions {
   signal?: AbortSignal;
   /**
    * Run RMS-based loudness normalization on the decoded buffer so it sits at
-   * the same perceived loudness as other normalized sounds. Pass `true` for
-   * defaults or an options object to tune the target.
+   * the same RMS level as other normalized sounds. (Full-band RMS, not
+   * perceptual/LUFS.) Pass `true` for defaults or an options object to tune
+   * the target.
    */
   normalize?: boolean | LoudnessOptions;
 }

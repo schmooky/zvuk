@@ -348,7 +348,7 @@ class EngineImpl implements Engine {
     let buffer = await this.resolveBuffer(name, url, decodeOpts);
 
     if (options.normalize) {
-      buffer = applyLoudnessNormalization(buffer, options.normalize);
+      buffer = applyLoudnessNormalization(buffer, options.normalize, this.host.touch());
     }
 
     // Record the URL set so `unloadSound` can evict the cache entry later.
@@ -487,16 +487,17 @@ class EngineImpl implements Engine {
       ? await this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
       : undefined;
 
+    const ctx = this.host.touch();
     const buffers = {
       intro: introBuf
         ? options.normalize
-          ? applyLoudnessNormalization(introBuf, options.normalize)
+          ? applyLoudnessNormalization(introBuf, options.normalize, ctx)
           : introBuf
         : undefined,
-      loop: options.normalize ? applyLoudnessNormalization(loopBuf, options.normalize) : loopBuf,
+      loop: options.normalize ? applyLoudnessNormalization(loopBuf, options.normalize, ctx) : loopBuf,
       outro: outroBuf
         ? options.normalize
-          ? applyLoudnessNormalization(outroBuf, options.normalize)
+          ? applyLoudnessNormalization(outroBuf, options.normalize, ctx)
           : outroBuf
         : undefined,
     };
