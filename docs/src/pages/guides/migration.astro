@@ -49,10 +49,10 @@ await v.fade({ to: 0, duration: 0.8 });`;
       <tr><td><code>howl.play()</code></td><td><code>engine.sound(name).play()</code></td></tr>
       <tr><td><code>howl.volume(0.5)</code></td><td><code>voice.fade({'{ to: 0.5, duration: 0 }'})</code></td></tr>
       <tr><td><code>howl.fade(from, to, ms)</code></td><td><code>voice.fade({'{ to, duration, curve }'})</code> — duration in seconds</td></tr>
-      <tr><td><code>Howler.volume(0.8)</code></td><td><code>engine.bus('master')</code> — or just lower headroom</td></tr>
+      <tr><td><code>Howler.volume(0.8)</code></td><td>lower a bus level (<code>engine.bus('sfx').level = 0.8</code>), or set master headroom at construction via <code>createEngine({'{ master: { headroom: -2 } }'})</code></td></tr>
       <tr><td><code>howl.on('end', fn)</code></td><td><code>await voice.ended</code> or <code>for await of voice.cues()</code></td></tr>
       <tr><td><code>howl.stop()</code></td><td><code>voice.stop()</code></td></tr>
-      <tr><td><code>howl.unload()</code></td><td>internal; <code>engine.close()</code> tears down the entire context</td></tr>
+      <tr><td><code>howl.unload()</code></td><td><code>engine.unloadSound(name)</code> (drop one sound + evict its buffer); <code>engine.close()</code> tears down the whole engine</td></tr>
     </tbody>
   </table>
 
@@ -68,8 +68,10 @@ await v.fade({ to: 0, duration: 0.8 });`;
 
   <h2>What you lose</h2>
   <ul>
-    <li>HTML5 mode — zvuk is Web Audio only. For very long music files, use
-      a future <code>Stream</code> source (planned).</li>
+    <li>HTML5 mode — zvuk decodes into Web Audio buffers. For very long music
+      files, use <code>engine.loadStream(name, url)</code> / <code>engine.stream(name)</code>,
+      which streams via <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>
+      (volume + loop only, not the full Voice API).</li>
     <li>Spatial audio with Howler's simple <code>pos()</code> — zvuk's
       Spatializer is more capable but slightly more verbose.</li>
   </ul>
