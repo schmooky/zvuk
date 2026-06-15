@@ -49,6 +49,11 @@ export class Filter implements FxInsert {
     this.filter.type = t;
   }
 
+  /** Set the filter gain in dB. Only affects `peaking` (the one shelf-like mode exposed). */
+  setGain(db: number): void {
+    this.filter.gain.setValueAtTime(db, this.ctx.currentTime);
+  }
+
   get bypassed(): boolean {
     return this._bypassed;
   }
