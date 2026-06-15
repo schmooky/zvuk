@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
+    "predev": "node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "prebuild": "node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "build": "astro build && pagefind --site dist",
     "postbuild": "node scripts/copy-pagefind.mjs",

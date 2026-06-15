@@ -14,6 +14,7 @@
 import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { KIND_LABELS } from '../src/lib/typedoc-kinds.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -30,12 +31,16 @@ const SKIP = [/^\[/, /^og\b/, /^llms\.txt\.ts$/];
 // How docs sub-directories should be grouped in the output. Order matters —
 // it's the order sections appear in the rendered llms.txt.
 const SECTIONS = [
-  { id: 'intro', label: 'Docs', match: (p) => p === 'index' || p.startsWith('docs/') },
-  { id: 'concepts', label: 'Concepts', match: (p) => p.startsWith('concepts/') },
-  { id: 'fx', label: 'FX', match: (p) => p.startsWith('fx/') },
-  { id: 'guides', label: 'Guides', match: (p) => p.startsWith('guides/') },
-  { id: 'recipes', label: 'Recipes', match: (p) => p.startsWith('recipes/') },
-  { id: 'playground', label: 'Playground', match: (p) => p.startsWith('playground/') },
+  // Match the bare section slug too — a nested `index.astro` resolves to the
+  // directory slug (e.g. `concepts`), which `startsWith('concepts/')` misses,
+  // so the section landing pages were silently dropped.
+  { id: 'intro', label: 'Docs', match: (p) => p === 'index' || p === 'docs' || p.startsWith('docs/') },
+  { id: 'concepts', label: 'Concepts', match: (p) => p === 'concepts' || p.startsWith('concepts/') },
+  { id: 'fx', label: 'FX', match: (p) => p === 'fx' || p.startsWith('fx/') },
+  { id: 'guides', label: 'Guides', match: (p) => p === 'guides' || p.startsWith('guides/') },
+  { id: 'recipes', label: 'Recipes', match: (p) => p === 'recipes' || p.startsWith('recipes/') },
+  { id: 'examples', label: 'Examples', match: (p) => p === 'examples' || p.startsWith('examples/') },
+  { id: 'playground', label: 'Playground', match: (p) => p === 'playground' || p.startsWith('playground/') },
   { id: 'project', label: 'Project', match: (p) => p === 'roadmap' || p === 'changelog' },
 ];
 
@@ -169,26 +174,8 @@ function deriveTitle(relPath) {
   return base.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// TypeDoc 0.27+ emits a numeric `kind` field (a ReflectionKind bitmask) rather
-// than the legacy `kindString`. We translate the common values back to a label
-// so the llms.txt grouping is human-readable.
-const KIND_LABELS = {
-  1: 'Project',
-  2: 'Module',
-  4: 'Namespace',
-  8: 'Enum',
-  16: 'EnumMember',
-  32: 'Variable',
-  64: 'Function',
-  128: 'Class',
-  256: 'Interface',
-  512: 'Constructor',
-  1024: 'Property',
-  2048: 'Method',
-  4096: 'CallSignature',
-  65536: 'TypeAlias',
-  2097152: 'TypeAlias',
-};
+// KIND_LABELS (numeric ReflectionKind → label) is shared with the /api/ pages
+// via src/lib/typedoc-kinds.mjs.
 
 async function collectApiSymbols() {
   try {
