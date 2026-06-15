@@ -60,7 +60,7 @@ export class Spatializer {
       const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.value = OCCLUSION_OPEN_HZ;
-      filter.Q.value = 0.707;
+      filter.Q.value = Math.SQRT1_2; // ~0.707, Butterworth (maximally flat) response
       const gain = ctx.createGain();
       gain.gain.value = 1;
       panner.connect(filter).connect(gain);
