@@ -51,15 +51,16 @@ export class Parameter {
     const from = opts.from ?? 0;
     const to = opts.to ?? 1;
     const curve = opts.curve ?? 'linear';
+    const rising = to >= from;
     return this.subscribe((v) => {
       const t = Math.max(0, Math.min(1, v));
-      const eased = ease(t, curve);
+      const eased = ease(t, curve, rising);
       setter(from + (to - from) * eased);
     });
   }
 }
 
-function ease(t: number, curve: ParameterCurve): number {
+function ease(t: number, curve: ParameterCurve, rising = true): number {
   switch (curve) {
     case 'easeIn':
       return t * t;
@@ -68,7 +69,9 @@ function ease(t: number, curve: ParameterCurve): number {
     case 'easeInOut':
       return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
     case 'equal-power':
-      return Math.sin((t * Math.PI) / 2) ** 2;
+      // Constant-power: rising leg sin(t·π/2), falling leg cos(t·π/2) so two
+      // opposing legs sum to unity power. See src/mixer/curve.ts for details.
+      return rising ? Math.sin((t * Math.PI) / 2) : 1 - Math.cos((t * Math.PI) / 2);
     default:
       return t;
   }
