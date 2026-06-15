@@ -182,9 +182,9 @@ Releases are driven by [Changesets](https://github.com/changesets/changesets) on
 1. Add a changeset describing your change: `pnpm changeset`
 2. Open a PR; CI gates on lint + typecheck + tests + lib build + docs build.
 3. On merge to `main`, the release workflow opens (or updates) a `Version Packages` PR that bumps the version and regenerates `CHANGELOG.md`.
-4. Merging that PR publishes to npm with provenance attestation and creates a GitHub Release.
+4. Merging that PR publishes to npm with provenance attestation and creates a GitHub Release. Auth uses **npm OIDC trusted publishing** — no `NPM_TOKEN` secret; the workflow exchanges a GitHub OIDC token for a short-lived npm publish token.
 
-For per-branch preview publishes on non-`main` branches, a snapshot workflow auto-publishes under a sanitized branch dist-tag — install with `pnpm add @schmooky/zvuk@<branch>`.
+The same `release.yml` workflow handles per-branch preview publishes: pushing a non-`main` branch (or running it via `workflow_dispatch`) snapshot-publishes the pending changesets under a sanitized branch dist-tag — install with `pnpm add @schmooky/zvuk@<branch>`.
 
 ## CLI
 

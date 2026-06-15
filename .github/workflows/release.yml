@@ -1,52 +1,76 @@
 name: Release
 
-# Auto-publish flow driven by changesets.
+# Unified release + snapshot pipeline, published to npm via OIDC TRUSTED
+# PUBLISHING — no long-lived NPM_TOKEN secret.
 #
-# How it works:
-#   1. Contributor opens a PR. If the PR ships user-visible changes they
-#      run `pnpm changeset` locally and commit the resulting .changeset/*.md
-#      file. The file states which packages bump and how.
-#   2. PR is reviewed and merged into main.
-#   3. This workflow runs. If there are any pending changeset .md files,
-#      changesets/action opens (or updates) a PR titled "Version Packages"
-#      that applies the version bumps, regenerates CHANGELOG.md, and
-#      removes the consumed .changeset files.
-#   4. When the "Version Packages" PR is merged into main, this workflow
-#      runs again. This time there are no pending changesets, so the
-#      action runs `pnpm release` (changeset publish), which publishes
-#      every newly-bumped package to npm.
+# npm trusted publishing pins ONE workflow file per package, so both flows
+# live in this file. Job-level `if:` selects the path:
+#   push to main             → release  job (changesets/action)
+#   push to any other branch → snapshot job (per-branch dist-tag)
+#   workflow_dispatch        → snapshot job (manual, for testing the OIDC path)
 #
-# Required repo secrets:
-#   - NPM_TOKEN: an npm Automation token (https://www.npmjs.com/settings/<you>/tokens).
-#                Automation tokens bypass 2FA for CI. Add at:
-#                Repo → Settings → Secrets and variables → Actions → New secret.
-# GITHUB_TOKEN is provided automatically.
+# ── One-time npm setup (npmjs.com, by a maintainer of @schmooky/zvuk) ──
+#   Package → Settings → Trusted Publisher → GitHub Actions, with:
+#     Organization or user: schmooky          (the GitHub repo owner)
+#     Repository:           zvuk
+#     Workflow filename:    release.yml        (this file's name — exact)
+#     Environment:          npm-publish        (must match `environment:` below)
+#   Once that entry exists, delete the old NPM_TOKEN repo secret.
+#
+# How auth works: with `id-token: write`, the npm CLI (>= 11.5.1) exchanges
+# this run's GitHub OIDC token for a short-lived npm publish token. Nothing
+# long-lived is stored. Provenance attaches a signed SLSA attestation.
 
 on:
   push:
-    branches:
-      - main
+    branches-ignore:
+      # Changesets opens this branch for the "Version Packages" PR; publishing
+      # from it would double-publish.
+      - 'changeset-release/**'
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to snapshot (defaults to the workflow ref)'
+        required: false
+        type: string
+      tag:
+        description: 'Override dist-tag (defaults to sanitized branch name)'
+        required: false
+        type: string
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  # Node 22 LTS ships npm 10.x. OIDC trusted publishing was added in npm
+  # 11.5.1 — without upgrading, the CLI never performs the handshake and
+  # `changeset publish` fails with ENEEDAUTH/E404. Pinned for reproducibility;
+  # bump deliberately.
+  PUBLISH_NPM_VERSION: '11.16.0'
+
 jobs:
+  # ── Release: push to main only ─────────────────────────────────────────
+  # Driven by changesets:
+  #   - pending changesets on main → opens/updates the "Version Packages" PR.
+  #   - that PR merged (no pending changesets) → `pnpm release` publishes.
   release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: npm-publish
     permissions:
-      # changesets/action needs these to open the Version Packages PR.
+      # changesets/action needs these to open the Version Packages PR + create
+      # GitHub Releases.
       contents: write
       pull-requests: write
-      # required for npm provenance attestation.
+      # Required for npm OIDC trusted publishing + provenance attestation.
       id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # changesets needs full history to compute "what changed since
-          # the last release tag".
+          # changesets needs full history to compute "what changed since the
+          # last release tag".
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
@@ -55,14 +79,19 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
+          # Do NOT set registry-url. setup-node would write ~/.npmrc with
+          # `_authToken=${NODE_AUTH_TOKEN}` and export a placeholder token;
+          # npm then treats the placeholder as real, skips OIDC, and 404s.
+
+      - name: Upgrade npm to a version that supports OIDC trusted publishing
+        run: |
+          npm install -g "npm@${PUBLISH_NPM_VERSION}"
+          npm --version
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Verify (lint + typecheck + tests + lib build)
-        # The release stage gates on the same checks CI runs on PRs. If a
-        # bad commit lands on main, this catches it before publish.
         run: |
           pnpm lint
           pnpm typecheck
@@ -75,14 +104,100 @@ jobs:
           # Opens or updates the "Version Packages" PR with pending bumps.
           version: pnpm version-packages
           # Runs when the Version Packages PR has already been merged —
-          # publishes the bumped package(s) to npm.
+          # publishes the bumped package to npm via OIDC.
           publish: pnpm release
           createGithubReleases: true
           title: 'chore: version packages'
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # Sign each published tarball with provenance linking it back to
-          # this workflow run — visible on npmjs.com under the package.
+          # No NODE_AUTH_TOKEN: auth is OIDC trusted publishing. Provenance
+          # attaches a signed SLSA attestation (public package + repo only).
+          NPM_CONFIG_PROVENANCE: 'true'
+
+  # ── Snapshot: every other branch + manual dispatch ─────────────────────
+  # Publishes a Changesets "snapshot" of the pending changesets under a
+  # per-branch dist-tag, so reviewers can install a preview without touching
+  # `latest`. Skips automatically when there are no pending changesets.
+  snapshot:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref != 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      # Required for npm OIDC trusted publishing + provenance attestation.
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          # Do NOT set registry-url (see the release job for why) — OIDC
+          # requires npm to have no pre-seeded token.
+
+      - name: Upgrade npm to a version that supports OIDC trusted publishing
+        run: |
+          npm install -g "npm@${PUBLISH_NPM_VERSION}"
+          npm --version
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Skip if no pending changesets
+        id: gate
+        run: |
+          shopt -s nullglob
+          files=(.changeset/*.md)
+          changesets=()
+          for f in "${files[@]}"; do
+            base=$(basename "$f")
+            [ "$base" = "README.md" ] && continue
+            changesets+=("$f")
+          done
+          if [ ${#changesets[@]} -eq 0 ]; then
+            echo "No pending changesets — skipping snapshot."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found ${#changesets[@]} pending changeset(s)."
+            echo "skip=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify (lint + typecheck + tests + lib build)
+        if: steps.gate.outputs.skip == '0'
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Derive dist-tag
+        if: steps.gate.outputs.skip == '0'
+        id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            RAW="${{ github.event.inputs.tag }}"
+          else
+            RAW="${{ github.event.inputs.branch || github.ref_name }}"
+          fi
+          SAN=$(echo "$RAW" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/^-*//; s/-*$//')
+          echo "tag=$SAN" >> "$GITHUB_OUTPUT"
+          echo "Snapshot dist-tag: $SAN"
+
+      - name: Publish snapshot
+        if: steps.gate.outputs.skip == '0'
+        run: pnpm snapshot
+        env:
+          SNAPSHOT_TAG: ${{ steps.tag.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No NODE_AUTH_TOKEN: auth is OIDC trusted publishing.
           NPM_CONFIG_PROVENANCE: 'true'
