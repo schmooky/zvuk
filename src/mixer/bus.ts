@@ -216,7 +216,7 @@ export class Bus {
   }
 
   fx(): readonly FxInsert[] {
-    return this._fxChain;
+    return [...this._fxChain];
   }
 
   /**
@@ -280,7 +280,7 @@ export class Bus {
 
   /** Read-only snapshot of every active send originating on this bus. */
   sends(): readonly Send[] {
-    return this._sends;
+    return [...this._sends];
   }
 
   /**
@@ -347,6 +347,14 @@ export class Bus {
   }
 
   dispose(): void {
+    // Tear down sends (their GainNodes stay connected to target buses
+    // otherwise) and FX inserts. Both dispose() calls are idempotent, so a
+    // bus disposed directly is cleaned up the same as one torn down via
+    // engine.close().
+    for (const send of this._sends) send.dispose();
+    this._sends = [];
+    for (const fx of this._fxChain) fx.dispose();
+    this._fxChain = [];
     try {
       this.input.disconnect();
       this.fxInput.disconnect();
