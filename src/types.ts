@@ -59,7 +59,7 @@ export interface SendOptions {
 export interface MasterLimiterConfig {
   /** Threshold in dB. Default -1 (just below 0 dBFS). */
   threshold?: number;
-  /** Compression ratio. Default 20 (brick-wall). */
+  /** Compression ratio. Default 20 (high — limiter-like, but not a true brick wall). */
   ratio?: number;
   /** Attack in seconds. Default 0.001 (fast — catches the transient). */
   attack?: number;
@@ -70,7 +70,7 @@ export interface MasterLimiterConfig {
 export interface MasterConfig {
   /** Headroom in dB applied to the master gain (negative). Default: 0. */
   headroom?: number;
-  /** Optional brick-wall limiter on the master output. */
+  /** Optional fast-attack soft limiter on the master output (best-effort peak control). */
   limiter?: MasterLimiterConfig;
 }
 

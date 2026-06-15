@@ -53,7 +53,10 @@ const meter = `setInterval(() => {
   <p>
     Compresses the dynamic range of whatever you route through it. Use it on a
     voice bus to even out dialogue, on a music bus for glue, or on the master
-    as a limiter (with <code>ratio: 20</code> and a fast attack).
+    as a soft limiter (with <code>ratio: 20</code> and a fast attack). Note a
+    <code>DynamicsCompressor</code> is limiter-<em>like</em>, not a true
+    brick-wall limiter — transients can still pass, so don't rely on it to
+    guarantee no clipping.
   </p>
 
   <h2>API surface</h2>
