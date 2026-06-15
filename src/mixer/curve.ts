@@ -38,15 +38,16 @@ export function applyRamp(
 
 function sampleCurve(from: number, to: number, curve: FadeCurve, n: number): Float32Array {
   const out = new Float32Array(n);
+  const rising = to >= from;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
-    const eased = ease(t, curve);
+    const eased = ease(t, curve, rising);
     out[i] = from + (to - from) * eased;
   }
   return out;
 }
 
-function ease(t: number, curve: FadeCurve): number {
+function ease(t: number, curve: FadeCurve, rising = true): number {
   switch (curve) {
     case 'easeIn':
       return t * t;
@@ -54,9 +55,14 @@ function ease(t: number, curve: FadeCurve): number {
       return 1 - (1 - t) * (1 - t);
     case 'easeInOut':
       return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
-    case 'equal-power':
-      // sin/cos crossfade on a single side: sin(t * pi/2)^2 → power-preserving
-      return Math.sin((t * Math.PI) / 2) ** 2;
+    case 'equal-power': {
+      // Constant-power (equal-power) crossfade. A rising leg follows the gain
+      // sin(t·π/2) and a falling leg follows cos(t·π/2), so two opposing legs
+      // sum to sin²+cos² = 1 — no ~3 dB loudness dip at the midpoint. Encoded
+      // as an interpolation factor for `from + (to-from)·f`, the falling leg
+      // becomes 1 - cos(t·π/2).
+      return rising ? Math.sin((t * Math.PI) / 2) : 1 - Math.cos((t * Math.PI) / 2);
+    }
     default:
       return t;
   }
