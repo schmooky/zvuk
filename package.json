@@ -75,6 +75,7 @@
     "docs:dev": "pnpm --dir docs dev",
     "docs:build": "pnpm --dir docs build",
     "docs:preview": "pnpm --dir docs preview",
+    "examples": "vite --config vite.examples.config.ts",
     "changeset": "changeset",
     "changeset:status": "changeset status",
     "version-packages": "changeset version && pnpm install --lockfile-only",
@@ -89,6 +90,7 @@
     "happy-dom": "^15.11.6",
     "tsup": "^8.3.5",
     "typescript": "^5.9.0",
+    "vite": "^5.4.0",
     "vitest": "^2.1.8"
   }
 }
