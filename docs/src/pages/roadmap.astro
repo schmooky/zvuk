@@ -21,7 +21,7 @@ const v1_0_0: Item[] = [
   },
 ];
 
-// Things shipped between v1.4 and v1.8. Roughly one feature per minor.
+// Things shipped across the v1.x minors. Roughly one feature per minor.
 const recentMinors: Item[] = [
   { title: 'Snapshot blend (v1.12)', why: 'engine.blendSnapshots(a, b, t) snaps the mix to a linear interpolation between two captured snapshots. Wire it through a Parameter and you get continuous "calm ↔ combat" or "menu ↔ game" mix automation driven by one knob. The Wwise primitive the roadmap pointed at.', size: 'M', link: '/concepts/snapshot/' },
   { title: 'Music source — stinger → loop → outro (v1.8)', why: 'engine.loadMusic(name, { intro, loop, outro }) + MusicVoice.skipToOutro({ at: "loop-end" | "now" }). The pattern every casino slot, action game, and rhythm game uses for combat/win/menu music. Click-free at the loop boundary via loopCrossfade.', size: 'L', link: '/concepts/music/' },
@@ -34,10 +34,19 @@ const recentMinors: Item[] = [
   { title: 'Click-free voice.stop() (v1.1)', why: 'Tiny gain ramp before source.stop() suppresses the click that fires when buffers are cut mid-waveform.', size: 'S' },
 ];
 
-// Everything from the public roadmap that v0.0.2 shipped. These render in
-// the "Recently shipped" section so the page reflects current state instead
-// of pretending the work is still pending.
+// Everything from the public roadmap that has shipped. These render in the
+// "Recently shipped" section so the page reflects current state instead of
+// pretending the work is still pending.
 const recentlyShipped: Item[] = [
+  { title: 'Bus sends / aux', why: 'engine.bus(src).send(engine.bus(dest), { amount }) routes a copy of one bus into another (e.g. a verb-only bus).', size: 'M', link: '/concepts/bus/' },
+  { title: 'Solo + busGroup', why: 'bus.solo() mutes everyone else; engine.busGroup(name, [...buses]) addresses several buses at once.', size: 'S', link: '/concepts/bus/' },
+  { title: 'engine.masterMeter()', why: 'Live RMS + peak on the master output — same shape as bus.meter() / voice.level().', size: 'S' },
+  { title: 'Spatializer distance config', why: 'refDistance / maxDistance / rolloffFactor / distanceModel per voice, tunable live via the Spatializer set* methods.', size: 'M', link: '/concepts/spatializer/' },
+  { title: 'Variants helper', why: 'engine.loadVariants(name, urls) + engine.variants(name).play() with random / no-repeat / shuffle-bag strategies.', size: 'S' },
+  { title: 'play({ fadeIn })', why: 'Fade a voice up from 0 over fadeIn seconds at start — the dual of the click-free stop fade.', size: 'S', link: '/concepts/voice/' },
+  { title: 'engine.unloadSound(name, { evictBuffer })', why: 'Drop a sound and evict its decoded buffer from the LRU — for hot-swapping themes.', size: 'S' },
+  { title: 'Branded bus / sound names', why: 'createEngine({ buses }) infers the bus-name union so engine.bus("typo") fails at compile time.', size: 'M' },
+  { title: "createEngine({ latencyHint })", why: "Maps to AudioContext latencyHint — 'interactive' for reactive game audio, 'playback' for music players.", size: 'S' },
   { title: 'Live spatializer control on Voice', why: 'voice.spatializer.setPan / setPosition during playback.', size: 'S', link: '/concepts/spatializer/' },
   { title: 'Voice pause / resume', why: 'voice.pause() / resume() with offset retention.', size: 'S', link: '/concepts/voice/' },
   { title: 'Live voice.playbackRate setter', why: 'voice.setPlaybackRate(rate, { duration, curve }) with optional ramp.', size: 'S', link: '/concepts/voice/' },
@@ -59,61 +68,14 @@ const recentlyShipped: Item[] = [
 ];
 
 // What's still on the table. Each line is roughly one minor release of work.
-const tier1: Item[] = [
-  {
-    title: 'Bus sends / aux',
-    why: 'bus.send(target, { amount }) so you can route 30% of music through a verb-only bus instead of inserting reverb directly. The Wwise primitive the README claims and the API doesn\'t yet have.',
-    size: 'M',
-    link: '/concepts/bus/',
-  },
-  {
-    title: 'Solo + busGroup',
-    why: 'bus.solo() (mute everyone else), engine.busGroup(name, [...buses]) so snapshots and parameters can address logical groups instead of repeating bus names.',
-    size: 'S',
-  },
-  {
-    title: 'engine.masterMeter()',
-    why: 'Live RMS + peak on the master output. Same primitive as bus.meter() / voice.level(), just exposed at the top of the chain.',
-    size: 'S',
-  },
-];
-
-const tier2: Item[] = [
-  {
-    title: 'Spatializer 3D config',
-    why: 'Expose refDistance / maxDistance / rolloffFactor on Spatializer (currently hard-coded), plus a single-knob distance Parameter that drives attenuation + a low-pass for occlusion.',
-    size: 'M',
-    link: '/concepts/spatializer/',
-  },
-  {
-    title: 'Variants helper',
-    why: 'engine.loadVariants("coin", urls) + engine.variants("coin").play() picks one randomly. Slot games play random coin/win/reel-stop variants constantly — currently nightmare-ergonomic without this.',
-    size: 'S',
-  },
-  {
-    title: 'play({ fadeIn })',
-    why: 'Convenience for "drop into the menu" intros. Currently requires play({ volume: 0 }) + fade() — trivially the dual of the existing stop fade.',
-    size: 'S',
-    link: '/concepts/voice/',
-  },
-  {
-    title: 'engine.unloadSound(name, { evictBuffer: true })',
-    why: 'Currently removeSound() drops the registry entry but the buffer stays in the LRU. Hot-swappable themes (kiosks, slot lobbies) need explicit eviction.',
-    size: 'S',
-  },
-];
+// (The former Tier 1–2 items and two of Tier 3 — bus sends, solo/busGroup,
+// masterMeter, spatializer distance config, variants, play({ fadeIn }),
+// unloadSound, branded bus/sound types, latencyHint — have all shipped and
+// moved to "Recently shipped" below.)
+const tier1: Item[] = [];
+const tier2: Item[] = [];
 
 const tier3: Item[] = [
-  {
-    title: 'Branded BusName / SoundName types',
-    why: 'engine.bus(name) and engine.sound(name) currently take any string. Inferring from createEngine({ buses: { ... } }) gives compile-time correctness on typos.',
-    size: 'M',
-  },
-  {
-    title: 'createEngine({ latencyHint })',
-    why: 'Maps to AudioContext.latencyHint. Slot games doing 60 fps reactive audio want \'interactive\'; long music players want \'playback\'. Currently we accept the default.',
-    size: 'S',
-  },
   {
     title: 'Per-voice FX',
     why: 'FX inserts are bus-level today. No way to put a flanger on one voice without dedicating a bus to it.',
@@ -173,7 +135,7 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.4 → v1.8</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.1 → v1.12</div>
         <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">Roughly one feature per minor release. Most recent first.</p>
@@ -237,8 +199,8 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v0.0.2</div>
-        <h2 class="text-2xl font-semibold tracking-tight">Earlier — roadmap tier sweep</h2>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">Shipped</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Roadmap tier sweep</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep — every actionable item from Tiers 1–4, end-to-end. Framework adapters remain out of scope.</p>
       <ol class="space-y-3">
