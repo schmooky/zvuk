@@ -96,9 +96,9 @@ engine.crossfade('intro', 'main', { duration: 1.5 });
 ```ts
 import { Ducker } from '@schmooky/zvuk';
 
-const ducker = new Ducker(engine.context, {
-  source: engine.bus('voice').output,
-  target: engine.bus('music'),
+// The source bus (keyed from) is the 2nd argument; the target bus is
+// whichever bus you add the ducker to.
+const ducker = new Ducker(engine.context, engine.bus('voice'), {
   amount: 0.7, attack: 0.08, release: 0.6,
 });
 engine.bus('music').addFx(ducker);
