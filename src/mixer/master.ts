@@ -1,12 +1,14 @@
 import type { AudioLevel, MasterConfig, MasterLimiterConfig } from '../types';
 
 /**
- * The Master stage. Headroom-aware gain into an optional brick-wall limiter,
- * then to destination. Buses connect their output to master.input.
+ * The Master stage. Headroom-aware gain into an optional soft limiter, then to
+ * destination. Buses connect their output to master.input.
  *
  * Headroom is a static gain offset; the limiter is a fast-attack
- * DynamicsCompressorNode that catches peaks the headroom can't tame when
- * heavy FX stack on top of busy mixes.
+ * DynamicsCompressorNode that catches most peaks the headroom can't tame when
+ * heavy FX stack on top of busy mixes. Note it is best-effort, not a true
+ * brick-wall limiter — with a finite attack and no lookahead, transient peaks
+ * above the threshold can still pass, so it does not guarantee a hard ceiling.
  */
 export class Master {
   readonly input: GainNode;
