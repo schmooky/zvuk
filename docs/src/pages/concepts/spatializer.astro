@@ -16,13 +16,16 @@ const pos3d = `engine.sound('footstep').play({
 const dynamic = `import { Spatializer } from '@schmooky/zvuk';
 
 const sp = new Spatializer(engine.context, { position: [0, 0, 0] });
-sp.connectInto(engine.bus('sfx').input);
+// connectInto() wires the spatializer to the bus and RETURNS the node your
+// source should feed into — route your source there, or you'll get silence.
+const input = sp.connectInto(engine.bus('sfx').input);
+mySourceNode.connect(input);
 sp.setPosition(playerX, playerY, playerZ);    // each frame
 
 // when done:
 sp.dispose();`;
 
-const livePerVoice = `// New in v0.0.2 — the spawned voice exposes its Spatializer.
+const livePerVoice = `// The spawned voice exposes its Spatializer for live steering.
 const v = engine.sound('engine').play({
   loop: true,
   spatializer: { position: [0, 0, 0] },

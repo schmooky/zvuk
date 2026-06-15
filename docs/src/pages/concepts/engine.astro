@@ -19,7 +19,7 @@ const engine = createEngine({
 });`;
 
 const lifecycle = `await engine.unlock();          // call from a user gesture
-engine.state;                    // 'cold' | 'unlocking' | 'live' | 'closed'
+engine.state;                    // 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed'
 
 await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });
 engine.sound('coin').play();
@@ -44,7 +44,7 @@ onBeforeUnmount(() => { void engine.close(); });
 router.beforeEach(async () => { await engine.close(); });`;
 
 const surface = `interface Engine {
-  readonly state: 'cold' | 'unlocking' | 'live' | 'closed';
+  readonly state: 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed';
   readonly now: number;
   readonly context: AudioContext;
 
@@ -120,7 +120,8 @@ try {
 
   <h2>State machine</h2>
   <p>
-    Four states, one terminal transition. <code>unlock()</code> is the only thing you
+    Five states (including <code>interrupted</code>, used on iOS phone-call /
+    Siri interruptions), one terminal transition. <code>unlock()</code> is the only thing you
     call manually; visibility/focus changes auto-suspend and auto-resume the context
     behind the scenes.
   </p>

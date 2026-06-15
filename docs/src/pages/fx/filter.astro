@@ -4,13 +4,14 @@ import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
 const surface = `class Filter implements FxInsert {
-  readonly input: BiquadFilterNode;
-  readonly output: BiquadFilterNode;
+  readonly input: GainNode;
+  readonly output: GainNode;
   bypassed: boolean;
 
   setType(t: FilterKind): void;
   setFrequency(hz: number): void;
   setQ(q: number): void;
+  setGain(db: number): void;   // peaking gain, live
   dispose(): void;
 }
 
