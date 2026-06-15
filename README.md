@@ -57,7 +57,7 @@ zvuk is the layer above. It gives you the routing primitives a real game audio t
 | Named buses with FX inserts | Compressor (DynamicsCompressor + makeup) | Codec ladder (`['x.webm', 'x.m4a']`) | Lazy AudioContext (no constructor side-effects) |
 | Master headroom + brick-wall limiter | Filter (BiquadFilter, all 6 modes) | Audio sprites (one buffer, N regions) | iOS Safari unlock + visibility resume |
 | Voice concurrency + stealing | Reverb (convolution + synthetic IR) | Stream long media via MediaElementSource | Sample-accurate scheduler |
-| Sidechain ducking (Ducker) | Time-stretch (offline SOLA + realtime Worklet) | Loudness normalization on load | Async cues iterator on every Voice |
+| Sidechain ducking (Ducker) | Pitch-preserving time-stretch (offline SOLA) + realtime varispeed Worklet | Loudness normalization on load | Async cues iterator on every Voice |
 | Snapshots — capture & crossfade the mix | Spatializer (2D pan + 3D HRTF) | AbortSignal cancellation | "Did you mean…" on bus/sound name typos |
 
 ## Examples

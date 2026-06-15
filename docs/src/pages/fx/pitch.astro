@@ -45,7 +45,8 @@ engine.bus('music').addFx({
   dispose: () => node.dispose(),
 });
 
-// Live tempo ramp — boss intro slowing down to half-tempo over 2 seconds.
+// Live varispeed ramp over 2 seconds. NOTE: the realtime worklet is NOT
+// pitch-preserving — stretch < 1 plays slower AND drops pitch (tape-style).
 node.stretch.linearRampToValueAtTime(0.5, engine.context.currentTime + 2);`;
 
 const liveRate = `// Voice-level rate control (alters pitch + tempo, not pitch-preserving).
@@ -101,12 +102,19 @@ v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
   </p>
   <Snippet code={factory} lang="ts" />
 
-  <h3>Realtime tempo via AudioWorklet</h3>
+  <h3>Realtime varispeed via AudioWorklet</h3>
   <p>
     For live ramps — boss intros that bend in real time, gameplay slow-mo —
     use the worklet node. The <code>stretch</code> param is a real
     <code>AudioParam</code>, so all the standard automation methods work.
   </p>
+  <div class="pitfall">
+    <div class="pitfall-title">The realtime worklet is varispeed, not pitch-preserving.</div>
+    Unlike the offline <code>StretchProcessor</code>, this node resamples a ring
+    buffer at a variable rate, so ramping <code>stretch</code> changes pitch
+    <em>and</em> tempo together (tape-style). Use it when you want that effect;
+    pre-render with <code>StretchProcessor</code> when you need the pitch held.
+  </div>
   <Snippet code={worklet} lang="ts" />
 
   <h3>Voice-level rate ramp (cheap, alters pitch)</h3>

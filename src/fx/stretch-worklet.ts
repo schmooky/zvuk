@@ -1,23 +1,27 @@
 /**
- * Realtime time-stretch via AudioWorklet.
+ * Realtime *varispeed* via AudioWorklet.
  *
- * The companion to the offline `StretchProcessor`. Loads a worklet processor
- * into the AudioContext and exposes a node whose `stretch` AudioParam can be
- * automated live — boss intros that bend in real time, slow-mo stings, etc.
+ * The realtime companion to the offline `StretchProcessor`. Loads a worklet
+ * processor into the AudioContext and exposes a node whose `stretch`
+ * AudioParam can be automated live — boss intros that bend in real time,
+ * slow-mo stings, etc.
  *
- * The worklet uses a phase-vocoder-lite ring buffer + linear-interp resampler
- * paired with a small 1024-sample OLA grain to keep transients crisp. It's
- * not as good as a dedicated SOLA pass for offline rendering, but it sounds
- * fine for live ramps in the 0.5×–2× range.
+ * IMPORTANT: unlike the offline `StretchProcessor`, this node is NOT
+ * pitch-preserving. It resamples a ring buffer at a variable read rate via
+ * linear interpolation, so changing `stretch` shifts pitch *and* tempo
+ * together — classic varispeed / tape-style speed change. It is cheap and
+ * sounds fine for live ramps across the 0.25×–4× range when you don't need
+ * pitch held constant. For pitch-preserving (offline) stretching, use
+ * `StretchProcessor`.
  */
 
 const PROCESSOR_NAME = 'zvuk-realtime-stretch';
 const loaded = new WeakSet<AudioContext>();
 
 export interface StretchWorkletOptions {
-  /** Initial stretch factor. 1 = play at source rate. > 1 = faster. */
+  /** Initial stretch factor. 1 = play at source rate. > 1 = faster (higher pitch). */
   stretchFactor?: number;
-  /** Grain size in samples. Default 1024. Larger = smoother but more latency. */
+  /** Ring-buffer sizing hint in samples (ring = 8×). Default 1024. */
   grainSize?: number;
 }
 
@@ -39,18 +43,11 @@ class ZvukRealtimeStretchProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     const grain = (options && options.processorOptions && options.processorOptions.grainSize) || 1024;
-    this.grainSize = grain;
     this.ringSize = grain * 8;
     this.ringL = new Float32Array(this.ringSize);
     this.ringR = new Float32Array(this.ringSize);
     this.writePos = 0;
     this.readPos = 0;
-    this.window = new Float32Array(grain);
-    for (let i = 0; i < grain; i++) {
-      const t = i / (grain - 1);
-      // Hann window for OLA crossfade.
-      this.window[i] = 0.5 * (1 - Math.cos(2 * Math.PI * t));
-    }
   }
 
   process(inputs, outputs, params) {
