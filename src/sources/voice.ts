@@ -1,4 +1,4 @@
-import { applyRamp } from '../mixer/curve';
+import { applyRamp, equalPowerCurve } from '../mixer/curve';
 import type { Spatializer } from '../spatial/spatializer';
 import type { AudioLevel, FadeOptions, PlayOptions, StopOptions } from '../types';
 
@@ -505,15 +505,17 @@ export class Voice {
 
     const segGain = this.ctx.createGain();
     if (fadeIn) {
+      // Equal-power fade-in (sin) so it sums to constant power against the
+      // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
       segGain.gain.setValueAtTime(0, when);
-      segGain.gain.linearRampToValueAtTime(1, when + this.crossfadeSec);
+      segGain.gain.setValueCurveAtTime(equalPowerCurve(0, 1), when, this.crossfadeSec);
     } else {
       segGain.gain.setValueAtTime(1, when);
     }
-    // Ramp out at the segment's tail.
+    // Equal-power fade-out (cos) at the segment's tail.
     const fadeOutAt = when + this.crossfadeRegionLen - this.crossfadeSec;
     segGain.gain.setValueAtTime(1, fadeOutAt);
-    segGain.gain.linearRampToValueAtTime(0, when + this.crossfadeRegionLen);
+    segGain.gain.setValueCurveAtTime(equalPowerCurve(1, 0), fadeOutAt, this.crossfadeSec);
 
     src.connect(segGain).connect(this.gain);
     try {

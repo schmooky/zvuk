@@ -36,6 +36,15 @@ export function applyRamp(
   param.setValueCurveAtTime(samples, now, seconds);
 }
 
+/**
+ * Sample a constant-power gain ramp from `from` to `to`, for direct use with
+ * `setValueCurveAtTime` (e.g. scheduled loop-crossfade segments). A rising leg
+ * follows sin(t·π/2), a falling leg cos(t·π/2), so two opposing legs sum to 1.
+ */
+export function equalPowerCurve(from: number, to: number, n = 33): Float32Array {
+  return sampleCurve(from, to, 'equal-power', n);
+}
+
 function sampleCurve(from: number, to: number, curve: FadeCurve, n: number): Float32Array {
   const out = new Float32Array(n);
   const rising = to >= from;
