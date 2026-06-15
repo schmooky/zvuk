@@ -1,5 +1,37 @@
 # @schmooky/zvuk
 
+## 1.13.0
+
+### Minor Changes
+
+- [#87](https://github.com/schmooky/zvuk/pull/87) [`50bb39f`](https://github.com/schmooky/zvuk/commit/50bb39f70cc6c9bf2298b721f120189d93b99ec8) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Add `Filter.setGain(db)` to adjust the peaking-filter gain live (previously `gain` could only be set at construction). Also fixed concept-page docs: the Engine state union now lists `interrupted` (5 states, not 4), the Filter API surface shows `input`/`output` as `GainNode` (not `BiquadFilterNode`) plus the new `setGain`, and the manual Spatializer recipe now routes a source into the node `connectInto()` returns (the previous snippet produced silence).
+
+### Patch Changes
+
+- [#89](https://github.com/schmooky/zvuk/pull/89) [`7037d0b`](https://github.com/schmooky/zvuk/commit/7037d0b71d11a41a6b6b3c68f2678f91e3c7162e) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Minor cleanups: use `Math.SQRT1_2` for the occlusion filter's Butterworth Q (clears the last Biome warning) and fix a stale `Bus.fxInput` doc comment that claimed it equals `input` (it's a distinct node the FX chain splices into).
+
+- [#86](https://github.com/schmooky/zvuk/pull/86) [`176408c`](https://github.com/schmooky/zvuk/commit/176408c35f5b0e462ab4e7e0ce07d6084619dadf) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Stop labelling the scheduler "sample-accurate". It dispatches JS callbacks from a tick source (`setTimeout` or an injected ticker), so it is tick-bounded (ms-level), as its own docstring already noted. Reworded the README, `Scheduler` docs, and docs pages to "audio-clock scheduler", and corrected the claim that the `scheduleAt` callback receives an `audioTime` argument (it does not — close over the value you scheduled against).
+
+- [#85](https://github.com/schmooky/zvuk/pull/85) [`8fb3747`](https://github.com/schmooky/zvuk/commit/8fb37470d372a3131e947b3b3ec77c920b6aa4bf) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Stop calling the master limiter a "brick-wall" limiter. It's a fast-attack `DynamicsCompressorNode` (ratio ~20) — limiter-like but, with a finite attack and no lookahead, it does not guarantee a hard 0 dBFS ceiling. Reworded the README, `Master` docs, and `MasterLimiterConfig`/`MasterConfig` to "soft limiter / best-effort peak control", and fixed the concepts/mixer snippet that used a non-existent `engine.bus('master')` / `master.setLimiter` runtime API (the limiter is configured at construction).
+
+- [#75](https://github.com/schmooky/zvuk/pull/75) [`69cae54`](https://github.com/schmooky/zvuk/commit/69cae5480a7073e5a154a20d33186a07dfbcc10d) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Clarify that the realtime stretch worklet (`createStretchWorkletNode`) is **varispeed** — it shifts pitch and tempo together (tape-style), not pitch-preserving time-stretch like the offline `StretchProcessor`. Updated the module docs, README feature, and the pitch FX page to say so, and removed dead Hann-window code from the worklet processor that implied an overlap-add it never performed. No runtime behavior change.
+
+- [#73](https://github.com/schmooky/zvuk/pull/73) [`1ef40e9`](https://github.com/schmooky/zvuk/commit/1ef40e9407bfcd1c315dd2b05d649b8f46715c70) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `VoiceJitter` now accepts a `base` so `volume`/`pitch` jitter can be combined with a chosen center value, e.g. `play({ pitch: { base: 1.5, jitter: 0.1 } })`. Previously jitter always centered on `1.0`, so a base playback rate or volume could not be combined with jitter. Plain numbers and `{ jitter }`-only forms are unchanged.
+
+- [#74](https://github.com/schmooky/zvuk/pull/74) [`4424bee`](https://github.com/schmooky/zvuk/commit/4424beeda56adb426b471cf2a27d4ee9d7c62d8a) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `Bus.dispose` now tears down the bus's sends and FX inserts. Previously a disposed bus left its `Send` GainNodes connected to their target buses (a node leak), since `engine.close` never iterated bus sends. `Bus.fx()` and `Bus.sends()` now return copies so callers can't mutate the live chain/send list.
+
+- [#80](https://github.com/schmooky/zvuk/pull/80) [`1806f89`](https://github.com/schmooky/zvuk/commit/1806f89703f68f33f27427c4ff1156fdd0848566) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `engine.crossfade` now only fades out instances of `from` on the **same bus** the incoming voice plays on — previously it faded out every voice of `from` across all buses, so crossfading on the music bus could stop the same sound playing on an ambience bus. Also corrected the docs: a fresh voice for `to` is always started (it never reuses an already-playing `to`, despite the previous wording).
+
+- [#79](https://github.com/schmooky/zvuk/pull/79) [`6bff9b7`](https://github.com/schmooky/zvuk/commit/6bff9b7bc50191d84a0b40cafa80fe3605f5d419) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `Ducker`'s envelope follower now measures the real frame delta (from the rAF timestamp, clamped to 1–100 ms) instead of assuming a fixed `1/60 s`. The attack/release time constants were previously ~2× too fast on 120 Hz displays and far too slow in throttled/background tabs.
+
+- [#82](https://github.com/schmooky/zvuk/pull/82) [`33d8d57`](https://github.com/schmooky/zvuk/commit/33d8d57f5f38d1df67e428ea9e486dc142d84f88) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Loop crossfades now use equal-power (sin/cos) ramps instead of linear ones, for both `PlayOptions.loopCrossfade` (Voice) and `MusicLoadOptions.loopCrossfade` (Music). Two overlapping linear ramps summed to a ~3 dB power dip at every loop boundary — the exact seam the feature is meant to hide, and contrary to the "equal-power" the docs already claimed.
+
+- [#77](https://github.com/schmooky/zvuk/pull/77) [`1e99f97`](https://github.com/schmooky/zvuk/commit/1e99f975ecba2263fa9f6f11d0f82f36ca05013c) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Loudness normalization no longer mutates the source buffer in place — it scales into a fresh `AudioBuffer` when run through the engine, so a buffer adopted from a `resolveAsset` cache is left untouched. Also clarified that normalization matches **RMS level**, not perceptual/LUFS loudness, in the docs and `LoadSoundOptions.normalize`.
+
+- [#78](https://github.com/schmooky/zvuk/pull/78) [`ba9ec8a`](https://github.com/schmooky/zvuk/commit/ba9ec8aeaf1ede1d875dce73dc0b1c3031bf74d3) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `preload` abort hardening: `combineSignals` now removes both abort listeners as soon as either fires, so a batch-wide signal reused across every item no longer accumulates a stale listener per item. (In-flight fetches were already cancelled on abort via signal propagation; this also adds explicit mid-batch abort test coverage.)
+
+- [#81](https://github.com/schmooky/zvuk/pull/81) [`f37be23`](https://github.com/schmooky/zvuk/commit/f37be23a893f492591c6f9715e4bde28f497cb66) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - `Voice.cues()` now always yields a terminal `ended` cue. If the iterator was attached after the voice had already finished, it previously returned an empty stream — so a consumer awaiting `ended` from `cues()` never observed completion.
+
 ## 1.12.1
 
 ### Patch Changes
