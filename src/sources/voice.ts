@@ -371,6 +371,12 @@ export class Voice {
 
   /** Async iterator of lifecycle cues — yields started, optional paused, ended. */
   async *cues(): AsyncIterableIterator<VoiceCue> {
+    // Already finished before anyone subscribed: still surface the terminal
+    // cue so a late consumer observes completion instead of an empty stream.
+    if (this.done) {
+      yield 'ended';
+      return;
+    }
     const queue: VoiceCue[] = [];
     let waiter: ((v: IteratorResult<VoiceCue>) => void) | null = null;
     const push = (c: VoiceCue) => {
@@ -393,7 +399,11 @@ export class Voice {
           if (next === 'ended') return;
           continue;
         }
-        if (this.done) return;
+        if (this.done) {
+          // Finished with nothing queued — still end the stream with 'ended'.
+          yield 'ended';
+          return;
+        }
         const next = await new Promise<IteratorResult<VoiceCue>>((res) => {
           waiter = res;
         });
