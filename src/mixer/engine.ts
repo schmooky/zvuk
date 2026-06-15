@@ -190,8 +190,10 @@ export interface Engine<TBusName extends string = string> {
    * over the same window with `equal-power` curves so the perceived loudness
    * stays flat.
    *
-   * Returns the new Voice. If `to` is already playing, its level is faded up
-   * from 0 instead of starting fresh.
+   * Returns the new Voice — a fresh voice for `to` is always started at
+   * volume 0 and faded up. Only voices of `from` on the same bus the new
+   * voice plays on are faded out; instances of `from` on other buses are
+   * left untouched.
    */
   crossfade(from: string, to: string, options?: CrossfadeOptions): Voice;
 
@@ -561,7 +563,12 @@ class EngineImpl implements Engine {
       volume: 0,
     });
     void newVoice.fade({ to: toVolume, duration, curve });
-    const outgoing = this.activeVoices().filter((v) => v !== newVoice && v.sourceName === from);
+    // Only fade out `from` instances on the same bus the new voice plays on —
+    // crossfading on the music bus shouldn't stop the same sound playing on,
+    // say, an ambience bus.
+    const outgoing = this.activeVoices().filter(
+      (v) => v !== newVoice && v.sourceName === from && v.bus === newVoice.bus,
+    );
     for (const v of outgoing) {
       void v.fade({ to: 0, duration, curve }).then(() => v.stop());
     }
