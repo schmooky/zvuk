@@ -77,6 +77,8 @@ export class Bus {
   private _level: number;
   private _muted: boolean;
   private _soloed = false;
+  /** True while the engine's solo rule is silencing this (non-soloed) bus. */
+  private _soloVeiled = false;
   private readonly ctx: AudioContext;
   private _concurrency: ConcurrencyConfig | null;
   private _voices = new Set<Voice>();
@@ -119,7 +121,7 @@ export class Bus {
 
   set level(v: number) {
     this._level = clamp01(v);
-    if (!this._muted) this.rampOutput(this._level, 0.01);
+    if (!this._muted && !this._soloVeiled) this.rampOutput(this._level, 0.01);
   }
 
   get muted(): boolean {
@@ -128,13 +130,18 @@ export class Bus {
 
   set muted(v: boolean) {
     this._muted = v;
-    this.rampOutput(v ? 0 : this._level, 0.01);
+    this.rampOutput(v || this._soloVeiled ? 0 : this._level, 0.01);
   }
 
   /** Fade the bus output to `target` over `duration` seconds. */
   fadeTo(target: number, duration: number, curve: FadeCurve = 'linear'): Promise<void> {
     const to = clamp01(target);
     this._level = to;
+    // Respect mute / solo: store the target level but don't drive the output
+    // gain while the bus is silenced — otherwise a fade would audibly un-mute
+    // (or un-solo-veil) it. The stored level is applied when it is unmuted /
+    // unveiled.
+    if (this._muted || this._soloVeiled) return wait(duration);
     return this.ramp(to, duration, curve);
   }
 
@@ -308,6 +315,7 @@ export class Bus {
    * user-visible mute state without re-rendering.
    */
   applySoloVeil(soloMute: boolean): void {
+    this._soloVeiled = soloMute;
     const target = this._muted ? 0 : soloMute ? 0 : this._level;
     this.rampOutput(target, 0.01);
   }
