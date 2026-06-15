@@ -15,15 +15,20 @@ illustrates one cluster of the engine that's hard to explain in isolation.
 
 ## Running
 
-These are zero-build examples — they import the workspace `zvuk` package
-straight from `src/index.ts`, and they reference the same audio assets the
-docs site ships at `docs/public/audio/`. Serve from the repo root with any
-static server:
+Each example is an `index.html` + a small TypeScript module that imports the
+engine straight from the workspace source (`../../src/index`) and reads the
+audio the docs site ships at `docs/public/audio/`. Because the modules are
+TypeScript, they need transpiling — serve them with Vite from the repo root:
 
 ```bash
-npx serve .
-# then open http://localhost:3000/examples/slot-machine/
+pnpm install      # once
+pnpm examples     # opens http://localhost:5173/examples/
 ```
+
+Vite transpiles the TypeScript on the fly and resolves both the
+`../../src/index` import and the `/docs/public/audio/...` asset paths. (A
+plain static server like `npx serve .` can't run these — browsers don't
+execute `.ts` modules.)
 
 ## Swap the music bed
 
