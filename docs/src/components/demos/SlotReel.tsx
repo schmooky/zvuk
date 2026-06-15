@@ -3,7 +3,7 @@ import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 /**
- * Three-reel slot machine recipe. Demonstrates layered SFX, sample-accurate
+ * Three-reel slot machine recipe. Demonstrates layered SFX, audio-clock
  * scheduling, jittered pitch, and bus mixing in one cohesive demo.
  */
 export default function SlotReel() {

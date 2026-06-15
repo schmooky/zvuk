@@ -8,16 +8,17 @@ type ScheduledTask = {
 };
 
 /**
- * Sample-accurate scheduler driven by AudioContext time.
+ * Audio-clock task scheduler driven by AudioContext time.
  *
  * Tasks are sorted by their target audio time and dispatched from a tick
  * source: an injected `TickSource` (host's render loop — Pixi, GSAP) when
- * configured, otherwise `setTimeout`. The drift vs `ctx.currentTime` is
- * bounded by one tick (a few ms for setTimeout, ~16 ms at 60 fps for an
- * external ticker). For true sample-accurate playback, callers should
- * stamp Web Audio API parameters (gain ramps, source.start) directly with
- * the `audioTime` value passed in — that scheduling happens on the audio
- * thread and is unaffected by tab-blur throttling either way.
+ * configured, otherwise `setTimeout`. This dispatches JS callbacks, so it is
+ * NOT sample-accurate — the drift vs `ctx.currentTime` is bounded by one tick
+ * (a few ms for setTimeout, ~16 ms at 60 fps for an external ticker). For true
+ * sample-accurate playback, callers should stamp Web Audio API parameters
+ * (gain ramps, source.start) directly with the `audioTime` they scheduled
+ * against (close over it) — that scheduling happens on the audio thread and is
+ * unaffected by tab-blur throttling either way.
  *
  * Tick-source mode subscribes lazily — only while there are pending tasks —
  * so a 60 fps host loop isn't waking the scheduler 60 times a second to do
