@@ -1,4 +1,4 @@
-import { applyRamp } from '../mixer/curve';
+import { applyRamp, equalPowerCurve } from '../mixer/curve';
 import type { FadeOptions, MusicPlayOptions, MusicState, SkipToOutroOptions, StopOptions } from '../types';
 
 const DEFAULT_STOP_FADE_SEC = 0.008;
@@ -267,17 +267,19 @@ export class MusicVoice {
 
     const segGain = this.ctx.createGain();
     if (fadeIn) {
+      // Equal-power fade-in (sin) so it sums to constant power against the
+      // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
       segGain.gain.setValueAtTime(0, when);
-      segGain.gain.linearRampToValueAtTime(1, when + this.loopCrossfadeSec);
+      segGain.gain.setValueCurveAtTime(equalPowerCurve(0, 1), when, this.loopCrossfadeSec);
     } else {
       segGain.gain.setValueAtTime(1, when);
     }
     if (this.crossfadeViable()) {
-      // Schedule the segment's fade-out right at its tail so it sits
-      // under the next segment's fade-in.
+      // Equal-power fade-out (cos) at the segment's tail so it sits under the
+      // next segment's fade-in.
       const fadeOutAt = when + this.buffers.loop.duration - this.loopCrossfadeSec;
       segGain.gain.setValueAtTime(1, fadeOutAt);
-      segGain.gain.linearRampToValueAtTime(0, when + this.buffers.loop.duration);
+      segGain.gain.setValueCurveAtTime(equalPowerCurve(1, 0), fadeOutAt, this.loopCrossfadeSec);
     }
     src.connect(segGain).connect(this.gain);
     try {
