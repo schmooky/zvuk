@@ -28,6 +28,8 @@ export class Reverb implements FxInsert {
   private preDelay: DelayNode;
   private ctx: AudioContext;
   private _bypassed = false;
+  /** Active wet mix (0..1), so bypass can restore it instead of guessing. */
+  private _wet: number;
 
   constructor(ctx: AudioContext, config: ReverbConfig = {}) {
     this.ctx = ctx;
@@ -39,6 +41,7 @@ export class Reverb implements FxInsert {
     this.convolver = ctx.createConvolver();
 
     const wetMix = config.wet ?? 0.3;
+    this._wet = wetMix;
     this.dry.gain.value = 1 - wetMix;
     this.wet.gain.value = wetMix;
 
@@ -55,6 +58,8 @@ export class Reverb implements FxInsert {
 
   setWet(mix: number): void {
     const m = Math.max(0, Math.min(1, mix));
+    this._wet = m;
+    if (this._bypassed) return; // remembered; applied when un-bypassed
     const t = this.ctx.currentTime;
     this.dry.gain.setValueAtTime(1 - m, t);
     this.wet.gain.setValueAtTime(m, t);
@@ -71,7 +76,16 @@ export class Reverb implements FxInsert {
   set bypassed(v: boolean) {
     if (this._bypassed === v) return;
     this._bypassed = v;
-    this.wet.gain.value = v ? 0 : 0.3;
+    const t = this.ctx.currentTime;
+    if (v) {
+      // Transparent bypass: pass dry at unity, silence the wet path.
+      this.dry.gain.setValueAtTime(1, t);
+      this.wet.gain.setValueAtTime(0, t);
+    } else {
+      // Restore the configured/last-set mix (not a hardcoded default).
+      this.dry.gain.setValueAtTime(1 - this._wet, t);
+      this.wet.gain.setValueAtTime(this._wet, t);
+    }
   }
 
   dispose(): void {
