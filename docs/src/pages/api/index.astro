@@ -1,19 +1,21 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { SITE } from '../../lib/seo';
+import { kindLabel } from '../../lib/typedoc-kinds.mjs';
 import api from '../../content/api.json';
 
 interface ApiSymbol {
   id: number;
   name: string;
   kindString?: string;
+  kind?: number;
   comment?: { summary?: { text?: string }[] };
 }
 
 const children: ApiSymbol[] = (api?.children ?? []) as ApiSymbol[];
 const groups = new Map<string, ApiSymbol[]>();
 for (const c of children) {
-  const k = c.kindString ?? 'Other';
+  const k = kindLabel(c);
   if (!groups.has(k)) groups.set(k, []);
   groups.get(k)!.push(c);
 }

@@ -1,12 +1,14 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { SITE } from '../../lib/seo';
+import { kindLabel } from '../../lib/typedoc-kinds.mjs';
 import api from '../../content/api.json';
 
 interface ApiSymbol {
   id: number;
   name: string;
   kindString?: string;
+  kind?: number;
   comment?: { summary?: { text?: string }[] };
   signatures?: Array<{
     name: string;
@@ -28,7 +30,7 @@ const summary = entry.comment?.summary?.map((s) => s.text).filter(Boolean).join(
 <Base title={`${entry.name} · API · ${SITE.name}`} description={summary || `Reference for ${entry.name}.`}>
   <div class="container py-12 max-w-3xl">
     <a href="/api/" class="text-[11px] font-mono uppercase tracking-[0.14em] text-primary hover:underline">← API</a>
-    <div class="mt-2 mb-2 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">{entry.kindString ?? 'Symbol'}</div>
+    <div class="mt-2 mb-2 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">{kindLabel(entry, 'Symbol')}</div>
     <h1 class="mb-3 text-3xl font-semibold tracking-tight font-mono">{entry.name}</h1>
 
     {summary && (
