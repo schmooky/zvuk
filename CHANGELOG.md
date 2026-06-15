@@ -1,5 +1,17 @@
 # @schmooky/zvuk
 
+## 1.12.1
+
+### Patch Changes
+
+- [#69](https://github.com/schmooky/zvuk/pull/69) [`9a95045`](https://github.com/schmooky/zvuk/commit/9a95045de2c7b85df4fd7ae40c8794026d1d63a2) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix `Bus.fadeTo` so it no longer overrides mute or solo. It previously wrote the output gain unconditionally, so fading a muted (or solo-veiled) bus audibly un-muted it. As a consequence, `Snapshot.apply` could not keep a bus captured as muted silent — the level fade un-muted it right after the mute was applied. `fadeTo` now stores the target level while silenced and applies it when the bus is unmuted/unveiled.
+
+- [#68](https://github.com/schmooky/zvuk/pull/68) [`13a3a94`](https://github.com/schmooky/zvuk/commit/13a3a941c897b09c06c125bdb2c3d6dbb82d004c) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix the `equal-power` fade curve so crossfades stay at constant power. It previously applied a `sin²` gain symmetrically, dipping ~3 dB at the crossfade midpoint — the exact loudness dip equal-power is meant to remove. The curve is now direction-aware (rising legs follow `sin(t·π/2)`, falling legs `cos(t·π/2)`), so two opposing legs sum to unity power. Affects `engine.crossfade`, `Bus`/`Send` fades, `Snapshot.apply`, and `Parameter` bindings using `curve: 'equal-power'`.
+
+- [#71](https://github.com/schmooky/zvuk/pull/71) [`f4580f1`](https://github.com/schmooky/zvuk/commit/f4580f1757e5addbe130294175e7cd74c284290a) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix the README sidechain-ducking example. It constructed `new Ducker(engine.context, { source, target, ... })`, but the real signature is `new Ducker(ctx, sourceBus, config)` — the source bus is the second positional argument and `DuckerConfig` has no `source`/`target` keys, so the snippet did not compile or run. It now matches the actual API (and the ducking guide).
+
+- [#70](https://github.com/schmooky/zvuk/pull/70) [`98235d6`](https://github.com/schmooky/zvuk/commit/98235d63cd2ab57f93ebee30f3c9cb32bb8e7ba4) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix `Reverb` bypass. Bypassing now passes the dry signal at unity gain and silences the wet path — it previously left dry at `1 - wet`, so a "bypassed" reverb attenuated the signal by up to ~3 dB. Un-bypassing restores the configured/last-set wet mix instead of snapping to a hardcoded `0.3`, and `setWet` called while bypassed is remembered and applied when the effect is re-enabled.
+
 ## 1.12.0
 
 ### Minor Changes
