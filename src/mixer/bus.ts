@@ -69,7 +69,7 @@ export class Send {
 export class Bus {
   readonly name: string;
   readonly input: GainNode;
-  /** Sub-bus where FX inserts go. Currently == input; reserved for FX chain. */
+  /** Sub-bus the FX chain splices into: input → fxInput → (fx…) → output. */
   readonly fxInput: GainNode;
   /** Output node — connect to master.input or another bus.input for sends. */
   readonly output: GainNode;

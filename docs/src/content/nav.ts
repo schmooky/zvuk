@@ -24,6 +24,7 @@ export const DOCS_NAV: NavSection[] = [
       { href: '/concepts/mixer/', label: 'Mixer' },
       { href: '/concepts/bus/', label: 'Bus' },
       { href: '/concepts/sound/', label: 'Sound' },
+      { href: '/concepts/music/', label: 'Music' },
       { href: '/concepts/voice/', label: 'Voice' },
       { href: '/concepts/snapshot/', label: 'Snapshot' },
       { href: '/concepts/parameter/', label: 'Parameter' },
@@ -57,6 +58,7 @@ export const DOCS_NAV: NavSection[] = [
     items: [
       { href: '/examples/', label: 'All examples' },
       { href: '/examples/snapshot-blend/', label: 'Snapshot blend (live)' },
+      { href: '/playground/mixer/', label: 'Mixer playground (live)' },
     ],
   },
 ];
