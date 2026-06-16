@@ -38,7 +38,28 @@ export function useDemoEngine(config: EngineConfig) {
     }
   }
 
-  return { engine: engineRef, state, error, ensureEngine, unlock };
+  return { engine: engineRef, state, error, setError, ensureEngine, unlock };
+}
+
+/**
+ * Decode a user-supplied audio File and (re)register it under `name` via
+ * `createSound`. We decode the bytes ourselves and hand the engine a finished
+ * AudioBuffer — bypassing the codec-ladder / MIME guessing that a `blob:` URL
+ * would trip on. `decodeAudioData` sniffs the bytes, so anything the browser
+ * can decode (wav / mp3 / ogg / webm / m4a / flac …) just works. Returns the
+ * decoded buffer for demos that also need raw sample access.
+ */
+export async function decodeFileToSound(
+  engine: Engine,
+  name: string,
+  file: File,
+  bus?: string,
+): Promise<AudioBuffer> {
+  const data = await file.arrayBuffer();
+  const buffer = await engine.context.decodeAudioData(data);
+  if (engine.hasSound(name)) engine.removeSound(name);
+  engine.createSound(name, buffer, bus ? { bus } : {});
+  return buffer;
 }
 
 export const SAMPLES = {

@@ -1,35 +1,56 @@
+import { type Engine } from '@schmooky/zvuk';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import CustomSoundField from './CustomSoundField';
+import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 /**
  * One bus, one slider, two buttons. Direct level write vs. fadeTo() — you
- * can hear the click-vs-smooth difference if you slam the slider.
+ * can hear the click-vs-smooth difference if you slam the slider. Drop in
+ * your own audio file to hear it run through the same bus.
  */
 export default function BusFader() {
-  const { engine, state, error, unlock } = useDemoEngine({
+  const { engine, state, error, setError, unlock } = useDemoEngine({
     buses: { music: { level: 0.6 } },
   });
   const [level, setLevel] = useState(0.6);
   const [busy, setBusy] = useState(false);
   const [voice, setVoice] = useState<{ stop: () => void } | null>(null);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
+  const [customFile, setCustomFile] = useState<File | null>(null);
+
+  /** Load the user's file if one is picked, otherwise the bundled sample. */
+  async function ensureLoop(e: Engine, file: File | null) {
+    if (file) await decodeFileToSound(e, 'loop', file, 'music');
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+  }
 
   async function start() {
     const e = await unlock();
     if (!e) return;
-    if (!e.hasSound('loop')) {
-      await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
-    }
+    await ensureLoop(e, customFile);
     if (!voice) {
       const v = e.sound('loop').play({ loop: true });
       setVoice(v);
     }
     setBusNode(e.bus('music').output);
+  }
+
+  async function handlePick(file: File | null) {
+    setCustomFile(file);
+    const e = engine.current;
+    if (!e || e.state !== 'live') return; // picked while cold — start() will use it
+    try {
+      await ensureLoop(e, file);
+      voice?.stop(); // restart so the new sound is audible immediately
+      setVoice(e.sound('loop').play({ loop: true }));
+    } catch {
+      setError('Could not decode that audio file.');
+    }
   }
 
   function setLevelLive(v: number) {
@@ -53,6 +74,7 @@ export default function BusFader() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
+      <CustomSoundField onPick={handlePick} />
       {state === 'cold' ? (
         <Button variant="brand" size="lg" className="w-full" onClick={start}>
           Unlock &amp; start loop

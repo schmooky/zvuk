@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { Compressor } from '@schmooky/zvuk';
+import { Compressor, type Engine } from '@schmooky/zvuk';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import CustomSoundField from './CustomSoundField';
+import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 export default function CompressorPlayground() {
-  const { engine, state, error, unlock } = useDemoEngine({
+  const { engine, state, error, setError, unlock } = useDemoEngine({
     buses: { music: { level: 0.7 } },
   });
   const compRef = useRef<Compressor | null>(null);
   const [bypass, setBypass] = useState(false);
   const [reduction, setReduction] = useState(0);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
+  const [voice, setVoice] = useState<{ stop: () => void } | null>(null);
+  const [customFile, setCustomFile] = useState<File | null>(null);
   const [cfg, setCfg] = useState({
     threshold: -24,
     ratio: 6,
@@ -23,18 +26,34 @@ export default function CompressorPlayground() {
     makeupGain: 6,
   });
 
+  async function ensureSound(e: Engine, file: File | null) {
+    if (file) await decodeFileToSound(e, 'loop', file, 'music');
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+  }
+
   async function start() {
     const e = await unlock();
     if (!e) return;
-    if (!e.hasSound('loop')) {
-      await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
-    }
+    await ensureSound(e, customFile);
     if (!compRef.current) {
       compRef.current = new Compressor(e.context, cfg);
       e.bus('music').addFx(compRef.current);
     }
-    e.sound('loop').play({ loop: true });
+    if (!voice) setVoice(e.sound('loop').play({ loop: true }));
     setBusNode(e.bus('music').output);
+  }
+
+  async function handlePick(file: File | null) {
+    setCustomFile(file);
+    const e = engine.current;
+    if (!e || e.state !== 'live') return; // picked while cold — start() will use it
+    try {
+      await ensureSound(e, file);
+      voice?.stop();
+      setVoice(e.sound('loop').play({ loop: true }));
+    } catch {
+      setError('Could not decode that audio file.');
+    }
   }
 
   useEffect(() => {
@@ -59,6 +78,7 @@ export default function CompressorPlayground() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
+      <CustomSoundField onPick={handlePick} />
       {state === 'cold' ? (
         <Button variant="brand" size="lg" className="w-full" onClick={start}>
           Unlock &amp; start music

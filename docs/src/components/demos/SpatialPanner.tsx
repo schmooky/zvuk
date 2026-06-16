@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Voice } from '@schmooky/zvuk';
+import type { Engine, Voice } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
 
 /**
@@ -16,21 +17,40 @@ import Waveform from './Waveform';
  * so the puck stays glued to the finger if it drifts off the ring).
  */
 export default function SpatialPanner() {
-  const { engine, state, error, unlock } = useDemoEngine({ buses: { sfx: {} } });
+  const { engine, state, error, setError, unlock } = useDemoEngine({ buses: { sfx: {} } });
   const [pan, setPan] = useState(0);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
+  const [customFile, setCustomFile] = useState<File | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
   const voiceRef = useRef<Voice | null>(null);
   const draggingId = useRef<number | null>(null);
 
+  async function ensureSound(e: Engine, file: File | null): Promise<void> {
+    if (file) await decodeFileToSound(e, 'loop', file, 'sfx');
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
+  }
+
   async function start(): Promise<void> {
     const e = await unlock();
     if (!e) return;
-    if (!e.hasSound('loop')) {
-      await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
-    }
+    await ensureSound(e, customFile);
     voiceRef.current = e.sound('loop').play({ loop: true, spatializer: { pan: 0 } });
     setBusNode(e.bus('sfx').output);
+  }
+
+  async function handlePick(file: File | null): Promise<void> {
+    setCustomFile(file);
+    const e = engine.current;
+    if (!e || e.state !== 'live') return; // cold — start() will use it
+    try {
+      await ensureSound(e, file);
+      voiceRef.current?.stop();
+      // Restart the loop with the same play options (loop + spatializer) and
+      // store the new voice so drag-to-pan keeps steering the live voice.
+      voiceRef.current = e.sound('loop').play({ loop: true, spatializer: { pan } });
+    } catch {
+      setError('Could not decode that audio file.');
+    }
   }
 
   useEffect(() => {
@@ -80,6 +100,7 @@ export default function SpatialPanner() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
+      <CustomSoundField onPick={handlePick} />
       {state === 'cold' ? (
         <Button variant="brand" size="lg" className="w-full" onClick={start}>
           Unlock &amp; start

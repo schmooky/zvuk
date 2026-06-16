@@ -1,33 +1,49 @@
 import { useEffect, useState } from 'react';
-import type { ConcurrencyConfig } from '@schmooky/zvuk';
+import type { ConcurrencyConfig, Engine } from '@schmooky/zvuk';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import CustomSoundField from './CustomSoundField';
+import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 type Strategy = NonNullable<ConcurrencyConfig['steal']>;
 
 export default function VoiceLimit() {
-  const { engine, state, error, unlock } = useDemoEngine({
+  const { engine, state, error, setError, unlock } = useDemoEngine({
     buses: { sfx: { concurrency: { max: 4, steal: 'oldest' } } },
   });
   const [loaded, setLoaded] = useState(false);
+  const [customFile, setCustomFile] = useState<File | null>(null);
   const [max, setMax] = useState(4);
   const [strategy, setStrategy] = useState<Strategy>('oldest');
   const [active, setActive] = useState(0);
   const [spawnedTotal, setSpawnedTotal] = useState(0);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
 
+  async function ensureSound(e: Engine, file: File | null) {
+    if (file) await decodeFileToSound(e, 'loop', file, 'sfx');
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
+  }
+
   async function start() {
     const e = await unlock();
     if (!e) return;
-    if (!e.hasSound('loop')) {
-      await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
-      setLoaded(true);
-    }
+    await ensureSound(e, customFile);
+    setLoaded(true);
     setBusNode(e.bus('sfx').output);
+  }
+
+  async function handlePick(file: File | null) {
+    setCustomFile(file);
+    const e = engine.current;
+    if (!e || e.state !== 'live') return; // picked while cold — start() will use it
+    try {
+      await ensureSound(e, file);
+    } catch {
+      setError('Could not decode that audio file.');
+    }
   }
 
   // Apply changes to the bus live.
@@ -60,6 +76,7 @@ export default function VoiceLimit() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
+      <CustomSoundField onPick={handlePick} />
       {state === 'cold' ? (
         <Button variant="brand" size="lg" className="w-full" onClick={start}>
           Unlock &amp; load

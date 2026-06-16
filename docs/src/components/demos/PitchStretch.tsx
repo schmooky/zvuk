@@ -1,7 +1,8 @@
+import { type Engine, StretchProcessor } from '@schmooky/zvuk';
 import { useRef, useState } from 'react';
-import { StretchProcessor } from '@schmooky/zvuk';
-import { SAMPLES, useDemoEngine } from './useDemoEngine';
+import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
+import CustomSoundField from './CustomSoundField';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
@@ -15,28 +16,46 @@ import { Slider } from '@/components/ui/slider';
  * source so you can hear the difference.
  */
 export default function PitchStretch() {
-  const { engine, state, error, unlock } = useDemoEngine({ buses: { sfx: {} } });
+  const { engine, state, error, setError, unlock } = useDemoEngine({ buses: { sfx: {} } });
   const sourceBufferRef = useRef<AudioBuffer | null>(null);
   const [rate, setRate] = useState(1);
   const [stretchFactor, setStretchFactor] = useState(1);
   const [stretching, setStretching] = useState(false);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
+  const [customFile, setCustomFile] = useState<File | null>(null);
+
+  /**
+   * Load the A/B source. The StretchProcessor needs raw sample access, so we
+   * keep the decoded AudioBuffer in a ref. For a custom file `decodeFileToSound`
+   * hands us the buffer directly; for the bundled sample we decode the URL.
+   */
+  async function loadSource(e: Engine, file: File | null) {
+    if (file) {
+      sourceBufferRef.current = await decodeFileToSound(e, 'orig', file, 'sfx');
+    } else {
+      await e.loadSound('orig', [...SAMPLES.music], { bus: 'sfx' });
+      const res = await fetch('/audio/card-shuffle.webm');
+      sourceBufferRef.current = await e.context.decodeAudioData(await res.arrayBuffer());
+    }
+  }
 
   async function start() {
     const e = await unlock();
     if (!e) return;
-    if (!e.hasSound('orig')) {
-      const sound = await e.loadSound('orig', [...SAMPLES.music], { bus: 'sfx' });
-      // The Sound owns its buffer; for the demo we need raw access for
-      // the StretchProcessor. Decode again from the same URL — the
-      // engine's LRU cache makes this free.
-      const url = '/audio/card-shuffle.webm';
-      const res = await fetch(url);
-      const ab = await res.arrayBuffer();
-      sourceBufferRef.current = await e.context.decodeAudioData(ab);
-      void sound;
-    }
+    await loadSource(e, customFile);
     setBusNode(e.bus('sfx').output);
+  }
+
+  async function handlePick(file: File | null) {
+    setCustomFile(file);
+    const e = engine.current;
+    if (!e || e.state !== 'live') return; // picked while cold — start() will use it
+    try {
+      if (e.hasSound('stretched')) e.removeSound('stretched');
+      await loadSource(e, file);
+    } catch {
+      setError('Could not decode that audio file.');
+    }
   }
 
   function playRate() {
@@ -59,6 +78,7 @@ export default function PitchStretch() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
+      <CustomSoundField onPick={handlePick} label="A/B your own sound" />
       {state === 'cold' ? (
         <Button variant="brand" size="lg" className="w-full" onClick={start}>
           Unlock &amp; load
