@@ -1,4 +1,8 @@
 import { useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -47,38 +51,67 @@ export default function BusFader() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={start}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
-          Unlock & start loop
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; start loop
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
-          <div className="mb-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
+          <Waveform audioNode={busNode} variant="bars" label="bus output" />
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">music.level</span>
             <span className="text-muted-foreground">{level.toFixed(2)}</span>
           </div>
-          <input
-            type="range" min="0" max="1" step="0.01"
-            value={level}
-            onChange={(e) => setLevelLive(Number(e.target.value))}
-            className="w-full accent-primary"
+          <Slider
+            min={0}
+            max={1}
+            step={0.01}
+            value={[level]}
+            onValueChange={([v]) => setLevelLive(v)}
             disabled={busy}
+            aria-label="music bus level"
           />
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(1, 0.6)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(1, 0.6)</button>
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0.1, 0.8)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0.1, 0.8)</button>
-            <button type="button" disabled={busy || state !== 'live'} onClick={() => fadeTo(0, 1.2)} className="rounded-md border border-border/60 bg-secondary/40 px-3 py-1.5 text-xs hover:bg-secondary/70 disabled:opacity-40">fadeTo(0, 1.2)</button>
-            <button type="button" onClick={stop} className="ml-auto rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20">stop voice</button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="font-mono"
+              disabled={busy || state !== 'live'}
+              onClick={() => fadeTo(1, 0.6)}
+            >
+              fadeTo(1, 0.6)
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="font-mono"
+              disabled={busy || state !== 'live'}
+              onClick={() => fadeTo(0.1, 0.8)}
+            >
+              fadeTo(0.1, 0.8)
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="font-mono"
+              disabled={busy || state !== 'live'}
+              onClick={() => fadeTo(0, 1.2)}
+            >
+              fadeTo(0, 1.2)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={stop}
+            >
+              stop voice
+            </Button>
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

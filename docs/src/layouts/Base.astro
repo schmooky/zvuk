@@ -24,10 +24,20 @@ function deriveOgSlug(path: string): string {
 }
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {/* No-FOUC theme bootstrap: dark by default, honour the saved choice before first paint. */}
+    <script is:inline>
+      (() => {
+        try {
+          const t = localStorage.getItem('theme');
+          if (t === 'light') document.documentElement.classList.remove('dark');
+          else document.documentElement.classList.add('dark');
+        } catch (_) {}
+      })();
+    </script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Engine, type EngineConfig, createEngine } from '@schmooky/zvuk';
+import { type Engine, type EngineConfig, type EngineState, createEngine } from '@schmooky/zvuk';
 
 /**
  * One engine per demo, lazy-constructed, closed on unmount.
@@ -9,7 +9,7 @@ import { type Engine, type EngineConfig, createEngine } from '@schmooky/zvuk';
 export function useDemoEngine(config: EngineConfig) {
   const engineRef = useRef<Engine | null>(null);
   const configRef = useRef(config);
-  const [state, setState] = useState<'cold' | 'unlocking' | 'live' | 'closed'>('cold');
+  const [state, setState] = useState<EngineState>('cold');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

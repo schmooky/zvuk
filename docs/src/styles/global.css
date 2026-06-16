@@ -1,43 +1,181 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /**
- * zvuk palette — Ableton/FMOD-flavored. Deep navy field, teal/cyan accents
- * for level meters and signal flow, warm amber for compression/clip warnings.
+ * zvuk design system — shadcn (new-york) on Tailwind v4.
+ *
+ * Refreshed palette: a cool neutral (zinc-ish) base with a violet primary and a
+ * cyan brand-gradient partner. `warning` (amber) carries clip/pitfall semantics
+ * that the old vivid `accent` used to; `accent` now follows shadcn semantics
+ * (a subtle interactive surface). `chart-1..5` drive level meters, waveforms,
+ * and the signal-flow diagrams. Light + dark are both first-class; dark is the
+ * default (see the no-FOUC class on <html> + the head script in Base.astro).
  */
-@theme {
-  --color-border: hsl(220 22% 22%);
-  --color-input: hsl(220 22% 22%);
-  --color-ring: hsl(186 80% 52%);
-  --color-background: hsl(220 28% 9%);
-  --color-foreground: hsl(210 25% 96%);
 
-  --color-primary: hsl(186 85% 55%);
-  --color-primary-foreground: hsl(220 28% 9%);
+@custom-variant dark (&:is(.dark *));
 
-  --color-secondary: hsl(220 22% 16%);
-  --color-secondary-foreground: hsl(210 25% 92%);
-
-  --color-muted: hsl(220 22% 16%);
-  --color-muted-foreground: hsl(215 12% 62%);
-
-  --color-accent: hsl(38 95% 60%);
-  --color-accent-foreground: hsl(220 28% 9%);
-
-  --color-destructive: hsl(0 80% 60%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-
-  --color-card: hsl(220 26% 12%);
-  --color-card-foreground: hsl(210 25% 96%);
-
-  --color-popover: hsl(220 26% 12%);
-  --color-popover-foreground: hsl(210 25% 96%);
-
+:root {
   --radius: 0.625rem;
 
-  --color-code-bg: hsl(220 30% 6%);
-  --color-code-border: hsl(220 22% 18%);
-  --color-code-fg: hsl(210 25% 90%);
-  --color-code-muted: hsl(215 12% 55%);
+  --background: oklch(0.99 0.002 286);
+  --foreground: oklch(0.21 0.01 286);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.01 286);
+
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.01 286);
+
+  --primary: oklch(0.54 0.21 286);
+  --primary-foreground: oklch(0.99 0 0);
+
+  --secondary: oklch(0.965 0.004 286);
+  --secondary-foreground: oklch(0.24 0.01 286);
+
+  --muted: oklch(0.965 0.004 286);
+  --muted-foreground: oklch(0.53 0.012 286);
+
+  --accent: oklch(0.96 0.005 286);
+  --accent-foreground: oklch(0.24 0.01 286);
+
+  --destructive: oklch(0.58 0.22 27);
+  --destructive-foreground: oklch(0.99 0 0);
+
+  --warning: oklch(0.72 0.15 72);
+  --warning-foreground: oklch(0.28 0.05 72);
+
+  --brand2: oklch(0.62 0.13 196);
+
+  --border: oklch(0.915 0.004 286);
+  --input: oklch(0.915 0.004 286);
+  --ring: oklch(0.54 0.21 286);
+
+  --chart-1: oklch(0.54 0.21 286);
+  --chart-2: oklch(0.6 0.13 196);
+  --chart-3: oklch(0.72 0.15 72);
+  --chart-4: oklch(0.62 0.17 145);
+  --chart-5: oklch(0.62 0.22 12);
+
+  /* Code surfaces stay dark in both themes (Shiki uses github-dark) — a
+     common, readable convention that avoids re-theming highlighted code. */
+  --code-bg: oklch(0.14 0.006 286);
+  --code-border: oklch(0.27 0.008 286);
+  --code-fg: oklch(0.9 0.004 286);
+  --code-muted: oklch(0.6 0.01 286);
+
+  --sidebar: oklch(0.985 0.002 286);
+  --sidebar-foreground: oklch(0.21 0.01 286);
+  --sidebar-primary: oklch(0.54 0.21 286);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.96 0.005 286);
+  --sidebar-accent-foreground: oklch(0.24 0.01 286);
+  --sidebar-border: oklch(0.915 0.004 286);
+  --sidebar-ring: oklch(0.54 0.21 286);
+}
+
+.dark {
+  --background: oklch(0.17 0.007 286);
+  --foreground: oklch(0.97 0.003 286);
+
+  --card: oklch(0.205 0.008 286);
+  --card-foreground: oklch(0.97 0.003 286);
+
+  --popover: oklch(0.215 0.009 286);
+  --popover-foreground: oklch(0.97 0.003 286);
+
+  --primary: oklch(0.66 0.19 285);
+  --primary-foreground: oklch(0.16 0.02 286);
+
+  --secondary: oklch(0.26 0.009 286);
+  --secondary-foreground: oklch(0.97 0.003 286);
+
+  --muted: oklch(0.26 0.009 286);
+  --muted-foreground: oklch(0.71 0.012 286);
+
+  --accent: oklch(0.28 0.011 286);
+  --accent-foreground: oklch(0.97 0.003 286);
+
+  --destructive: oklch(0.66 0.2 24);
+  --destructive-foreground: oklch(0.98 0 0);
+
+  --warning: oklch(0.8 0.15 78);
+  --warning-foreground: oklch(0.2 0.03 78);
+
+  --brand2: oklch(0.74 0.13 195);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.66 0.19 285);
+
+  --chart-1: oklch(0.7 0.17 286);
+  --chart-2: oklch(0.74 0.13 195);
+  --chart-3: oklch(0.8 0.15 78);
+  --chart-4: oklch(0.72 0.16 150);
+  --chart-5: oklch(0.7 0.19 14);
+
+  --code-bg: oklch(0.14 0.006 286);
+  --code-border: oklch(0.27 0.008 286);
+  --code-fg: oklch(0.9 0.004 286);
+  --code-muted: oklch(0.6 0.01 286);
+
+  --sidebar: oklch(0.195 0.008 286);
+  --sidebar-foreground: oklch(0.97 0.003 286);
+  --sidebar-primary: oklch(0.66 0.19 285);
+  --sidebar-primary-foreground: oklch(0.16 0.02 286);
+  --sidebar-accent: oklch(0.28 0.011 286);
+  --sidebar-accent-foreground: oklch(0.97 0.003 286);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.66 0.19 285);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-brand2: var(--brand2);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-code-bg: var(--code-bg);
+  --color-code-border: var(--code-border);
+  --color-code-fg: var(--code-fg);
+  --color-code-muted: var(--code-muted);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
   --animate-marquee: marquee 40s linear infinite;
   --animate-fade-in: fade-in 400ms ease-out;
@@ -60,7 +198,12 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    outline-color: color-mix(in oklab, var(--color-ring) 50%, transparent);
   }
+  html {
+    color-scheme: light dark;
+  }
+  html.dark { color-scheme: dark; }
   html, body {
     background: var(--color-background);
     color: var(--color-foreground);
@@ -69,8 +212,8 @@
   }
   body {
     background:
-      radial-gradient(1200px 600px at 80% -10%, hsl(186 85% 55% / 0.08), transparent 55%),
-      radial-gradient(900px 500px at -10% 15%, hsl(38 95% 60% / 0.06), transparent 60%),
+      radial-gradient(1200px 600px at 80% -10%, color-mix(in oklab, var(--color-primary) 12%, transparent), transparent 55%),
+      radial-gradient(900px 500px at -10% 15%, color-mix(in oklab, var(--color-brand2) 9%, transparent), transparent 60%),
       var(--color-background);
     min-height: 100vh;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
@@ -83,7 +226,7 @@
     border-radius: 10px;
     border: 2px solid var(--color-background);
   }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(186 85% 55% / 0.5); }
+  ::-webkit-scrollbar-thumb:hover { background: color-mix(in oklab, var(--color-primary) 50%, transparent); }
 }
 
 @layer components {
@@ -91,26 +234,28 @@
     @apply mx-auto w-full max-w-[1240px] px-6;
   }
   .gradient-text {
-    background: linear-gradient(135deg, hsl(186 85% 55%), hsl(38 95% 60%));
+    background: linear-gradient(135deg, var(--color-primary), var(--color-brand2));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
+  .brand-gradient {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-brand2));
+  }
   .glass {
-    background: color-mix(in oklab, var(--color-background) 70%, transparent);
+    background: color-mix(in oklab, var(--color-background) 72%, transparent);
     backdrop-filter: saturate(140%) blur(8px);
   }
   .grid-bg {
     background-image:
-      linear-gradient(to right, hsl(186 85% 55% / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, hsl(186 85% 55% / 0.05) 1px, transparent 1px);
+      linear-gradient(to right, color-mix(in oklab, var(--color-primary) 6%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--color-primary) 6%, transparent) 1px, transparent 1px);
     background-size: 44px 44px;
   }
   .waveform-bg {
-    /* tiled SVG-like waveform mask using gradients */
     background: repeating-linear-gradient(
       90deg,
-      hsl(186 85% 55% / 0.06) 0 1px,
+      color-mix(in oklab, var(--color-primary) 7%, transparent) 0 1px,
       transparent 1px 5px
     );
   }
@@ -151,9 +296,9 @@
   .prose-docs tbody tr { @apply border-b border-border/60; }
 
   .pitfall {
-    @apply my-6 rounded-xl border-l-4 border-l-accent bg-accent/5 px-5 py-4 text-sm;
+    @apply my-6 rounded-xl border-l-4 border-l-warning bg-warning/5 px-5 py-4 text-sm;
   }
   .pitfall-title {
-    @apply mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-accent;
+    @apply mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-warning;
   }
 }

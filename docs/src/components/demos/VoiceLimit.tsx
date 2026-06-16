@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ConcurrencyConfig } from '@schmooky/zvuk';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -54,23 +58,26 @@ export default function VoiceLimit() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button type="button" onClick={start} className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110">
-          Unlock & load
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; load
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
-          <div className="grid gap-3 md:grid-cols-2 mb-4">
+          <Waveform audioNode={busNode} variant="bars" label="sfx bus" />
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">max</span>
-              <input
-                type="range" min="1" max="12" step="1"
-                value={max}
-                onChange={(e) => setMax(Number(e.target.value))}
-                className="mt-1 w-full accent-primary"
+              <Slider
+                min={1}
+                max={12}
+                step={1}
+                value={[max]}
+                onValueChange={([v]) => setMax(Number(v))}
+                aria-label="max voices"
+                className="mt-2"
               />
               <span className="font-mono text-[10px] text-muted-foreground">{max}</span>
             </label>
@@ -89,34 +96,34 @@ export default function VoiceLimit() {
             </label>
           </div>
 
-          <div className="mb-3 grid grid-cols-12 gap-1 h-10">
+          <div className="grid grid-cols-12 gap-1 h-10">
             {Array.from({ length: max }).map((_, i) => (
               <div
                 key={i}
                 className={
                   'rounded ' +
                   (i < active
-                    ? 'bg-gradient-to-br from-primary to-accent animate-pulse-slow'
+                    ? 'bg-gradient-to-br from-primary to-brand2 animate-pulse-slow'
                     : 'bg-secondary/40 border border-border/60')
                 }
               />
             ))}
           </div>
-          <div className="mb-4 flex justify-between font-mono text-[10px] text-muted-foreground">
-            <span>active: <span className="text-primary">{active}</span> / {max}</span>
-            <span>spawned: {spawnedTotal}</span>
+          <div className="flex justify-between font-mono text-[10px] text-muted-foreground">
+            <Badge variant="brand">active: {active} / {max}</Badge>
+            <Badge variant="secondary">spawned: {spawnedTotal}</Badge>
           </div>
 
           <div className="flex gap-2">
-            <button type="button" onClick={fire} disabled={state !== 'live' || !loaded} className="flex-1 rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110 active:translate-y-px">
-              Fire voice
-            </button>
-            <button type="button" onClick={stopAll} className="rounded-md border border-destructive/40 bg-destructive/10 px-3 text-xs text-destructive hover:bg-destructive/20">
+            <Button variant="brand" className="flex-1 active:translate-y-px" disabled={state !== 'live' || !loaded} onClick={fire}>
+              fire voice
+            </Button>
+            <Button variant="outline" size="sm" className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={stopAll}>
               stop all
-            </button>
+            </Button>
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,20 +1,22 @@
 ---
-import { SITE } from '../lib/seo';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import MobileNav from './MobileNav';
+import ThemeToggle from './ThemeToggle';
 import { TOP_NAV, TOP_NAV_UTILITY } from '../content/nav';
+import { SITE } from '../lib/seo';
 import Search from './Search.astro';
 const pathname = Astro.url.pathname;
 function isActive(prefix: string): boolean {
   if (prefix === '/') return pathname === '/';
   return pathname.startsWith(prefix);
 }
+const mobileLinks = [...TOP_NAV, ...TOP_NAV_UTILITY];
 ---
 <header class="sticky top-0 z-50 w-full border-b border-border/60 glass">
   <div class="container flex h-14 items-center">
     <div class="mr-6 flex items-center gap-2 shrink-0">
-      <a href="/" class="flex items-center gap-2 font-mono text-sm font-semibold tracking-tight">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-primary to-accent text-[11px] text-primary-foreground font-bold shadow-sm shadow-primary/40">
-          Z
-        </span>
+      <a href="/" class="flex items-center font-mono text-sm font-semibold tracking-tight">
         <span>{SITE.name}</span>
       </a>
       <a
@@ -28,12 +30,13 @@ function isActive(prefix: string): boolean {
       </a>
     </div>
 
-    <nav class="hidden md:flex items-center gap-1 text-sm">
+    <nav class="hidden md:flex items-center gap-0.5 text-sm">
       {TOP_NAV.map(({ href, label }) => (
         <a
           href={href}
           class:list={[
-            'rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/60',
+            buttonVariants({ variant: 'ghost', size: 'sm' }),
+            'text-muted-foreground',
             { 'bg-secondary/70 text-foreground': isActive(href) },
           ]}
         >
@@ -42,43 +45,48 @@ function isActive(prefix: string): boolean {
       ))}
     </nav>
 
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex items-center gap-1.5">
       <Search />
-      {TOP_NAV_UTILITY.map(({ href, label }) => (
+      <div class="hidden md:flex items-center gap-0.5">
+        {TOP_NAV_UTILITY.map(({ href, label }) => (
+          <a
+            href={href}
+            class:list={[
+              buttonVariants({ variant: 'ghost', size: 'sm' }),
+              'font-mono text-xs text-muted-foreground',
+              { 'bg-secondary/70 text-foreground': isActive(href) },
+            ]}
+          >
+            {label}
+          </a>
+        ))}
         <a
-          href={href}
-          class:list={[
-            'hidden md:inline-flex h-8 items-center rounded-md border border-border bg-transparent px-3 text-xs font-mono text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/50',
-            { 'bg-secondary/70 text-foreground': isActive(href) },
-          ]}
+          href={SITE.npm}
+          target="_blank"
+          rel="noopener"
+          aria-label="npm"
+          title={`${SITE.npmName} on npm`}
+          class={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-muted-foreground')}
         >
-          {label}
+          <svg width="22" height="14" viewBox="0 0 27.4 11" fill="currentColor" aria-hidden>
+            <path d="M0 0h27.4v9.6H13.7V11H8.2V9.6H0V0zm1.4 8.2h5.5V2.7h2.7v5.5h1.4V1.4H1.4v6.8zm12.3-6.8v8.2h5.5V8.2h5.5V1.4h-11zm2.7 1.4h1.4v4.1h-1.4V2.8zm5.5 0h1.4v4.1H22V2.8z"/>
+          </svg>
         </a>
-      ))}
-      <a
-        href={SITE.npm}
-        target="_blank"
-        rel="noopener"
-        aria-label="npm"
-        title={`${SITE.npmName} on npm`}
-        class="hidden md:inline-flex h-8 items-center gap-2 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/50"
-      >
-        <svg width="22" height="14" viewBox="0 0 27.4 11" fill="currentColor" aria-hidden>
-          <path d="M0 0h27.4v9.6H13.7V11H8.2V9.6H0V0zm1.4 8.2h5.5V2.7h2.7v5.5h1.4V1.4H1.4v6.8zm12.3-6.8v8.2h5.5V8.2h5.5V1.4h-11zm2.7 1.4h1.4v4.1h-1.4V2.8zm5.5 0h1.4v4.1H22V2.8z"/>
-        </svg>
-      </a>
-      <a
-        href={SITE.github}
-        target="_blank"
-        rel="noopener"
-        aria-label="GitHub"
-        title="GitHub"
-        class="hidden md:inline-flex h-8 items-center gap-2 rounded-md border border-border bg-transparent px-2.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/50"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 015.78 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.77 1.06.77 2.13 0 1.54-.01 2.78-.01 3.15 0 .3.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
-        </svg>
-      </a>
+        <a
+          href={SITE.github}
+          target="_blank"
+          rel="noopener"
+          aria-label="GitHub"
+          title="GitHub"
+          class={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-muted-foreground')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.28-.01-1.02-.02-2-3.2.7-3.87-1.54-3.87-1.54-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.2 1.77 1.2 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.18 1.18a11 11 0 015.78 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.43-2.69 5.41-5.25 5.69.41.36.77 1.06.77 2.13 0 1.54-.01 2.78-.01 3.15 0 .3.21.67.8.55C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
+          </svg>
+        </a>
+      </div>
+      <ThemeToggle client:load />
+      <MobileNav links={mobileLinks} pathname={pathname} client:load />
     </div>
   </div>
 </header>

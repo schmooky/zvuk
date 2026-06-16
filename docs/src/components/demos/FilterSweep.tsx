@@ -2,6 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { Filter, type FilterKind } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function FilterSweep() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -32,58 +43,63 @@ export default function FilterSweep() {
   useEffect(() => { filterRef.current?.setQ(q); }, [q]);
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button type="button" onClick={start} className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110">
-          Unlock & start music
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; start music
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
-          <label className="block mb-3">
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">type</div>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as FilterKind)}
-              className="mt-1 w-full rounded-md border border-border/60 bg-background/60 px-2 py-1.5 font-mono text-xs"
-            >
-              <option value="lowpass">lowpass</option>
-              <option value="highpass">highpass</option>
-              <option value="bandpass">bandpass</option>
-              <option value="notch">notch</option>
-              <option value="peaking">peaking</option>
-              <option value="allpass">allpass</option>
-            </select>
-          </label>
+          <Waveform audioNode={busNode} variant="bars" label="bus output" />
+          <div className="space-y-1.5">
+            <Label className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">type</Label>
+            <Select value={type} onValueChange={(v) => setType(v as FilterKind)}>
+              <SelectTrigger className="w-full font-mono text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lowpass">lowpass</SelectItem>
+                <SelectItem value="highpass">highpass</SelectItem>
+                <SelectItem value="bandpass">bandpass</SelectItem>
+                <SelectItem value="notch">notch</SelectItem>
+                <SelectItem value="peaking">peaking</SelectItem>
+                <SelectItem value="allpass">allpass</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <label className="block mb-3">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
               <span className="text-primary">frequency (Hz)</span>
               <span className="text-muted-foreground">{Math.round(freq)}</span>
             </div>
-            <input
-              type="range" min="40" max="20000" step="10"
-              value={freq}
-              onChange={(e) => setFreq(Number(e.target.value))}
-              className="mt-1 w-full accent-primary"
+            <Slider
+              min={40}
+              max={20000}
+              step={10}
+              value={[freq]}
+              onValueChange={([v]) => setFreq(v)}
+              aria-label="frequency"
             />
-          </label>
+          </div>
 
-          <label className="block">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
               <span className="text-primary">Q</span>
               <span className="text-muted-foreground">{q.toFixed(2)}</span>
             </div>
-            <input
-              type="range" min="0.1" max="20" step="0.1"
-              value={q}
-              onChange={(e) => setQ(Number(e.target.value))}
-              className="mt-1 w-full accent-primary"
+            <Slider
+              min={0.1}
+              max={20}
+              step={0.1}
+              value={[q]}
+              onValueChange={([v]) => setQ(v)}
+              aria-label="Q"
             />
-          </label>
+          </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

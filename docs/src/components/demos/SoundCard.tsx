@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -27,30 +29,21 @@ export default function SoundCard() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5 text-center">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-3 p-5 text-center">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={start}
-          className="rounded-lg bg-gradient-to-br from-primary to-accent px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
-          Unlock & load
-        </button>
+        <Button variant="brand" size="sm" onClick={start}>
+          Unlock &amp; load
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars" className="mb-3" />
-          <button
-            type="button"
-            onClick={play}
-            disabled={state !== 'live' || !loaded}
-            className="rounded-lg bg-secondary px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/80 disabled:opacity-40"
-          >
+          <Waveform audioNode={busNode} variant="bars" />
+          <Button variant="secondary" size="sm" disabled={state !== 'live' || !loaded} onClick={play}>
             Play sound
-          </button>
+          </Button>
         </>
       )}
-      <p className="mt-3 text-xs text-muted-foreground font-mono">engine.sound("hit").play()</p>
-    </div>
+      <p className="text-xs text-muted-foreground font-mono">engine.sound("hit").play()</p>
+    </Card>
   );
 }

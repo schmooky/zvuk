@@ -1,4 +1,6 @@
 ---
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { SITE } from '../lib/seo';
 const tags = [
   'lazy AudioContext', 'mixer buses', 'sidechain ducking', 'snapshots',
@@ -32,13 +34,13 @@ const tags = [
       <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <a
           href="/docs/quickstart/"
-          class="inline-flex h-11 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent px-6 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:brightness-110 hover:-translate-y-[1px]"
+          class={cn(buttonVariants({ variant: 'brand', size: 'lg' }), 'h-11 px-6 font-mono')}
         >
           pnpm add @schmooky/zvuk
         </a>
         <a
           href="/concepts/engine/"
-          class="inline-flex h-11 items-center justify-center rounded-lg border border-border bg-card/50 px-6 text-sm font-medium text-foreground transition-colors hover:bg-secondary/50"
+          class={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-11 px-6 bg-card/50')}
         >
           See the engine →
         </a>

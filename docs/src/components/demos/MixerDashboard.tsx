@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Bus, type Engine, type Voice, createEngine } from '@schmooky/zvuk';
+import { type Bus, type Engine, type EngineState, type Voice, createEngine } from '@schmooky/zvuk';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import Waveform from './Waveform';
 
 type Sample = { name: string; sources: string[]; bus: 'music' | 'sfx' | 'ui' };
@@ -23,7 +29,7 @@ interface Props {
 
 export default function MixerDashboard({ standalone = false }: Props = {}) {
   const engineRef = useRef<Engine | null>(null);
-  const [state, setState] = useState<'cold' | 'unlocking' | 'live' | 'closed'>('cold');
+  const [state, setState] = useState<EngineState>('cold');
   const [levels, setLevels] = useState<Record<BusName, number>>({ music: 0.8, sfx: 1, ui: 0.7 });
   const [muted, setMuted] = useState<Record<BusName, boolean>>({ music: false, sfx: false, ui: false });
   const [voices, setVoices] = useState<number>(0);
@@ -126,8 +132,8 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card/40 p-5 not-prose">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <Card className="not-prose gap-4 p-5">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span
             className={
@@ -140,38 +146,35 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="font-mono text-xs text-muted-foreground">
+          <Badge variant="secondary" className="font-mono">
             {voices} voice{voices === 1 ? '' : 's'}
-          </div>
+          </Badge>
           {!standalone && (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={popOut}
               title="Open in a separate window for second-monitor mixing"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+              className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
             >
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <path d="M7 17L17 7" />
                 <path d="M9 7h8v8" />
               </svg>
               Pop out
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={unlock}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:brightness-110"
-        >
-          Unlock audio & load samples
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={unlock}>
+          Unlock audio &amp; load samples
+        </Button>
       ) : null}
 
       {error ? (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </div>
       ) : null}
@@ -180,71 +183,70 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
         <>
           <div className="grid gap-3 md:grid-cols-3">
             {BUS_NAMES.map((name) => (
-              <div
-                key={name}
-                className="rounded-lg border border-border/60 bg-background/60 p-3"
-              >
-                <div className="mb-2 flex items-center justify-between">
+              <Card key={name} className="gap-2 border-border/60 bg-background/60 p-3">
+                <div className="flex items-center justify-between">
                   <span className="font-mono text-xs uppercase tracking-[0.14em] text-primary">
                     {name}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => toggleMute(name)}
-                    className={
-                      'rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase ' +
-                      (muted[name]
-                        ? 'border-destructive/60 text-destructive bg-destructive/10'
-                        : 'border-border/60 text-muted-foreground hover:text-foreground')
-                    }
-                  >
-                    {muted[name] ? 'muted' : 'mute'}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor={`mute-${name}`}
+                      className="font-mono text-[10px] uppercase text-muted-foreground"
+                    >
+                      {muted[name] ? 'muted' : 'mute'}
+                    </Label>
+                    <Switch
+                      id={`mute-${name}`}
+                      checked={muted[name]}
+                      onCheckedChange={() => toggleMute(name)}
+                      aria-label={`mute ${name} bus`}
+                    />
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  value={levels[name]}
-                  onChange={(e) => setLevel(name, Number(e.target.value))}
-                  className="w-full accent-primary"
+                <Slider
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={[levels[name]]}
+                  onValueChange={([v]) => setLevel(name, v)}
+                  aria-label={`${name} bus level`}
                 />
-                <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+                <div className="font-mono text-[10px] text-muted-foreground">
                   level: {levels[name].toFixed(2)}
                 </div>
-                <Waveform audioNode={busNodes[name]} variant="bars" height={36} className="mt-2" />
-              </div>
+                <Waveform audioNode={busNodes[name]} variant="bars" height={36} />
+              </Card>
             ))}
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {SAMPLES.map((s) => {
               const ready = loadedSet.has(s.name);
               return (
-                <button
+                <Button
                   key={s.name}
-                  type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={!ready || state !== 'live'}
                   onClick={() => play(s.name)}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-secondary/40 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary disabled:opacity-40 disabled:hover:bg-secondary/40"
+                  className="justify-between"
                 >
                   <span className="font-mono">{s.name}</span>
                   <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                     {s.bus}
                   </span>
-                </button>
+                </Button>
               );
             })}
           </div>
 
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             Each sample is shipped as <code className="font-mono text-primary">.webm</code> (Opus) +
             <code className="font-mono text-primary">.m4a</code> (AAC). The engine picks whichever your browser
             supports.
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }

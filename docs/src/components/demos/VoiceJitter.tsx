@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -34,53 +37,56 @@ export default function VoiceJitter() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={start}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
-          Unlock & load
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; load
+        </Button>
       ) : (
         <>
           <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">pitch jitter</span>
-              <input
-                type="range" min="0" max="0.3" step="0.01"
-                value={pitchJitter}
-                onChange={(e) => setPitchJitter(Number(e.target.value))}
-                className="mt-1 w-full accent-primary"
+              <Slider
+                min={0}
+                max={0.3}
+                step={0.01}
+                value={[pitchJitter]}
+                onValueChange={([v]) => setPitchJitter(v)}
+                aria-label="pitch jitter"
+                className="mt-2"
               />
               <span className="font-mono text-[10px] text-muted-foreground">±{pitchJitter.toFixed(2)}</span>
             </label>
             <label className="block">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">volume jitter</span>
-              <input
-                type="range" min="0" max="0.4" step="0.01"
-                value={volumeJitter}
-                onChange={(e) => setVolumeJitter(Number(e.target.value))}
-                className="mt-1 w-full accent-primary"
+              <Slider
+                min={0}
+                max={0.4}
+                step={0.01}
+                value={[volumeJitter]}
+                onValueChange={([v]) => setVolumeJitter(v)}
+                aria-label="volume jitter"
+                className="mt-2"
               />
               <span className="font-mono text-[10px] text-muted-foreground">±{volumeJitter.toFixed(2)}</span>
             </label>
           </div>
 
-          <button
-            type="button"
-            onClick={spam}
+          <Button
+            variant="brand"
+            size="lg"
+            className="w-full active:translate-y-px"
             disabled={state !== 'live' || !loaded}
-            className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-3 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110 active:translate-y-px"
+            onClick={spam}
           >
             Hit me
-          </button>
+          </Button>
           <div className="mt-2 text-center font-mono text-[10px] text-muted-foreground">{count} voices spawned</div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

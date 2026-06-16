@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -60,12 +62,12 @@ export default function SlotReel() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button type="button" onClick={start} className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110">
-          Unlock & load reels
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; load reels
+        </Button>
       ) : (
         <>
           <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
@@ -84,19 +86,20 @@ export default function SlotReel() {
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={spin}
+          <Button
+            variant="brand"
+            size="lg"
+            className="w-full active:translate-y-px disabled:opacity-40"
             disabled={state !== 'live' || !loaded || spinning.some(Boolean)}
-            className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-3 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110 active:translate-y-px disabled:opacity-40"
+            onClick={spin}
           >
             Spin
-          </button>
+          </Button>
           <p className="mt-3 text-[10px] text-muted-foreground font-mono">
             scheduleAt(t) × 5 — start whoosh, ticks, three staggered stops, win sting
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }

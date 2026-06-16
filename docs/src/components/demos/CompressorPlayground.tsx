@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Compressor } from '@schmooky/zvuk';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -53,27 +57,23 @@ export default function CompressorPlayground() {
   const reductionPct = Math.min(100, Math.abs(reduction) * 5);
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={start}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
-          Unlock & start music
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; start music
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars" label="bus output (post-compressor)" className="mb-3" />
-          <div className="mb-4 rounded-lg border border-border/60 bg-background/40 p-3">
+          <Waveform audioNode={busNode} variant="bars" label="bus output (post-compressor)" />
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
               <span className="text-primary">gain reduction</span>
               <span className="text-muted-foreground">{reduction.toFixed(2)} dB</span>
             </div>
             <div className="relative h-3 rounded-full bg-secondary/40 overflow-hidden">
               <div
-                className="absolute inset-y-0 right-0 bg-gradient-to-l from-destructive via-accent to-primary transition-[width] duration-75"
+                className="absolute inset-y-0 right-0 bg-gradient-to-l from-destructive via-brand2 to-primary transition-[width] duration-75"
                 style={{ width: `${reductionPct}%` }}
               />
             </div>
@@ -89,44 +89,48 @@ export default function CompressorPlayground() {
             ].map(({ key, label, min, max, step, fmt }) => {
               const value = cfg[key as keyof typeof cfg];
               return (
-                <label key={key} className="block">
+                <div key={key} className="block">
                   <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
                     <span className="text-primary">{label}</span>
                     <span className="text-muted-foreground">{fmt(value)}</span>
                   </div>
-                  <input
-                    type="range" min={min} max={max} step={step} value={value}
-                    onChange={(e) => setCfg((c) => ({ ...c, [key]: Number(e.target.value) }))}
-                    className="mt-1 w-full accent-primary"
+                  <Slider
+                    className="mt-2"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={[value]}
+                    onValueChange={([v]) => setCfg((c) => ({ ...c, [key]: v }))}
+                    aria-label={label}
                   />
-                </label>
+                </div>
               );
             })}
           </div>
 
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setBypass((b) => !b)}
+          <div className="flex items-center gap-3">
+            <Button
+              variant={bypass ? 'outline' : 'secondary'}
+              size="sm"
               className={
-                'flex-1 rounded-md border px-3 py-2 font-mono text-xs uppercase tracking-[0.14em] transition-colors ' +
-                (bypass
-                  ? 'border-destructive/60 bg-destructive/10 text-destructive'
-                  : 'border-border/60 bg-secondary/30 text-foreground hover:bg-secondary/50')
+                bypass
+                  ? 'flex-1 font-mono uppercase tracking-[0.14em] border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive'
+                  : 'flex-1 font-mono uppercase tracking-[0.14em]'
               }
+              onClick={() => setBypass((b) => !b)}
             >
               {bypass ? 'bypassed (a/b)' : 'engaged'}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => setCfg({ threshold: -24, ratio: 6, attack: 0.005, release: 0.18, makeupGain: 6 })}
-              className="rounded-md border border-border/60 bg-secondary/30 px-3 py-2 text-xs hover:bg-secondary/50"
             >
               reset
-            </button>
+            </Button>
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

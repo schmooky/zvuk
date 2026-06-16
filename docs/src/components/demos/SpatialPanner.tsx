@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Voice } from '@schmooky/zvuk';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -76,19 +78,15 @@ export default function SpatialPanner() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={start}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
-          Unlock & start
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; start
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={busNode} variant="bars-stereo" label="sfx bus · L | R" className="mb-3" />
+          <Waveform audioNode={busNode} variant="bars-stereo" label="sfx bus · L | R" />
           <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">spatializer.pan</span>
             <span className="text-muted-foreground">{pan.toFixed(2)}</span>
@@ -107,7 +105,7 @@ export default function SpatialPanner() {
           >
             <div className="absolute inset-y-0 left-1/2 w-px bg-border" />
             <div
-              className="absolute top-1/2 h-8 w-8 -translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/30 transition-none"
+              className="absolute top-1/2 h-8 w-8 -translate-y-1/2 -translate-x-1/2 rounded-full bg-gradient-to-br from-primary to-brand2 shadow-lg shadow-primary/30 transition-none"
               style={{ left: `${((pan + 1) / 2) * 100}%` }}
             />
             <div className="absolute bottom-1 left-2 font-mono text-[9px] text-muted-foreground">L</div>
@@ -120,6 +118,6 @@ export default function SpatialPanner() {
           </p>
         </>
       )}
-    </div>
+    </Card>
   );
 }

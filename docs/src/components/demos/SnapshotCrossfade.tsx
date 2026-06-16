@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { Snapshot } from '@schmooky/zvuk';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const PRESETS = ['menu', 'gameplay', 'boss'] as const;
 type Preset = (typeof PRESETS)[number];
@@ -53,40 +55,35 @@ export default function SnapshotCrossfade() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button type="button" onClick={start} className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110">
-          Unlock & start
-        </button>
+        <Button variant="brand" size="lg" className="w-full" onClick={start}>
+          Unlock &amp; start
+        </Button>
       ) : (
         <>
-          <Waveform audioNode={musicNode} variant="bars" label="music bus" className="mb-3" />
+          <Waveform audioNode={musicNode} variant="bars" label="music bus" />
           <div className="grid gap-2 sm:grid-cols-3">
             {PRESETS.map((p) => (
-              <button
+              <Button
                 key={p}
-                type="button"
+                variant={active === p ? 'default' : 'outline'}
                 onClick={() => apply(p)}
                 disabled={busy || !snaps}
-                className={
-                  'rounded-lg border px-3 py-3 text-sm font-medium transition-all ' +
-                  (active === p
-                    ? 'border-primary bg-primary/10 text-foreground'
-                    : 'border-border/60 bg-secondary/30 text-muted-foreground hover:bg-secondary/50 hover:text-foreground')
-                }
+                className="flex h-auto flex-col gap-0 py-3"
               >
-                <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">snapshot</div>
-                <div>{p}</div>
-              </button>
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">snapshot</span>
+                <span>{p}</span>
+              </Button>
             ))}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 font-mono text-[10px] text-muted-foreground">
+          <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-muted-foreground">
             <div>music level: <span className="text-primary">{PRESET_STATE[active].music.toFixed(2)}</span></div>
             <div>sfx level: <span className="text-primary">{PRESET_STATE[active].sfx.toFixed(2)}</span></div>
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Snapshot } from '@schmooky/zvuk';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Slider } from '@/components/ui/slider';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -68,16 +71,12 @@ export default function SnapshotBlend() {
   }
 
   return (
-    <div className="not-prose rounded-xl border border-border bg-card/40 p-5">
-      {error && <div className="mb-3 text-xs text-destructive">{error}</div>}
+    <Card className="not-prose gap-4 p-5">
+      {error && <div className="text-xs text-destructive">{error}</div>}
       {state === 'cold' ? (
-        <button
-          type="button"
-          onClick={() => void start()}
-          className="w-full rounded-lg bg-gradient-to-br from-primary to-accent px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow shadow-primary/30 transition-all hover:brightness-110"
-        >
+        <Button variant="brand" size="lg" className="w-full" onClick={() => void start()}>
           Unlock &amp; start
-        </button>
+        </Button>
       ) : (
         <>
           <Waveform audioNode={musicNode} variant="bars" label="music bus" className="mb-3" />
@@ -86,42 +85,28 @@ export default function SnapshotBlend() {
             <span>tension</span>
             <span className="text-muted-foreground">t = {tension.toFixed(2)}</span>
           </div>
-          <input
+          <Slider
             aria-label="tension"
-            type="range"
             min={0}
             max={1}
             step={0.01}
-            value={tension}
-            onChange={(ev) => setT(Number(ev.currentTarget.value))}
-            className="w-full"
+            value={[tension]}
+            onValueChange={([v]) => setT(v)}
           />
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => setT(0)}
-              className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/50 hover:text-foreground"
-            >
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="secondary" size="sm" className="font-mono" onClick={() => setT(0)}>
               calm (t=0)
-            </button>
-            <button
-              type="button"
-              onClick={() => setT(0.5)}
-              className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/50 hover:text-foreground"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" className="font-mono" onClick={() => setT(0.5)}>
               mid (t=0.5)
-            </button>
-            <button
-              type="button"
-              onClick={() => setT(1)}
-              className="rounded-lg border border-border/60 bg-secondary/30 px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-secondary/50 hover:text-foreground"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" className="font-mono" onClick={() => setT(1)}>
               combat (t=1)
-            </button>
+            </Button>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 font-mono text-[10px] text-muted-foreground">
+          <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-muted-foreground">
             <div>
               music bus: <span className="text-primary">{levels.music.toFixed(2)}</span>
             </div>
@@ -131,6 +116,6 @@ export default function SnapshotBlend() {
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }
