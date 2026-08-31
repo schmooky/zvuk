@@ -278,7 +278,20 @@ class FakeAudioContext {
   createMediaElementSource(el: HTMLMediaElement) {
     return new FakeMediaElementAudioSourceNode(el);
   }
-  async decodeAudioData(_data: ArrayBuffer) {
+  async decodeAudioData(data: ArrayBuffer) {
+    // Real decodeAudioData takes ownership of the ArrayBuffer and detaches
+    // it. Model that, so code which hands the caller's buffer straight in
+    // (and breaks any second use of it) fails here too.
+    if (data instanceof ArrayBuffer) {
+      if (data.byteLength === 0) {
+        throw new DOMException('Cannot decode a detached ArrayBuffer', 'DataCloneError');
+      }
+      try {
+        structuredClone(data, { transfer: [data] });
+      } catch {
+        /* environment can't transfer; the detach check above still holds */
+      }
+    }
     return new FakeAudioBuffer(2, 44100, 44100);
   }
   async resume() {

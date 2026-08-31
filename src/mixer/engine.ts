@@ -370,7 +370,10 @@ class EngineImpl implements Engine {
         if (resolved instanceof AudioBuffer) return resolved;
         if (resolved instanceof ArrayBuffer) {
           // ArrayBuffer carries no MIME hint — decodeAudioData sniffs it.
-          return await this.host.touch().decodeAudioData(resolved);
+          // It also detaches whatever it is handed, so decode a copy: a
+          // resolver backed by an IndexedDB or in-memory byte cache hands
+          // the same buffer back on the next hit.
+          return await this.host.touch().decodeAudioData(resolved.slice(0));
         }
         if (typeof resolved === 'string') {
           return await this.decoder.load(resolved, decodeOpts);
