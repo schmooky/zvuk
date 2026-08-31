@@ -3,26 +3,79 @@
 // suspend, close, destination). Audio is not actually rendered — these
 // fakes only need to satisfy the wiring + lifecycle assertions.
 
+type ParamEvent =
+  | { kind: 'setValue'; value: number; time: number }
+  | { kind: 'linearRamp'; value: number; time: number }
+  | { kind: 'curve'; value: number; time: number; duration: number }
+  | { kind: 'target'; value: number; time: number; timeConstant: number }
+  | { kind: 'cancel'; time: number }
+  | { kind: 'cancelHold'; time: number };
+
+/**
+ * AudioParam fake that models the one scheduling rule the library actually
+ * trips over: an in-flight `setValueCurveAtTime` window makes any other
+ * automation call inside that window throw NotSupportedError, and only
+ * `cancelAndHoldAtTime` (or a `cancelScheduledValues` at or before the
+ * curve's start) clears it. Every call is recorded in `events` so tests can
+ * assert on what was scheduled rather than only on the final value.
+ */
 class FakeAudioParam {
   value: number;
   defaultValue: number;
+  /** Ordered log of every scheduling call made on this param. */
+  events: ParamEvent[] = [];
+  /** Active setValueCurveAtTime window, or null. */
+  private curve: { start: number; end: number } | null = null;
+
   constructor(initial = 1) {
     this.value = initial;
     this.defaultValue = initial;
   }
-  setValueAtTime(v: number, _t: number) {
+
+  private assertOutsideCurve(t: number): void {
+    const c = this.curve;
+    // An event at exactly the curve's start time is legal (the library pins
+    // a start value immediately before scheduling the curve); anything
+    // strictly inside the window is not.
+    if (c && t > c.start && t <= c.end) {
+      throw new DOMException(
+        `Cannot schedule at ${t}: inside an active setValueCurveAtTime window`,
+        'NotSupportedError',
+      );
+    }
+  }
+
+  setValueAtTime(v: number, t: number) {
+    this.assertOutsideCurve(t);
+    this.events.push({ kind: 'setValue', value: v, time: t });
     this.value = v;
   }
-  linearRampToValueAtTime(v: number, _t: number) {
+  linearRampToValueAtTime(v: number, t: number) {
+    this.assertOutsideCurve(t);
+    this.events.push({ kind: 'linearRamp', value: v, time: t });
     this.value = v;
   }
-  setValueCurveAtTime(curve: Float32Array, _t: number, _d: number) {
+  setValueCurveAtTime(curve: Float32Array, t: number, d: number) {
+    this.assertOutsideCurve(t);
+    this.events.push({ kind: 'curve', value: curve[curve.length - 1] ?? this.value, time: t, duration: d });
+    this.curve = { start: t, end: t + d };
     this.value = curve[curve.length - 1] ?? this.value;
   }
-  setTargetAtTime(target: number, _start: number, _timeConstant: number) {
+  setTargetAtTime(target: number, start: number, timeConstant: number) {
+    this.assertOutsideCurve(start);
+    this.events.push({ kind: 'target', value: target, time: start, timeConstant });
     this.value = target;
   }
-  cancelScheduledValues(_t: number) {}
+  cancelScheduledValues(t: number) {
+    this.events.push({ kind: 'cancel', time: t });
+    // Matches the spec: only events at or after `t` are removed, so a curve
+    // that started earlier survives and keeps throwing.
+    if (this.curve && this.curve.start >= t) this.curve = null;
+  }
+  cancelAndHoldAtTime(t: number) {
+    this.events.push({ kind: 'cancelHold', time: t });
+    this.curve = null;
+  }
 }
 
 class FakeAudioNode {
