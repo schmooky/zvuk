@@ -69,9 +69,10 @@ export const SAMPLES = {
   dice: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'],
   card: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'],
   slide: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'],
-  // Two music beds for the Crossfade demo. Multi-minute tracks, so they are
-  // streamed rather than decoded: the pair used to ship as 7.6 MB of MP3 and
-  // decode to tens of megabytes of PCM before a note played.
+  // Two music beds for the Crossfade demo, trimmed to 60 s and streamed
+  // rather than decoded. The pair used to ship as 7.6 MB of MP3 — nearly the
+  // whole audio payload of the site — and decoding three minutes of stereo
+  // costs tens of megabytes of PCM before a note plays.
   musicA: ['/audio/music-a.webm', '/audio/music-a.m4a'],
   musicB: ['/audio/music-b.webm', '/audio/music-b.m4a'],
   // Kenney digital-audio pack (CC0). Useful for arcade-flavoured one-shots.
