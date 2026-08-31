@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Engine, Voice } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import DemoShell from './DemoShell';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
@@ -101,12 +102,7 @@ export default function SpatialPanner() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start">
           <Waveform audioNode={busNode} variant="bars-stereo" label="sfx bus · L | R" />
           <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">spatializer.pan</span>
@@ -137,8 +133,7 @@ export default function SpatialPanner() {
             ref and panned via{' '}
             <code className="font-mono text-primary">voice.spatializer.setPan(next)</code>.
           </p>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

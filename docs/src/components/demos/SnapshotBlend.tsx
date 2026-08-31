@@ -3,6 +3,7 @@ import type { Snapshot } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -73,12 +74,8 @@ export default function SnapshotBlend() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={() => void start()}>
-          Unlock &amp; start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={() => void start()} label="Unlock & start">
+
           <Waveform audioNode={musicNode} variant="bars" label="music bus" className="mb-3" />
 
           <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-primary">
@@ -114,8 +111,7 @@ export default function SnapshotBlend() {
               drums bus: <span className="text-primary">{levels.drums.toFixed(2)}</span>
             </div>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

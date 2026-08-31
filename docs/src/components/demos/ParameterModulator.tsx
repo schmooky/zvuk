@@ -3,6 +3,7 @@ import type { Engine, Parameter, Voice } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
@@ -63,12 +64,7 @@ export default function ParameterModulator() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock & start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start">
           <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <div className="block">
             <div className="flex items-center justify-between">
@@ -108,8 +104,7 @@ export default function ParameterModulator() {
               </div>
             ))}
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

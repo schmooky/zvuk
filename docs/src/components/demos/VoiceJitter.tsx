@@ -3,6 +3,7 @@ import type { Engine } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
@@ -57,12 +58,7 @@ export default function VoiceJitter() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; load
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & load">
           <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
           <div className="grid gap-3 md:grid-cols-2 mb-4">
             <label className="block">
@@ -103,8 +99,7 @@ export default function VoiceJitter() {
             Hit me
           </Button>
           <div className="mt-2 text-center font-mono text-[10px] text-muted-foreground">{count} voices spawned</div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

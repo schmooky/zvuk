@@ -4,6 +4,7 @@ import { Reverb, type Engine } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
@@ -19,6 +20,25 @@ export default function ReverbWet() {
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
   const [voice, setVoice] = useState<{ stop: () => void } | null>(null);
   const [customFile, setCustomFile] = useState<File | null>(null);
+
+
+  // The FX chain belongs to the shared bus, so take the insert back off when
+  // this demo unmounts rather than leaving it stacked on the next one.
+  useEffect(() => {
+    return () => {
+      const e = engine.current;
+      const fx = reverbRef.current;
+      if (e && fx) {
+        try {
+          e.bus('music').removeFx(fx);
+        } catch {
+          /* bus already gone */
+        }
+      }
+      fx?.dispose();
+      reverbRef.current = null;
+    };
+  }, [engine]);
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
@@ -77,12 +97,7 @@ export default function ReverbWet() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start music
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start music">
           <Waveform audioNode={busNode} variant="bars" label="bus output (post-reverb)" />
           <div className="grid gap-3 md:grid-cols-2">
             <div className="block">
@@ -129,8 +144,7 @@ export default function ReverbWet() {
           >
             {bypass ? 'bypassed' : 'engaged'}
           </Button>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

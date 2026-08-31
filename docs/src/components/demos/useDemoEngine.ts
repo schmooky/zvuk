@@ -1,36 +1,54 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Engine, type EngineConfig, type EngineState, createEngine } from '@schmooky/zvuk';
+import type { BusConfig, Engine, EngineConfig, EngineState } from '@schmooky/zvuk';
+import {
+  applyBusConfig,
+  getDemoEngine,
+  getDemoState,
+  stopVoicesOn,
+  subscribeDemoState,
+  unlockDemoEngine,
+} from './sharedEngine';
 
 /**
- * One engine per demo, lazy-constructed, closed on unmount.
- * StrictMode-safe: the engine is created from the first interaction, not
- * mount, so React's double-mount in dev doesn't create two contexts.
+ * Hook onto the page's shared engine.
+ *
+ * The signature is unchanged from when every demo owned its own engine: pass
+ * the bus shape you want to demonstrate, get back a ref, a state, and an
+ * unlock. What changed underneath is that there is now one AudioContext, one
+ * unlock gesture and one decode cache for the whole page.
+ *
+ * On unmount the hook stops whatever is still sounding on the buses this
+ * demo declared. It cannot close the engine any more, because the engine
+ * isn't its to close.
  */
 export function useDemoEngine(config: EngineConfig) {
   const engineRef = useRef<Engine | null>(null);
   const configRef = useRef(config);
-  const [state, setState] = useState<EngineState>('cold');
+  const [state, setState] = useState<EngineState>(getDemoState());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubscribe = subscribeDemoState(setState);
+    setState(getDemoState());
+    const buses = Object.keys(configRef.current.buses ?? {});
     return () => {
-      void engineRef.current?.close();
-      engineRef.current = null;
+      unsubscribe();
+      stopVoicesOn(buses);
     };
   }, []);
 
   function ensureEngine(): Engine {
-    if (engineRef.current) return engineRef.current;
-    const engine = createEngine(configRef.current);
-    engine.onStateChange((s) => setState(s));
+    const engine = getDemoEngine();
     engineRef.current = engine;
     return engine;
   }
 
   async function unlock(): Promise<Engine | null> {
     try {
-      const engine = ensureEngine();
-      await engine.unlock();
+      const engine = await unlockDemoEngine();
+      engineRef.current = engine;
+      // Levels and concurrency are per-demo; apply them once the graph exists.
+      applyBusConfig(configRef.current.buses as Record<string, BusConfig> | undefined);
       return engine;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

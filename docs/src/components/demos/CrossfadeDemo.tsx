@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StreamSound } from '@schmooky/zvuk';
+import DemoShell from './DemoShell';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 import { Badge } from '@/components/ui/badge';
@@ -67,11 +68,7 @@ export default function CrossfadeDemo() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start music A
-        </Button>
-      ) : (
+      <DemoShell state={state} onStart={start} label="Unlock & start music A">
         <div className="flex flex-col gap-3">
           <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="flex items-center justify-between">
@@ -90,7 +87,7 @@ export default function CrossfadeDemo() {
             power, so the swap doesn't dip in the middle.
           </p>
         </div>
-      )}
+      </DemoShell>
     </Card>
   );
 }

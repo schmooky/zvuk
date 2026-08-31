@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import type { Engine, Snapshot, Voice } from '@schmooky/zvuk';
+import DemoShell from './DemoShell';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
@@ -81,12 +82,7 @@ export default function SnapshotCrossfade() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start">
           <Waveform audioNode={musicNode} variant="bars" label="music bus" />
           <div className="grid gap-2 sm:grid-cols-3">
             {PRESETS.map((p) => (
@@ -106,8 +102,7 @@ export default function SnapshotCrossfade() {
             <div>music level: <span className="text-primary">{PRESET_STATE[active].music.toFixed(2)}</span></div>
             <div>sfx level: <span className="text-primary">{PRESET_STATE[active].sfx.toFixed(2)}</span></div>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }
