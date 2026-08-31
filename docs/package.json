@@ -8,7 +8,7 @@
     "predev": "node scripts/build-og-assets.mjs && node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "prebuild": "node scripts/build-og-assets.mjs && node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "build": "astro build && pagefind --site dist",
-    "postbuild": "node scripts/copy-pagefind.mjs && node scripts/check-og.mjs",
+    "postbuild": "node scripts/copy-pagefind.mjs && node scripts/check-og.mjs && node scripts/build-md-twins.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "api:gen": "node scripts/build-api.mjs",
@@ -52,6 +52,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "marked": "^18.0.3",
+    "turndown": "^7.2.4",
     "typescript": "^5.9.0"
   }
 }
