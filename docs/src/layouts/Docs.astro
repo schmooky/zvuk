@@ -1,18 +1,28 @@
 ---
 import DocsSidebar from '../components/DocsSidebar.astro';
 import { DOCS_NAV } from '../content/nav';
-import { SITE } from '../lib/seo';
+import { type FaqEntry, SITE } from '../lib/seo';
 import Base from './Base.astro';
 
 interface Props {
   title?: string;
   description?: string;
   eyebrow?: string;
+  /** Question/answer pairs to publish as FAQPage structured data. */
+  faq?: FaqEntry[];
+  /** ISO date this page's content last changed. */
+  modified?: string;
 }
-const { title = SITE.name, description = SITE.description, eyebrow } = Astro.props as Props;
+const {
+  title = SITE.name,
+  description = SITE.description,
+  eyebrow,
+  faq,
+  modified,
+} = Astro.props as Props;
 const pathname = Astro.url.pathname;
 ---
-<Base title={`${title} · ${SITE.name}`} description={description}>
+<Base title={`${title} · ${SITE.name}`} description={description} faq={faq} modified={modified}>
   <div class="container grid gap-10 py-12 md:grid-cols-[240px_minmax(0,1fr)]">
     <DocsSidebar nav={DOCS_NAV} pathname={pathname} />
     <article class="prose-docs min-w-0 max-w-3xl animate-fade-in">

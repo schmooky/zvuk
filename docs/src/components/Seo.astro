@@ -1,0 +1,119 @@
+---
+import { type FaqEntry, SITE } from '../lib/seo';
+
+/**
+ * JSON-LD for the page. The site had none, which for a library means search
+ * and answer engines had to infer the licence, the runtime, and the version
+ * from prose.
+ *
+ * Every page gets a BreadcrumbList built from its path. The home page also
+ * declares SoftwareApplication + SoftwareSourceCode; documentation pages
+ * declare TechArticle; pages that pass `faq` add FAQPage.
+ */
+interface Props {
+  title: string;
+  description: string;
+  canonical: string;
+  pathname: string;
+  image: string;
+  faq?: FaqEntry[];
+  /** ISO date this page's content last changed. Defaults to the build date. */
+  modified?: string;
+}
+
+const { title, description, canonical, pathname, image, faq, modified } = Astro.props as Props;
+const isHome = pathname === '/' || pathname === '';
+
+const SECTION_NAMES: Record<string, string> = {
+  docs: 'Docs',
+  concepts: 'Concepts',
+  guides: 'Guides',
+  recipes: 'Recipes',
+  examples: 'Examples',
+  fx: 'FX',
+  api: 'API',
+  changelog: 'Changelog',
+  roadmap: 'Roadmap',
+  playground: 'Playground',
+};
+
+function titleCase(segment: string): string {
+  return segment.replace(/-/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+const segments = pathname.replace(/^\//, '').replace(/\/$/, '').split('/').filter(Boolean);
+const crumbs = [{ name: SITE.name, url: `${SITE.url}/` }];
+let acc = '';
+for (const segment of segments) {
+  acc += `/${segment}`;
+  crumbs.push({ name: SECTION_NAMES[segment] ?? titleCase(segment), url: `${SITE.url}${acc}/` });
+}
+
+const breadcrumbs = {
+  '@type': 'BreadcrumbList',
+  itemListElement: crumbs.map((c, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.name,
+    item: c.url,
+  })),
+};
+
+const application = {
+  '@type': 'SoftwareApplication',
+  name: SITE.name,
+  alternateName: SITE.npmName,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Any (web browser)',
+  softwareVersion: SITE.version,
+  url: SITE.url,
+  description: SITE.description,
+  license: 'https://opensource.org/licenses/MIT',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const sourceCode = {
+  '@type': 'SoftwareSourceCode',
+  name: SITE.npmName,
+  version: SITE.version,
+  programmingLanguage: 'TypeScript',
+  runtimePlatform: 'Web Audio API',
+  codeRepository: SITE.github,
+  license: 'https://opensource.org/licenses/MIT',
+  url: SITE.url,
+  description: SITE.description,
+};
+
+const article = {
+  '@type': 'TechArticle',
+  headline: title,
+  description,
+  url: canonical,
+  image,
+  dateModified: modified ?? new Date().toISOString().slice(0, 10),
+  inLanguage: 'en',
+  isPartOf: { '@type': 'WebSite', name: SITE.name, url: SITE.url },
+  author: { '@type': 'Organization', name: SITE.name, url: SITE.github },
+  about: { '@type': 'SoftwareSourceCode', name: SITE.npmName, version: SITE.version },
+};
+
+const faqBlock = faq?.length
+  ? {
+      '@type': 'FAQPage',
+      mainEntity: faq.map((f) => ({
+        '@type': 'Question',
+        name: f.question,
+        acceptedAnswer: { '@type': 'Answer', text: f.answer },
+      })),
+    }
+  : null;
+
+const graph = [
+  breadcrumbs,
+  ...(isHome ? [application, sourceCode] : [article]),
+  ...(faqBlock ? [faqBlock] : []),
+];
+
+const ld = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
+---
+<script type="application/ld+json" set:html={ld} is:inline />

@@ -17,3 +17,9 @@ export const SITE = {
   /** Permalink to the package page on npmjs. */
   npm: `https://www.npmjs.com/package/${pkg.name}`,
 };
+
+/** One entry in a page's FAQPage structured data. */
+export interface FaqEntry {
+  question: string;
+  answer: string;
+}

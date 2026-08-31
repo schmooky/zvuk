@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "predev": "node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
-    "prebuild": "node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
+    "predev": "node scripts/build-og-assets.mjs && node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
+    "prebuild": "node scripts/build-og-assets.mjs && node scripts/build-api.mjs && node scripts/build-changelog.mjs && node scripts/build-llms.mjs",
     "build": "astro build && pagefind --site dist",
-    "postbuild": "node scripts/copy-pagefind.mjs",
+    "postbuild": "node scripts/copy-pagefind.mjs && node scripts/check-og.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "api:gen": "node scripts/build-api.mjs",
