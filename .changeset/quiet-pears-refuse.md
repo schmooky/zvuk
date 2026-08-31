@@ -47,3 +47,10 @@ Fix a set of audio-scheduling and lifecycle bugs.
   which broke `engine.crossfade` for variants.
 - `Scheduler.scheduleAt` full-sorted on every insert and never evicted
   cancelled tasks.
+- Errors built their did-you-mean text by splicing quote characters into
+  the caller's own template, producing `Bus "sxf"; did you mean "sfx" is
+  not configured.` The suggestion is now a separate sentence.
+- `tsup` ships a minified bundle. The tarball was published unminified at
+  25 kB gzipped while the README advertised a min+gzip figure, so the
+  number on the page described a build nobody was installing. It is
+  16.9 kB now, gated in CI at 18 kB.
