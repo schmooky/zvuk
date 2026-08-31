@@ -319,6 +319,13 @@ export class Voice {
     }
     this.basePitch = r;
     if (this.paused) return;
+    // The region timer is a wall-clock timeout sized against the old rate.
+    // Half speed means twice the wall time, so re-arm it from what's left of
+    // the region rather than cutting the voice off at the original moment.
+    if (this.regionTimer != null && this.regionDuration != null) {
+      const consumed = Math.max(0, this.currentOffset - this.startOffset);
+      this.armRegionTimer(Math.max(0, this.regionDuration - consumed));
+    }
     // Apply to every live source — single-source mode = one entry, crossfade
     // mode = the current live segment + any future ones (newly spawned
     // segments pick up basePitch in spawnCrossfadeSegment).
@@ -464,6 +471,10 @@ export class Voice {
       this.regionTimer = null;
     }
     if (remainingSec == null) return;
+    // A looping voice is already bounded by the source node's own
+    // loopStart/loopEnd. Stopping it after one region length would make
+    // SpriteRegion.loop mean "play once".
+    if (this.loop) return;
     const ms = Math.max(0, remainingSec * 1000) / Math.max(0.0001, this.basePitch);
     this.regionTimer = setTimeout(() => {
       this.regionTimer = null;
