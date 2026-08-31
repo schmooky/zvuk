@@ -1,56 +1,141 @@
 ---
 import Docs from '../../layouts/Docs.astro';
+
+/**
+ * FAQPage structured data. These four questions are the ones people actually
+ * arrive with, and an answer engine quoting one of them out of context
+ * should still get a complete answer.
+ */
+const faq = [
+  {
+    question: 'Should I use zvuk or Howler.js?',
+    answer:
+      'Use Howler if you need to play clips and stop them, want the widest browser support including very old engines, and do not need a mixer. Use zvuk if your audio has structure: named buses, ducking, snapshots, voice limits, per-voice control. Howler has no first-class mixer model, no parameters and no snapshots; zvuk does not try to match its legacy browser reach.',
+  },
+  {
+    question: 'Should I use zvuk or Tone.js?',
+    answer:
+      'Tone.js is a music framework built around a transport and a synthesis graph. If you are sequencing notes, building an instrument, or writing anything with a musical clock, use Tone. zvuk plays and mixes recorded assets; it has no oscillators and no transport.',
+  },
+  {
+    question: 'How do I unlock audio on iOS Safari?',
+    answer:
+      'Call await engine.unlock() from inside a real user gesture such as a click, tap or keydown. It is idempotent, so wiring it to several handlers is safe. zvuk creates the AudioContext lazily, so createEngine() before any gesture is fine, and it handles the suspend and resume around tab visibility and iOS audio-session interruptions for you.',
+  },
+  {
+    question: 'Why is my sound cutting off mid-playback?',
+    answer:
+      'Usually one of three things. A shared HTMLAudioElement is being recycled, so the second play restarts the first. Or a bus concurrency cap is stealing the voice to make room for a newer one. Or the voice was garbage-collected because nothing held a reference. zvuk gives every play() its own Voice with its own source node, and voice stealing is an explicit per-bus policy rather than a side effect.',
+  },
+];
 ---
 <Docs
   title="Why another audio lib?"
-  description="Howler exists. Tone.js exists. Raw Web Audio exists. Here's the gap zvuk fills."
+  description="Howler exists. Tone.js exists. Raw Web Audio exists. Here is the gap zvuk fills."
   eyebrow="Background"
+  faq={faq}
 >
   <h2>The problem</h2>
-  <p>
-    Game audio on the web has three failure modes:
-  </p>
+  <p>Game audio on the web has three failure modes.</p>
   <ol>
-    <li><strong>Autoplay & iOS Safari.</strong> Half the bug reports.</li>
-    <li><strong>Polyphony.</strong> Spam a slot reel-stop SFX 30 times — the second one cuts off the first
-      because the same <code>HTMLAudioElement</code> is being recycled.</li>
-    <li><strong>Mix discipline.</strong> Ducking music under VO. Crossfading menu states. Putting reverb on
-      ambience but not SFX. Web Audio gives you nodes; nobody gives you the routing model.</li>
+    <li>
+      <strong>Autoplay and iOS Safari.</strong> Roughly half of the audio bug
+      reports I have seen on shipped web games are some version of "no sound
+      on iPhone".
+    </li>
+    <li>
+      <strong>Polyphony.</strong> Spam a reel-stop sound thirty times and the
+      second one cuts off the first, because the same
+      <code>HTMLAudioElement</code> is being recycled underneath.
+    </li>
+    <li>
+      <strong>Mix discipline.</strong> Ducking music under dialogue.
+      Crossfading menu states. Reverb on ambience but not on UI. Web Audio
+      gives you nodes. Nobody gives you the routing model.
+    </li>
   </ol>
 
-  <h2>Where existing libs sit</h2>
-  <ul>
-    <li><strong>Howler</strong> — battle-tested, but built around the
-      <code>HTMLAudioElement</code>/Web Audio split, no first-class mixer model, no parameters,
-      no snapshots.</li>
-    <li><strong>Tone.js</strong> — gorgeous for music synthesis, oversized for game SFX, opinionated
-      around the transport.</li>
-    <li><strong>Raw Web Audio</strong> — perfect, also a swamp.</li>
-  </ul>
+  <h2>Should I use zvuk or Howler?</h2>
+  <p>
+    Use Howler if you want to play clips and stop them, you need the widest
+    possible browser support, and your mix is a volume slider. It is
+    battle-tested and it will outlive us all.
+  </p>
+  <p>
+    Use zvuk if your audio has structure. Named buses, ducking, snapshots,
+    voice limits, per-voice control. That is the part Howler does not model,
+    and the part you end up writing yourself.
+  </p>
+
+  <div class="not-prose my-6 overflow-x-auto">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-border text-left">
+          <th class="px-3 py-2 font-semibold">&nbsp;</th>
+          <th class="px-3 py-2 font-semibold">zvuk</th>
+          <th class="px-3 py-2 font-semibold">Howler</th>
+          <th class="px-3 py-2 font-semibold">Tone.js</th>
+          <th class="px-3 py-2 font-semibold">pixi-sound</th>
+        </tr>
+      </thead>
+      <tbody class="text-muted-foreground">
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Named mixer buses</td><td class="px-3 py-2">yes</td><td class="px-3 py-2">no</td><td class="px-3 py-2">channels</td><td class="px-3 py-2">no</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Sidechain ducking</td><td class="px-3 py-2">built in</td><td class="px-3 py-2">no</td><td class="px-3 py-2">build it</td><td class="px-3 py-2">no</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Mix snapshots</td><td class="px-3 py-2">yes</td><td class="px-3 py-2">no</td><td class="px-3 py-2">no</td><td class="px-3 py-2">no</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Voice limits and stealing</td><td class="px-3 py-2">per bus</td><td class="px-3 py-2">no</td><td class="px-3 py-2">no</td><td class="px-3 py-2">no</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Synthesis and transport</td><td class="px-3 py-2">no</td><td class="px-3 py-2">no</td><td class="px-3 py-2">yes</td><td class="px-3 py-2">no</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Codec ladder</td><td class="px-3 py-2">yes</td><td class="px-3 py-2">yes</td><td class="px-3 py-2">manual</td><td class="px-3 py-2">yes</td></tr>
+        <tr class="border-b border-border/50"><td class="px-3 py-2 text-foreground">Renderer coupling</td><td class="px-3 py-2">none</td><td class="px-3 py-2">none</td><td class="px-3 py-2">none</td><td class="px-3 py-2">PixiJS</td></tr>
+        <tr><td class="px-3 py-2 text-foreground">Use it if</td><td class="px-3 py-2">your mix has structure</td><td class="px-3 py-2">you just need clips</td><td class="px-3 py-2">you are writing music</td><td class="px-3 py-2">you already ship Pixi</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Should I use zvuk or Tone.js?</h2>
+  <p>
+    Tone is a music framework. It has a transport, a synthesis graph, and
+    scheduling built around musical time. If you are sequencing notes or
+    building an instrument, use Tone and don't look back. zvuk plays and mixes
+    recorded assets. There is no oscillator in it.
+  </p>
 
   <h2>What zvuk adds</h2>
   <ul>
-    <li>An <strong>Engine</strong> object with an explicit state machine
-      (<code>cold → unlocking → live → closed</code>).</li>
-    <li>A <strong>Mixer</strong> built declaratively from <code>createEngine</code> config,
-      with named Buses and click-free fades.</li>
-    <li>A <strong>Voice</strong> per <code>play()</code> call — abort signals, lifecycle promises,
-      async iterators of cues.</li>
-    <li>A <strong>codec ladder</strong> (<code>['sfx.webm', 'sfx.m4a']</code>) so you ship Opus
-      to the world and AAC only to old iOS.</li>
-    <li>An iOS-Safari resume dance that survived production slot games.</li>
+    <li>
+      An <a href="/concepts/engine/">Engine</a> with an explicit state machine,
+      running <code>cold</code>, <code>unlocking</code>, <code>live</code>,
+      <code>suspended</code>, <code>interrupted</code>, <code>closed</code>.
+    </li>
+    <li>
+      A <a href="/concepts/mixer/">Mixer</a> declared in
+      <code>createEngine</code> config, with named buses and click-free fades.
+    </li>
+    <li>
+      A <a href="/concepts/voice/">Voice</a> per <code>play()</code> call,
+      carrying abort signals, lifecycle promises and an async iterator of cues.
+    </li>
+    <li>
+      A codec ladder, so <code>['sfx.webm', 'sfx.m4a']</code> ships Opus to the
+      world and AAC only to the devices that need it.
+    </li>
+    <li>
+      An iOS Safari resume sequence that has survived production slot games.
+      On iOS 15 an immediate <code>resume()</code> after a visibility change
+      failed often enough to be a bug report; a 200 ms delay stopped it.
+    </li>
   </ul>
 
   <h2>What zvuk is not</h2>
   <ul>
-    <li>Not a synthesis framework. No oscillator graph, no Tone.js Transport. Use Tone for that.</li>
-    <li>Not a music-streaming player. <code>Stream</code> wraps <code>&lt;audio&gt;</code> for long files; it's not a queue.</li>
-    <li>Not a cross-platform native bridge. v1 is browser-only.</li>
+    <li>A synthesis framework. There is no oscillator graph and no transport.</li>
+    <li>A streaming music player. <code>Stream</code> wraps <code>&lt;audio&gt;</code> for long files, and stops there.</li>
+    <li>A native bridge. v1 runs in browsers.</li>
   </ul>
 
   <p>
-    If you are shipping a slot game, an arcade game, a casual mobile-web title, an interactive
-    explainer with sound — anything where you need a real mix, not just "play this clip" —
-    that's the zvuk-shaped hole.
+    If you are shipping a slot game, an arcade title, a casual mobile-web
+    game, or an interactive explainer where the sound has to hold together as
+    a mix rather than as a pile of clips, that is the shape of the hole zvuk
+    fills.
   </p>
 </Docs>

@@ -3,7 +3,8 @@ import type { Engine, Parameter, Voice } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import DemoShell from './DemoShell';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
 
@@ -21,7 +22,7 @@ export default function ParameterModulator() {
 
   async function ensureSound(e: Engine, file: File | null): Promise<void> {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -29,7 +30,7 @@ export default function ParameterModulator() {
     if (!e) return;
     await ensureSound(e, customFile);
     if (!voiceRef.current) {
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     }
     const p = e.parameter('intensity', intensity);
     paramRef.current = p;
@@ -49,7 +50,7 @@ export default function ParameterModulator() {
       await ensureSound(e, file);
       // Restart the looping music voice with the same play options.
       voiceRef.current?.stop();
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -63,12 +64,7 @@ export default function ParameterModulator() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock & start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start">
           <Waveform audioNode={busNode} variant="bars" label="bus output" className="mb-3" />
           <div className="block">
             <div className="flex items-center justify-between">
@@ -108,8 +104,7 @@ export default function ParameterModulator() {
               </div>
             ))}
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

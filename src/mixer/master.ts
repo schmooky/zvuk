@@ -1,4 +1,5 @@
 import type { AudioLevel, MasterConfig, MasterLimiterConfig } from '../types';
+import { applyRamp } from './curve';
 
 /**
  * The Master stage. Headroom-aware gain into an optional soft limiter, then to
@@ -32,7 +33,8 @@ export class Master {
 
   setHeadroom(db: number): void {
     this.headroomDb = db;
-    this.input.gain.value = dbToLinear(db);
+    // 10 ms, same as bus level/mute. A raw gain.value write pops.
+    applyRamp(this.input.gain, this.ctx.currentTime, dbToLinear(db), 0.01, 'linear');
   }
 
   get headroom(): number {
@@ -101,20 +103,24 @@ export class Master {
       /* fresh */
     }
     this.limiterNode = null;
-    if (!this.limiterCfg) {
+    if (this.limiterCfg) {
+      const cfg = this.limiterCfg;
+      const limiter = this.ctx.createDynamicsCompressor();
+      limiter.threshold.value = cfg.threshold ?? -1;
+      limiter.knee.value = 0;
+      limiter.ratio.value = Math.max(20, cfg.ratio ?? 20);
+      limiter.attack.value = cfg.attack ?? 0.001;
+      limiter.release.value = cfg.release ?? 0.05;
+      this.input.connect(limiter);
+      limiter.connect(this.destination);
+      this.limiterNode = limiter;
+    } else {
       this.input.connect(this.destination);
-      return;
     }
-    const cfg = this.limiterCfg;
-    const limiter = this.ctx.createDynamicsCompressor();
-    limiter.threshold.value = cfg.threshold ?? -1;
-    limiter.knee.value = 0;
-    limiter.ratio.value = Math.max(20, cfg.ratio ?? 20);
-    limiter.attack.value = cfg.attack ?? 0.001;
-    limiter.release.value = cfg.release ?? 0.05;
-    this.input.connect(limiter);
-    limiter.connect(this.destination);
-    this.limiterNode = limiter;
+    // input.disconnect() above drops every outgoing edge, the passive meter
+    // tap included. Without this, meter() reads zero forever after the first
+    // setLimiter() call.
+    if (this._meterAnalyser) this.input.connect(this._meterAnalyser);
   }
 }
 

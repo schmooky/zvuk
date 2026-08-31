@@ -1,0 +1,52 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/seo';
+
+/**
+ * Astro served the host's default 404 page, which for a static deploy is
+ * usually a bare "Not Found" with no way back into the docs. The list below
+ * is the same set of entry points the nav offers, since a 404 most often
+ * means a renamed page rather than a typo.
+ */
+const routes = [
+  { href: '/docs/quickstart/', title: 'Quickstart', blurb: 'A working mix in about thirty lines.' },
+  { href: '/concepts/', title: 'Concepts', blurb: 'Engine, Bus, Voice, Snapshot, Parameter.' },
+  { href: '/guides/', title: 'Guides', blurb: 'Loading, mixing, ducking, timing.' },
+  { href: '/api/', title: 'API reference', blurb: 'Every exported symbol.' },
+  { href: '/recipes/', title: 'Recipes', blurb: 'Short answers to specific problems.' },
+  { href: '/changelog/', title: 'Changelog', blurb: `What changed, up to v${SITE.version}.` },
+];
+---
+<Base
+  title={`Page not found · ${SITE.name}`}
+  description="That page doesn't exist. Here's the rest of the zvuk documentation."
+  og="index"
+>
+  <div class="container max-w-3xl py-20">
+    <div class="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">404</div>
+    <h1 class="mb-3 text-4xl font-semibold tracking-tight">No page at that address</h1>
+    <p class="mb-10 text-lg text-muted-foreground">
+      It may have moved. The documentation reorganised around concepts, guides and
+      recipes, so an older link is more likely stale than wrong.
+    </p>
+
+    <ul class="grid gap-3 sm:grid-cols-2">
+      {routes.map((r) => (
+        <li>
+          <a
+            href={r.href}
+            class="block rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-primary"
+          >
+            <div class="font-medium">{r.title}</div>
+            <div class="text-sm text-muted-foreground">{r.blurb}</div>
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <p class="mt-10 text-sm text-muted-foreground">
+      Still stuck? <a class="text-primary hover:underline" href={`${SITE.github}/issues`}>Open an issue</a>
+      and say what you were looking for.
+    </p>
+  </div>
+</Base>

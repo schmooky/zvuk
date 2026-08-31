@@ -20,9 +20,11 @@
     "src",
     "test",
     "bench",
+    "conformance",
     "tsup.config.ts",
     "vitest.config.ts",
-    "vitest.bench.config.ts"
+    "vitest.bench.config.ts",
+    "vitest.conformance.workspace.ts"
   ],
   "exclude": ["dist", "node_modules", "docs"]
 }

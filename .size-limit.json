@@ -1,0 +1,15 @@
+[
+  {
+    "name": "@schmooky/zvuk (full import)",
+    "path": "dist/index.js",
+    "limit": "18 kB",
+    "gzip": true
+  },
+  {
+    "name": "@schmooky/zvuk (createEngine only)",
+    "path": "dist/index.js",
+    "import": "{ createEngine }",
+    "limit": "16 kB",
+    "gzip": true
+  }
+]

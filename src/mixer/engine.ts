@@ -265,6 +265,8 @@ class EngineImpl implements Engine {
   private buses = new Map<string, Bus>();
   private busOrder: string[] = [];
   private sounds = new Map<string, Sound>();
+  /** Sprite buffers and variant parts, keyed by their internal name. */
+  private internalSounds = new Map<string, Sound>();
   private sprites = new Map<string, Sprite>();
   private streams = new Map<string, StreamSound>();
   private musics = new Map<string, Music>();
@@ -287,7 +289,7 @@ class EngineImpl implements Engine {
       autoPauseOnHidden: config.autoPauseOnHidden,
       latencyHint: config.latencyHint,
     });
-    this.decoder = new Decoder(() => this.host.touch());
+    this.decoder = new Decoder(() => this.host.touch(), config.cache ?? {});
     const declared = Object.keys(config.buses ?? {});
     this.busOrder = declared.length > 0 ? declared : ['default'];
     for (const name of this.busOrder) this.voices.set(name, new Set());
@@ -326,9 +328,13 @@ class EngineImpl implements Engine {
     this.master?.dispose();
     this.master = null;
     this.sounds.clear();
+    this.internalSounds.clear();
     this.sprites.clear();
+    for (const m of this.musics.values()) m.stopAll({ fade: 0 });
     this.musics.clear();
     this.variantsByName.clear();
+    this.busGroups.clear();
+    this.soloedBuses.clear();
     this.soundUrls.clear();
     for (const s of this.streams.values()) s.dispose();
     this.streams.clear();
@@ -342,20 +348,35 @@ class EngineImpl implements Engine {
     url: string | readonly string[],
     options: LoadSoundOptions = {},
   ): Promise<Sound> {
+    return this.loadSoundAs(name, name, url, options, false);
+  }
+
+  /**
+   * Shared loader. `key` is the registry key; `publicName` is what spawned
+   * voices report as `sourceName`. They differ for sprites and variant
+   * bundles, whose parts are registered under internal keys.
+   */
+  private async loadSoundAs(
+    key: string,
+    publicName: string,
+    url: string | readonly string[],
+    options: LoadSoundOptions,
+    internal: boolean,
+  ): Promise<Sound> {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
 
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    let buffer = await this.resolveBuffer(name, url, decodeOpts);
+    let buffer = await this.resolveBuffer(key, url, decodeOpts);
 
     if (options.normalize) {
       buffer = applyLoudnessNormalization(buffer, options.normalize, this.host.touch());
     }
 
     // Record the URL set so `unloadSound` can evict the cache entry later.
-    this.soundUrls.set(name, typeof url === 'string' ? [url] : [...url]);
-    return this.createSound(name, buffer, { bus: options.bus });
+    this.soundUrls.set(key, typeof url === 'string' ? [url] : [...url]);
+    return this.registerSound(key, publicName, buffer, { bus: options.bus }, internal);
   }
 
   private async resolveBuffer(
@@ -370,7 +391,10 @@ class EngineImpl implements Engine {
         if (resolved instanceof AudioBuffer) return resolved;
         if (resolved instanceof ArrayBuffer) {
           // ArrayBuffer carries no MIME hint — decodeAudioData sniffs it.
-          return await this.host.touch().decodeAudioData(resolved);
+          // It also detaches whatever it is handed, so decode a copy: a
+          // resolver backed by an IndexedDB or in-memory byte cache hands
+          // the same buffer back on the next hit.
+          return await this.host.touch().decodeAudioData(resolved.slice(0));
         }
         if (typeof resolved === 'string') {
           return await this.decoder.load(resolved, decodeOpts);
@@ -385,7 +409,7 @@ class EngineImpl implements Engine {
   async preload(items: readonly PreloadItem[], options: PreloadOptions = {}): Promise<void> {
     if (this.host.state === 'closed') throw new EngineClosedError();
     if (items.length === 0) return;
-    const concurrency = Math.max(1, options.concurrency ?? 4);
+    const concurrency = Math.max(1, options.concurrency ?? DEFAULT_LOAD_CONCURRENCY);
     const onProgress = options.onProgress;
     const batchSignal = options.signal;
     const total = items.length;
@@ -421,7 +445,11 @@ class EngineImpl implements Engine {
         })(),
       );
     }
-    await Promise.all(workers);
+    // allSettled, not all: an AbortError from one worker used to reject the
+    // batch while its siblings kept running and rejected into the void.
+    const settled = await Promise.allSettled(workers);
+    const aborted = settled.find((r) => r.status === 'rejected');
+    if (aborted && aborted.status === 'rejected') throw aborted.reason;
     if (failures.length > 0) throw new PreloadError(failures);
   }
 
@@ -431,7 +459,7 @@ class EngineImpl implements Engine {
     regions: SpriteMap,
     options: LoadSoundOptions = {},
   ): Promise<Sprite> {
-    const sound = await this.loadSound(`__sprite:${name}`, url, options);
+    const sound = await this.loadSoundAs(`__sprite:${name}`, name, url, options, true);
     const sprite = new Sprite(name, sound, regions);
     this.sprites.set(name, sprite);
     return sprite;
@@ -439,7 +467,7 @@ class EngineImpl implements Engine {
 
   sprite(name: string): Sprite {
     const s = this.sprites.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sprites.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.sprites.keys()]));
     return s;
   }
 
@@ -456,10 +484,12 @@ class EngineImpl implements Engine {
       throw new Error(`engine.loadVariants("${name}") requires at least one URL set`);
     }
     const { strategy, ...loadOpts } = options;
-    const sounds: Sound[] = [];
-    for (let i = 0; i < urls.length; i++) {
-      sounds.push(await this.loadSound(`__variant:${name}:${i}`, urls[i]!, loadOpts));
-    }
+    // Sequential awaits meant 8 variants cost 8 round trips. Same
+    // concurrency cap as preload so a big variant bundle doesn't starve the
+    // rest of the page's fetches.
+    const sounds = await mapConcurrent(urls, DEFAULT_LOAD_CONCURRENCY, (u, i) =>
+      this.loadSoundAs(`__variant:${name}:${i}`, name, u, loadOpts, true),
+    );
     const v = new Variants(name, sounds, { strategy });
     this.variantsByName.set(name, v);
     return v;
@@ -467,7 +497,7 @@ class EngineImpl implements Engine {
 
   variants(name: string): Variants {
     const v = this.variantsByName.get(name);
-    if (!v) throw new SoundNotFoundError(suggest(name, [...this.variantsByName.keys()]));
+    if (!v) throw new SoundNotFoundError(name, suggest(name, [...this.variantsByName.keys()]));
     return v;
   }
 
@@ -481,13 +511,17 @@ class EngineImpl implements Engine {
     this.ensureGraph();
 
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    const loopBuf = await this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts);
-    const introBuf = parts.intro
-      ? await this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
-      : undefined;
-    const outroBuf = parts.outro
-      ? await this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
-      : undefined;
+    // Three independent fetches. Sequential awaits made a three-part track
+    // cost three round trips before a single note could play.
+    const [loopBuf, introBuf, outroBuf] = await Promise.all([
+      this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts),
+      parts.intro
+        ? this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
+        : Promise.resolve(undefined),
+      parts.outro
+        ? this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
+        : Promise.resolve(undefined),
+    ]);
 
     const ctx = this.host.touch();
     const buffers = {
@@ -506,7 +540,7 @@ class EngineImpl implements Engine {
 
     const busName = options.bus ?? this.busOrder[0]!;
     const bus = this.buses.get(busName);
-    if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
+    if (!bus) throw new BusNotFoundError(busName, suggest(busName, [...this.buses.keys()]));
 
     const music = new Music(name, {
       ctx: this.host.touch(),
@@ -521,7 +555,7 @@ class EngineImpl implements Engine {
 
   music(name: string): Music {
     const m = this.musics.get(name);
-    if (!m) throw new SoundNotFoundError(suggest(name, [...this.musics.keys()]));
+    if (!m) throw new SoundNotFoundError(name, suggest(name, [...this.musics.keys()]));
     return m;
   }
 
@@ -536,7 +570,7 @@ class EngineImpl implements Engine {
     const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
     const bus = options.bus ?? this.busOrder[0]!;
     const busObj = this.buses.get(bus);
-    if (!busObj) throw new BusNotFoundError(suggest(bus, [...this.buses.keys()]));
+    if (!busObj) throw new BusNotFoundError(bus, suggest(bus, [...this.buses.keys()]));
     const stream = new StreamSound(name, this.host.touch(), resolvedUrl, busObj.input);
     this.streams.set(name, stream);
     return stream;
@@ -544,7 +578,7 @@ class EngineImpl implements Engine {
 
   stream(name: string): StreamSound {
     const s = this.streams.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.streams.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.streams.keys()]));
     return s;
   }
 
@@ -562,7 +596,7 @@ class EngineImpl implements Engine {
       loop: options.loop ?? true,
       volume: 0,
     });
-    void newVoice.fade({ to: toVolume, duration, curve });
+    void newVoice.fade({ to: toVolume, duration, curve }).catch(() => void 0);
     // Only fade out `from` instances on the same bus the new voice plays on —
     // crossfading on the music bus shouldn't stop the same sound playing on,
     // say, an ambience bus.
@@ -570,27 +604,44 @@ class EngineImpl implements Engine {
       (v) => v !== newVoice && v.sourceName === from && v.bus === newVoice.bus,
     );
     for (const v of outgoing) {
-      void v.fade({ to: 0, duration, curve }).then(() => v.stop());
+      // Detached from the caller: a rejection here would surface as an
+      // unhandled rejection rather than anything actionable.
+      void v
+        .fade({ to: 0, duration, curve })
+        .then(() => v.stop())
+        .catch(() => void 0);
     }
     return newVoice;
   }
 
   createSound(name: string, buffer: AudioBuffer, options: { bus?: string } = {}): Sound {
+    return this.registerSound(name, name, buffer, options, false);
+  }
+
+  private registerSound(
+    name: string,
+    publicName: string,
+    buffer: AudioBuffer,
+    options: { bus?: string },
+    internal: boolean,
+  ): Sound {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
 
     const defaultBus = options.bus ?? this.busOrder[0]!;
-    if (!this.buses.has(defaultBus)) throw new BusNotFoundError(suggest(defaultBus, [...this.buses.keys()]));
+    if (!this.buses.has(defaultBus))
+      throw new BusNotFoundError(defaultBus, suggest(defaultBus, [...this.buses.keys()]));
 
     const sound = new Sound(name, {
       ctx: this.host.touch(),
       buffer,
       defaultBus,
+      sourceName: publicName,
       defaultStopFade: this.config.voice?.stopFade,
       resolveBusInput: (busName) => {
         const bus = this.buses.get(busName);
-        if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
+        if (!bus) throw new BusNotFoundError(busName, suggest(busName, [...this.buses.keys()]));
         return bus.input;
       },
       resolveSpatializer: (_busName, opts) => {
@@ -626,7 +677,10 @@ class EngineImpl implements Engine {
       },
     });
 
-    this.sounds.set(name, sound);
+    // Sprite buffers and variant parts stay out of the public registry —
+    // they used to show up in `hasSound`, in did-you-mean suggestions, and
+    // as `__variant:coin:2` on `voice.sourceName`.
+    (internal ? this.internalSounds : this.sounds).set(name, sound);
     return sound;
   }
 
@@ -651,14 +705,14 @@ class EngineImpl implements Engine {
 
   sound(name: string): Sound {
     const s = this.sounds.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sounds.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.sounds.keys()]));
     return s;
   }
 
   bus(name: string): Bus {
     this.ensureGraph();
     const b = this.buses.get(name);
-    if (!b) throw new BusNotFoundError(suggest(name, [...this.buses.keys()]));
+    if (!b) throw new BusNotFoundError(name, suggest(name, [...this.buses.keys()]));
     return b;
   }
 
@@ -671,7 +725,7 @@ class EngineImpl implements Engine {
     }
     const existing = this.busGroups.get(name);
     if (!existing) {
-      throw new BusNotFoundError(suggest(name, [...this.busGroups.keys()]));
+      throw new BusNotFoundError(name, suggest(name, [...this.busGroups.keys()]));
     }
     return existing;
   }
@@ -773,8 +827,40 @@ class EngineImpl implements Engine {
  * Uses Levenshtein distance on the candidate set; if a close match exists,
  * it's surfaced in the error so a typo doesn't waste anyone's afternoon.
  */
-function suggest(missing: string, candidates: readonly string[]): string {
-  if (candidates.length === 0) return missing;
+/** Default parallel fetches for preload and variant bundles. */
+const DEFAULT_LOAD_CONCURRENCY = 4;
+
+/**
+ * Map over `items` with at most `limit` calls in flight, preserving input
+ * order in the result. Rejects with the first failure, like Promise.all.
+ */
+async function mapConcurrent<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]!, i);
+    }
+  };
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return out;
+}
+
+/**
+ * Closest candidate to `missing`, or null when nothing is near enough.
+ * Callers pass the result to an error constructor as a hint — it used to
+ * return a string with quote characters spliced into it so the caller's own
+ * template would close around the suggestion.
+ */
+function suggest(missing: string, candidates: readonly string[]): string | null {
+  if (candidates.length === 0) return null;
   let best: string | null = null;
   let bestDist = Infinity;
   for (const c of candidates) {
@@ -789,10 +875,7 @@ function suggest(missing: string, candidates: readonly string[]): string {
   // suggest "music".
   const longest = Math.max(missing.length, best?.length ?? 0);
   const threshold = Math.max(1, Math.ceil(longest / 2));
-  if (best && bestDist <= threshold) {
-    return `${missing}"; did you mean "${best}`;
-  }
-  return missing;
+  return best && bestDist <= threshold ? best : null;
 }
 
 /**

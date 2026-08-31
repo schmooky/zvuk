@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Engine } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
@@ -18,7 +19,7 @@ export default function SoundCard() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'hit', file, 'sfx');
-    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.chip], { bus: 'sfx' });
+    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.gem], { bus: 'sfx' });
   }
 
   async function start() {
@@ -50,18 +51,12 @@ export default function SoundCard() {
     <Card className="not-prose gap-3 p-5 text-center">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="sm" onClick={start}>
-          Unlock &amp; load
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & load">
           <Waveform audioNode={busNode} variant="bars" />
           <Button variant="secondary" size="sm" disabled={state !== 'live' || !loaded} onClick={play}>
             Play sound
           </Button>
-        </>
-      )}
+      </DemoShell>
       <p className="text-xs text-muted-foreground font-mono">engine.sound("hit").play()</p>
     </Card>
   );

@@ -66,66 +66,77 @@ await engine.loadMusic('combat', {
 ---
 <Docs
   title="Music"
-  description="Stinger → loop → outro, with skip-to-outro at the natural loop boundary."
+  description="Stinger, loop, outro, with skip-to-outro at the natural loop boundary."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A <code>Music</code> source is a three-part asset — optional intro,
-    mandatory loop, optional outro — that plays the way game music actually
-    works: stinger plays once, loop body runs forever, and (on cue) the
-    outro fires at the next loop boundary so the music ends musically
-    instead of cutting off mid-bar.
+    The player wins, you stop the combat track, and it cuts off half a bar
+    into a phrase. Nobody can say what is wrong, but everyone can hear it.
+  </p>
+  <p>
+    A <a href="/api/Music/"><code>Music</code></a> source is a three-part
+    asset. There is an optional intro, a mandatory loop, and an optional
+    outro. The
+    intro plays once, the loop body runs until told otherwise, and the outro
+    fires at the next loop boundary so the track ends on the beat instead of
+    wherever the stop happened to land. It is the shape Wwise and FMOD have
+    used for interactive music for twenty years.
   </p>
 
   <h2>API surface</h2>
-  <Snippet code={surface} lang="ts" title="Music + MusicVoice — public interface" />
+  <Snippet code={surface} lang="ts" title="The Music and MusicVoice interface" />
 
   <h2>Load a three-part asset</h2>
   <p>
-    Each part accepts the same shape as <code>loadSound</code>'s second
-    argument: a single URL or a codec ladder. Loading goes through the same
+    Each part takes the same shape as <code>loadSound</code>'s second
+    argument, either a single URL or a codec ladder. All three go through the same
     decoder cache and the same <a href="/guides/asset-resolution/"><code>resolveAsset</code></a>
-    hook, so codec fallback and external asset systems apply per part.
+    hook, and they are fetched in parallel.
   </p>
   <Snippet code={load} lang="ts" />
 
   <h2>Play it</h2>
   <Snippet code={playBasic} lang="ts" />
 
-  <h2>How to end it</h2>
+  <h2>Why is my music cutting off mid-phrase?</h2>
+  <p>
+    Because <code>stop()</code> is a click-free cut, not a musical one. It
+    fades over a few milliseconds and ends. When you want the track to
+    finish a phrase, call <code>skipToOutro({'{'} at: 'loop-end' {'}'})</code> and let
+    the loop reach its boundary first.
+  </p>
   <Snippet code={skipModes} lang="ts" />
 
   <h2>Outro is optional</h2>
   <p>
-    If you skip <code>outro</code>, <code>skipToOutro()</code> falls through
-    to a clean stop — calling code doesn't need to branch on
+    Without an <code>outro</code>, <code>skipToOutro()</code> falls through to
+    a clean stop, so calling code never has to branch on
     <code>music.hasOutro</code>.
   </p>
   <Snippet code={noOutro} lang="ts" />
 
   <h2>Click-free loops</h2>
   <p>
-    <code>loopCrossfade</code> on <code>loadMusic</code> works the same way
+    <code>loopCrossfade</code> on <code>loadMusic</code> behaves the same way
     as <a href="/concepts/voice/"><code>PlayOptions.loopCrossfade</code></a>
-    on a regular Voice: spawns a parallel buffer source one crossfade-window
-    before each loop boundary and equal-power-ramps between them. Off by
-    default; set non-zero to opt in.
+    on a regular voice. One crossfade window before each loop boundary it
+    spawns a parallel buffer source and equal-power ramps between them. Off by
+    default; set a non-zero value to opt in.
   </p>
   <Snippet code={crossfade} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't use <code>Music</code> for short SFX.</div>
-    Each <code>play()</code> spawns a fresh chain of buffer-sources and a
+    Each <code>play()</code> spawns a fresh chain of buffer sources and a
     couple of timers. For one-shot clicks and stingers, <a href="/concepts/sound/">Sound</a>
     or <a href="/concepts/sound/">Sprite</a> is cheaper and the right shape.
   </div>
   <div class="pitfall">
-    <div class="pitfall-title">Don't use <code>Music</code> for tracks &gt; 30 s.</div>
-    All three parts decode into RAM. For long tracks (background mixes,
-    streaming radio), use <a href="/guides/loading/"><code>loadStream</code></a>
-    instead — it routes through <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>
-    so memory stays flat.
+    <div class="pitfall-title">Don't use <code>Music</code> for tracks over 30 s.</div>
+    All three parts decode into RAM, at four bytes per sample per channel.
+    For long tracks, use <a href="/guides/loading/"><code>loadStream</code></a>,
+    which routes through <code>HTMLAudioElement</code> and
+    <code>MediaElementAudioSource</code> so memory stays flat.
   </div>
 </Docs>

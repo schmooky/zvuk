@@ -1,36 +1,54 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Engine, type EngineConfig, type EngineState, createEngine } from '@schmooky/zvuk';
+import type { BusConfig, Engine, EngineConfig, EngineState } from '@schmooky/zvuk';
+import {
+  applyBusConfig,
+  getDemoEngine,
+  getDemoState,
+  stopVoicesOn,
+  subscribeDemoState,
+  unlockDemoEngine,
+} from './sharedEngine';
 
 /**
- * One engine per demo, lazy-constructed, closed on unmount.
- * StrictMode-safe: the engine is created from the first interaction, not
- * mount, so React's double-mount in dev doesn't create two contexts.
+ * Hook onto the page's shared engine.
+ *
+ * The signature is unchanged from when every demo owned its own engine: pass
+ * the bus shape you want to demonstrate, get back a ref, a state, and an
+ * unlock. What changed underneath is that there is now one AudioContext, one
+ * unlock gesture and one decode cache for the whole page.
+ *
+ * On unmount the hook stops whatever is still sounding on the buses this
+ * demo declared. It cannot close the engine any more, because the engine
+ * isn't its to close.
  */
 export function useDemoEngine(config: EngineConfig) {
   const engineRef = useRef<Engine | null>(null);
   const configRef = useRef(config);
-  const [state, setState] = useState<EngineState>('cold');
+  const [state, setState] = useState<EngineState>(getDemoState());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubscribe = subscribeDemoState(setState);
+    setState(getDemoState());
+    const buses = Object.keys(configRef.current.buses ?? {});
     return () => {
-      void engineRef.current?.close();
-      engineRef.current = null;
+      unsubscribe();
+      stopVoicesOn(buses);
     };
   }, []);
 
   function ensureEngine(): Engine {
-    if (engineRef.current) return engineRef.current;
-    const engine = createEngine(configRef.current);
-    engine.onStateChange((s) => setState(s));
+    const engine = getDemoEngine();
     engineRef.current = engine;
     return engine;
   }
 
   async function unlock(): Promise<Engine | null> {
     try {
-      const engine = ensureEngine();
-      await engine.unlock();
+      const engine = await unlockDemoEngine();
+      engineRef.current = engine;
+      // Levels and concurrency are per-demo; apply them once the graph exists.
+      applyBusConfig(configRef.current.buses as Record<string, BusConfig> | undefined);
       return engine;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -62,24 +80,70 @@ export async function decodeFileToSound(
   return buffer;
 }
 
+/**
+ * The demo sound set.
+ *
+ * Everything here is normalised to a consistent loudness with a -1.5 dBTP
+ * ceiling: the raw set spanned 22 dB of peak level and four files were
+ * already clipping, which on a shared bus is unusable. One-shots sit at
+ * -18 LUFS, beds 6 dB or more under, because beds play underneath things.
+ */
 export const SAMPLES = {
-  music: ['/audio/card-shuffle.webm', '/audio/card-shuffle.m4a'],
-  chip: ['/audio/chip-lay-1.webm', '/audio/chip-lay-1.m4a'],
-  collide: ['/audio/chips-collide-1.webm', '/audio/chips-collide-1.m4a'],
-  dice: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'],
-  card: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'],
-  slide: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'],
-  // Two music beds for the Crossfade demo. MP3 fallback only — no codec
-  // ladder until we transcode them via `npx zvuk transcode`.
-  musicA: ['/audio/music-a.mp3'],
-  musicB: ['/audio/music-b.mp3'],
-  // Kenney digital-audio pack (CC0). Useful for arcade-flavoured one-shots.
-  laser: ['/audio/laser1.ogg'],
-  laserAlt: ['/audio/laser2.ogg'],
-  powerUp: ['/audio/powerUp1.ogg'],
-  powerUpAlt: ['/audio/powerUp2.ogg'],
-  phaseJump: ['/audio/phaseJump1.ogg'],
-  phaseJumpAlt: ['/audio/phaseJump2.ogg'],
-  zap: ['/audio/zap1.ogg'],
-  zapAlt: ['/audio/zap2.ogg'],
+  /**
+   * Buffered beds. Arbitrary 12 s trims out of longer loops, so the seam is
+   * masked at runtime with `loopCrossfade` — which is a feature these demos
+   * want to be showing anyway.
+   */
+  stream: ['/audio/stream.webm', '/audio/stream.m4a'],
+  fire: ['/audio/fire.webm', '/audio/fire.m4a'],
+
+  /**
+   * Long ambience, streamed rather than decoded. 68 and 72 seconds, which is
+   * about 24 MB of PCM each if you decode them, and the reason `loadStream`
+   * exists. Left at full length because they are seamless loops and a trim
+   * would put a click at the loop point.
+   */
+  rain: ['/audio/rain.webm', '/audio/rain.m4a'],
+  birds: ['/audio/birds.webm', '/audio/birds.m4a'],
+
+  /** Pickups and stingers. */
+  gem: ['/audio/gem.webm', '/audio/gem.m4a'],
+  heart: ['/audio/heart.webm', '/audio/heart.m4a'],
+  chime: ['/audio/chime.webm', '/audio/chime.m4a'],
+  chimeQuick: ['/audio/chime-quick.webm', '/audio/chime-quick.m4a'],
+  bells1: ['/audio/bells-1.webm', '/audio/bells-1.m4a'],
+  bells2: ['/audio/bells-2.webm', '/audio/bells-2.m4a'],
+
+  /** Single takes, for demos that want one specific hit. */
+  chips1: ['/audio/chips-1.webm', '/audio/chips-1.m4a'],
+  chips2: ['/audio/chips-2.webm', '/audio/chips-2.m4a'],
+  diceRoll1: ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'],
+  diceShake2: ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'],
 } as const;
+
+/**
+ * Alternate takes of the same action, for `engine.loadVariants`. A pure
+ * random picker repeats itself often enough to sound broken, which is the
+ * whole reason the strategies exist.
+ */
+export const VARIANTS = {
+  diceRoll: [
+    ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'],
+    ['/audio/dice-roll-2.webm', '/audio/dice-roll-2.m4a'],
+    ['/audio/dice-roll-3.webm', '/audio/dice-roll-3.m4a'],
+    ['/audio/dice-roll-4.webm', '/audio/dice-roll-4.m4a'],
+  ],
+  chips: [
+    ['/audio/chips-1.webm', '/audio/chips-1.m4a'],
+    ['/audio/chips-2.webm', '/audio/chips-2.m4a'],
+    ['/audio/chips-3.webm', '/audio/chips-3.m4a'],
+  ],
+  diceShake: [
+    ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'],
+    ['/audio/dice-shake-3.webm', '/audio/dice-shake-3.m4a'],
+    ['/audio/dice-shake-4.webm', '/audio/dice-shake-4.m4a'],
+  ],
+} as const;
+
+/** Crossfade window used by the bed demos to hide an arbitrary trim point. */
+export const BED_LOOP_CROSSFADE = 0.4;

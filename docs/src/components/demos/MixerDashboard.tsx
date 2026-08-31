@@ -1,23 +1,34 @@
-import { useEffect, useRef, useState } from 'react';
-import { type Bus, type Engine, type EngineState, type Voice, createEngine } from '@schmooky/zvuk';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { AudioLevel, Bus, Engine, EngineState, Voice } from '@schmooky/zvuk';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import {
+  applyBusConfig,
+  getDemoEngine,
+  getDemoState,
+  stopVoicesOn,
+  subscribeDemoState,
+  unlockDemoEngine,
+} from './sharedEngine';
+import DemoShell from './DemoShell';
+import Meter from './Meter';
 import Waveform from './Waveform';
 
 type Sample = { name: string; sources: string[]; bus: 'music' | 'sfx' | 'ui' };
 
 const SAMPLES: Sample[] = [
-  { name: 'card-shuffle', sources: ['/audio/card-shuffle.webm', '/audio/card-shuffle.m4a'], bus: 'music' },
-  { name: 'chip-lay', sources: ['/audio/chip-lay-1.webm', '/audio/chip-lay-1.m4a'], bus: 'sfx' },
-  { name: 'chips-collide', sources: ['/audio/chips-collide-1.webm', '/audio/chips-collide-1.m4a'], bus: 'sfx' },
-  { name: 'dice-throw', sources: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'], bus: 'sfx' },
-  { name: 'card-place', sources: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'], bus: 'ui' },
-  { name: 'card-slide', sources: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'], bus: 'ui' },
+  { name: 'chime', sources: ['/audio/chime.webm', '/audio/chime.m4a'], bus: 'music' },
+  { name: 'bells', sources: ['/audio/bells-1.webm', '/audio/bells-1.m4a'], bus: 'music' },
+  { name: 'dice-roll', sources: ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'], bus: 'sfx' },
+  { name: 'dice-shake', sources: ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'], bus: 'sfx' },
+  { name: 'gem', sources: ['/audio/gem.webm', '/audio/gem.m4a'], bus: 'ui' },
+  { name: 'heart', sources: ['/audio/heart.webm', '/audio/heart.m4a'], bus: 'ui' },
 ];
+
 
 const BUS_NAMES = ['music', 'sfx', 'ui'] as const;
 type BusName = (typeof BUS_NAMES)[number];
@@ -41,27 +52,20 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
     ui: null,
   });
 
-  // Build the engine on first interaction so React's StrictMode double-mount
-  // doesn't create two contexts in dev.
+  // The engine is shared with every other demo on the page, so this only
+  // takes a reference and sets the levels this dashboard wants to show.
   function ensureEngine(): Engine {
-    if (engineRef.current) return engineRef.current;
-    const engine = createEngine({
-      buses: {
-        music: { level: 0.8 },
-        sfx: { level: 1.0 },
-        ui: { level: 0.7 },
-      },
-      master: { headroom: -3 },
-    });
-    engine.onStateChange((s) => setState(s));
+    const engine = getDemoEngine();
     engineRef.current = engine;
     return engine;
   }
 
   useEffect(() => {
+    const unsubscribe = subscribeDemoState(setState);
+    setState(getDemoState());
     return () => {
-      void engineRef.current?.close();
-      engineRef.current = null;
+      unsubscribe();
+      stopVoicesOn(BUS_NAMES);
     };
   }, []);
 
@@ -75,10 +79,29 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
     return () => clearInterval(id);
   }, [state]);
 
+  // One reader per bus, stable across renders so the meter's frame loop
+  // isn't rebuilt on every state change.
+  const readers = useMemo(
+    () =>
+      Object.fromEntries(
+        BUS_NAMES.map((name) => [
+          name,
+          (): AudioLevel | null => {
+            const e = engineRef.current;
+            if (!e || e.state !== 'live') return null;
+            return e.bus(name).meter();
+          },
+        ]),
+      ) as Record<BusName, () => AudioLevel | null>,
+    [],
+  );
+
   async function unlock() {
     try {
-      const engine = ensureEngine();
-      await engine.unlock();
+      ensureEngine();
+      const engine = await unlockDemoEngine();
+      engineRef.current = engine;
+      applyBusConfig({ music: { level: 0.8 }, sfx: { level: 1 }, ui: { level: 0.7 } });
       setBusNodes({
         music: engine.bus('music').output,
         sfx: engine.bus('sfx').output,
@@ -167,19 +190,14 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
         </div>
       </div>
 
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={unlock}>
-          Unlock audio &amp; load samples
-        </Button>
-      ) : null}
-
       {error ? (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {error}
         </div>
       ) : null}
 
-      {state !== 'cold' && (
+      <DemoShell state={state} onStart={unlock} label="Unlock audio & load samples">
+
         <>
           <div className="grid gap-3 md:grid-cols-3">
             {BUS_NAMES.map((name) => (
@@ -214,7 +232,7 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
                 <div className="font-mono text-[10px] text-muted-foreground">
                   level: {levels[name].toFixed(2)}
                 </div>
-                <Waveform audioNode={busNodes[name]} variant="bars" height={36} />
+                <Meter read={readers[name]} height={38} readout={false} />
               </Card>
             ))}
           </div>
@@ -246,7 +264,7 @@ export default function MixerDashboard({ standalone = false }: Props = {}) {
             supports.
           </p>
         </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

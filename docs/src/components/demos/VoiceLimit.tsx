@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
@@ -24,7 +25,7 @@ export default function VoiceLimit() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'sfx');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.chips1], { bus: 'sfx' });
   }
 
   async function start() {
@@ -77,12 +78,7 @@ export default function VoiceLimit() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; load
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & load">
           <Waveform audioNode={busNode} variant="bars" label="sfx bus" />
           <div className="grid gap-3 md:grid-cols-2">
             <label className="block">
@@ -139,8 +135,7 @@ export default function VoiceLimit() {
               stop all
             </Button>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

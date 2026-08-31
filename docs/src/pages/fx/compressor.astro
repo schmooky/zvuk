@@ -45,18 +45,25 @@ const meter = `setInterval(() => {
 ---
 <Docs
   title="Compressor"
-  description="Dynamic range compression as a bus FX insert. Wraps DynamicsCompressorNode + makeup gain. Bypass is a graph swap — no parameter latency."
+  description="Dynamic range compression as a bus FX insert. Wraps DynamicsCompressorNode and makeup gain. Bypass is a graph swap, so it has no parameter latency."
   eyebrow="FX"
 >
 
-  <h2>TL;DR</h2>
   <p>
-    Compresses the dynamic range of whatever you route through it. Use it on a
-    voice bus to even out dialogue, on a music bus for glue, or on the master
-    as a soft limiter (with <code>ratio: 20</code> and a fast attack). Note a
-    <code>DynamicsCompressor</code> is limiter-<em>like</em>, not a true
-    brick-wall limiter — transients can still pass, so don't rely on it to
-    guarantee no clipping.
+    One line of dialogue is a whisper and the next is a shout, and the player
+    is on a phone at a bus stop. Compression is how you make both audible
+    without making either wrong.
+  </p>
+  <p>
+    A <a href="/api/Compressor/"><code>Compressor</code></a> narrows the
+    dynamic range of whatever passes through it. Use it on a voice bus to even
+    out dialogue, on a music bus for glue, or on the master as a soft limiter
+    at <code>ratio: 20</code> with a fast attack.
+  </p>
+  <p>
+    It is limiter-<em>like</em> and not a brick wall. With a finite attack and
+    no lookahead, transients still get through, so it is not a guarantee
+    against clipping.
   </p>
 
   <h2>API surface</h2>
@@ -65,7 +72,7 @@ const meter = `setInterval(() => {
   <h2>Live demo</h2>
   <p>
     Five knobs and a live reduction meter. Toggle bypass to A/B against the
-    dry signal — the meter goes to zero when bypassed.
+    dry signal. The meter drops to zero when bypassed.
   </p>
   <CompressorPlayground client:visible />
 
@@ -81,7 +88,7 @@ const meter = `setInterval(() => {
   <div class="pitfall">
     <div class="pitfall-title">Don't compress music to mush.</div>
     Ratios above 8:1 on music sound pumpy. Reserve heavy ratios for voice or
-    SFX glue; for music sit at 2:1–4:1 with a soft knee.
+    SFX glue. For music, sit between 2:1 and 4:1 with a soft knee.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't dial makeupGain to compensate fully.</div>
@@ -97,7 +104,7 @@ const meter = `setInterval(() => {
   <h2>Related</h2>
   <ul>
     <li><a href="/fx/">FX index</a></li>
-    <li><a href="/guides/ducking/">Sidechain ducking</a> — Ducker is a compressor keyed from another bus.</li>
-    <li><a href="/concepts/bus/">Bus</a> — where FX inserts live.</li>
+    <li><a href="/guides/ducking/">Sidechain ducking</a> covers Ducker, a compressor keyed from another bus.</li>
+    <li><a href="/concepts/bus/">Bus</a> is where FX inserts live.</li>
   </ul>
 </Docs>

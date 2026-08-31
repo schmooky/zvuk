@@ -109,13 +109,13 @@ const sections = [
   { tier: 4, title: 'Polish', subtitle: 'Can wait, but on the list.', items: tier4 },
 ].filter((s) => s.items.length > 0);
 ---
-<Base title={`Roadmap · ${SITE.name}`} description="What's next in zvuk — public, prioritised, sized.">
+<Base title={`Roadmap · ${SITE.name}`} description="What's next in zvuk. Public, prioritised, sized.">
   <div class="container py-12 max-w-4xl">
     <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Public roadmap</div>
     <h1 class="mb-3 text-4xl font-semibold tracking-tight">What's next</h1>
     <p class="mb-8 text-lg text-muted-foreground max-w-2xl">
       An honest punch list of what would make zvuk better, ordered by impact.
-      No promises on dates — this is intent, not a release schedule. PRs welcome
+      No promises on dates. This is intent, not a release schedule. PRs welcome
       on anything sized <span class="inline-block rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary">small</span>.
     </p>
 
@@ -202,7 +202,7 @@ const sections = [
         <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">Shipped</div>
         <h2 class="text-2xl font-semibold tracking-tight">Roadmap tier sweep</h2>
       </div>
-      <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep — every actionable item from Tiers 1–4, end-to-end. Framework adapters remain out of scope.</p>
+      <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep covering every actionable item from Tiers 1 through 4, end to end. Framework adapters remain out of scope.</p>
       <ol class="space-y-3">
         {recentlyShipped.map((item) => {
           const badge = sizeBadge[item.size ?? 'M'];

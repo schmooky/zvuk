@@ -49,11 +49,16 @@ muffle.set(1);   // fully underwater`;
   eyebrow="FX"
 >
 
-  <h2>TL;DR</h2>
   <p>
-    A single <code>BiquadFilterNode</code> wrapped in the FX-insert contract.
-    Pick a type, a frequency, a Q. Drive it from a <a href="/concepts/parameter/">Parameter</a>
-    for cinematic transitions.
+    Everything muffles when the player goes underwater, and the cheapest
+    convincing version of that is one filter on one bus.
+  </p>
+  <p>
+    A <a href="/api/Filter/"><code>Filter</code></a> is a single
+    <code>BiquadFilterNode</code> wrapped in the FX-insert contract. Pick a
+    type, a frequency and a Q. Drive any of them from a
+    <a href="/concepts/parameter/">Parameter</a> when you want the transition
+    rather than the state.
   </p>
 
   <h2>API surface</h2>

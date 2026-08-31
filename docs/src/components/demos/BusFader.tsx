@@ -1,17 +1,23 @@
-import { type Engine } from '@schmooky/zvuk';
-import { useState } from 'react';
+import { type AudioLevel, type Engine } from '@schmooky/zvuk';
+import { useCallback, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import DemoShell from './DemoShell';
+import Meter from './Meter';
 import CustomSoundField from './CustomSoundField';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 /**
- * One bus, one slider, two buttons. Direct level write vs. fadeTo() — you
- * can hear the click-vs-smooth difference if you slam the slider. Drop in
- * your own audio file to hear it run through the same bus.
+ * One bus, one slider, three fade buttons, and a switch that decides whether
+ * the slider goes through `bus.level` or writes the gain param raw.
+ *
+ * The copy used to promise you could hear a click by slamming the slider,
+ * which was never true: `bus.level` ramps over 10 ms internally, so both
+ * paths are smooth and the demo couldn't teach its own lesson. The raw
+ * toggle is the missing half. Turn it on, slam the slider, hear the zipper.
  */
 export default function BusFader() {
   const { engine, state, error, setError, unlock } = useDemoEngine({
@@ -22,11 +28,18 @@ export default function BusFader() {
   const [voice, setVoice] = useState<{ stop: () => void } | null>(null);
   const [busNode, setBusNode] = useState<AudioNode | null>(null);
   const [customFile, setCustomFile] = useState<File | null>(null);
+  const [raw, setRaw] = useState(false);
+
+  const readLevel = useCallback((): AudioLevel | null => {
+    const e = engine.current;
+    if (!e || e.state !== 'live') return null;
+    return e.bus('music').meter();
+  }, [engine]);
 
   /** Load the user's file if one is picked, otherwise the bundled sample. */
   async function ensureLoop(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -34,7 +47,7 @@ export default function BusFader() {
     if (!e) return;
     await ensureLoop(e, customFile);
     if (!voice) {
-      const v = e.sound('loop').play({ loop: true });
+      const v = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
       setVoice(v);
     }
     setBusNode(e.bus('music').output);
@@ -47,7 +60,7 @@ export default function BusFader() {
     try {
       await ensureLoop(e, file);
       voice?.stop(); // restart so the new sound is audible immediately
-      setVoice(e.sound('loop').play({ loop: true }));
+      setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -55,7 +68,15 @@ export default function BusFader() {
 
   function setLevelLive(v: number) {
     setLevel(v);
-    if (engine.current?.state === 'live') engine.current.bus('music').level = v;
+    const e = engine.current;
+    if (e?.state !== 'live') return;
+    if (raw) {
+      // What the library deliberately doesn't do: a bare AudioParam write,
+      // stepping the gain once per pointer event.
+      e.bus('music').output.gain.value = v;
+    } else {
+      e.bus('music').level = v;
+    }
   }
 
   async function fadeTo(target: number, duration: number) {
@@ -75,17 +96,22 @@ export default function BusFader() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start loop
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start loop">
+          <Meter read={readLevel} label="music bus" />
           <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">
             <span className="text-primary">music.level</span>
             <span className="text-muted-foreground">{level.toFixed(2)}</span>
           </div>
+          <label className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={raw}
+              onChange={(e) => setRaw(e.target.checked)}
+              className="accent-[var(--color-primary)]"
+            />
+            write output.gain.value directly (no 10 ms ramp)
+          </label>
           <Slider
             min={0}
             max={1}
@@ -132,8 +158,7 @@ export default function BusFader() {
               stop voice
             </Button>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

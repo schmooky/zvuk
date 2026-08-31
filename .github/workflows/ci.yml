@@ -4,9 +4,14 @@ name: CI
 #   - install
 #   - lint (biome)
 #   - typecheck (tsc --noEmit)
-#   - tests (vitest)
+#   - tests (vitest, with coverage thresholds)
+#   - benchmarks (vitest bench)
 #   - lib build (tsup → dist/)
+#   - published bundle size (size-limit)
 #   - docs build (astro + pagefind + llms manifest)
+#
+# The conformance job is separate: it drives real browsers, so it is slower
+# and its failures mean something different from a unit failure.
 
 on:
   push:
@@ -41,10 +46,39 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
-        run: pnpm test
+        run: pnpm test:coverage
+
+      - name: Benchmarks
+        run: pnpm bench
 
       - name: Build lib
         run: pnpm build
 
+      - name: Bundle size
+        run: pnpm size
+
       - name: Build docs
         run: pnpm docs:build
+
+  conformance:
+    # Rendered-audio specs against a real OfflineAudioContext. The fast suite
+    # runs against a fake, which is exactly why scheduling bugs got through.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Conformance
+        run: pnpm test:conformance

@@ -146,7 +146,7 @@ await engine.loadSound('coin', '');`;
 ---
 <Docs
   title="Asset resolution"
-  description="Adopt buffers from Pixi assetpack, IndexedDB, manifests, or any asset system — without coupling zvuk to it."
+  description="Adopt buffers from Pixi assetpack, IndexedDB, manifests, or any asset system, without coupling zvuk to it."
   eyebrow="Guide"
 >
 
@@ -161,7 +161,7 @@ await engine.loadSound('coin', '');`;
   <p>
     <code>resolveAsset</code> is the seam: a single function that maps an asset
     name to a buffer (or URL) drawn from whatever system you already run. zvuk
-    consults it before any fetch — so you can build a Pixi adapter, an
+    consults it before any fetch, so you can build a Pixi adapter, an
     IndexedDB cache, or a manifest layer without zvuk depending on any of
     them.
   </p>
@@ -171,13 +171,12 @@ await engine.loadSound('coin', '');`;
 
   <p>
     Returning <code>undefined</code> or <code>null</code> falls through to
-    the URL list passed to <code>loadSound</code>. That means you can
-    seamlessly mix cached and uncached sounds without branching at the
-    call site — the resolver returns what it has, the URL fetch handles
-    the rest.
+    the URL list passed to <code>loadSound</code>. Cached and uncached
+    sounds can therefore sit side by side without a branch at the call site.
+    The resolver returns what it has and the URL fetch handles the rest.
   </p>
 
-  <h2>Recipe — Pixi v8 + assetpack</h2>
+  <h2>Recipe: Pixi v8 and assetpack</h2>
   <p>
     The integration zvuk is mainly designed around. Bundle audio with your
     Pixi assetpack manifest, load it as part of the normal preload flow,
@@ -190,7 +189,7 @@ await engine.loadSound('coin', '');`;
     too — there's no second progress to wire up.
   </p>
 
-  <h2>Recipe — IndexedDB persistent cache</h2>
+  <h2>Recipe: IndexedDB persistent cache</h2>
   <p>
     For apps that load the same audio set repeatedly (slot machines, casino
     games, kiosk experiences), persisting decoded bytes in IndexedDB cuts
@@ -199,7 +198,7 @@ await engine.loadSound('coin', '');`;
   </p>
   <Snippet code={indexedDB} lang="ts" />
 
-  <h2>Recipe — in-memory cache</h2>
+  <h2>Recipe: in-memory cache</h2>
   <p>
     If you want full control over eviction or you're injecting buffers from
     a service worker / build-time inliner, a plain <code>Map</code> is
@@ -207,7 +206,7 @@ await engine.loadSound('coin', '');`;
   </p>
   <Snippet code={inMemoryCache} lang="ts" />
 
-  <h2>Recipe — manifest-driven URLs</h2>
+  <h2>Recipe: manifest-driven URLs</h2>
   <p>
     Ship one JSON that maps logical names to versioned (hash-busted) URLs,
     and let the resolver pick the right URL given a name. Call sites stay
@@ -219,8 +218,8 @@ await engine.loadSound('coin', '');`;
   <div class="pitfall">
     <div class="pitfall-title">Resolver miss is <em>not</em> the same as a load failure.</div>
     Returning <code>undefined</code>/<code>null</code> falls through to the
-    URL list. If the URL list also fails, <em>then</em> the load throws — a
-    miss is just "I don't have this, try the network." If you actually want
+    URL list. Only if the URL list also fails does the load throw. A miss
+    means "I don't have this, try the network". If you want
     to fail fast when the asset isn't in your cache, return a string URL
     that you know doesn't exist, or wrap <code>loadSound</code> in a
     pre-check.

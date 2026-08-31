@@ -2,6 +2,7 @@
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import MobileNav from './MobileNav';
+import AudioBar from './AudioBar';
 import ThemeToggle from './ThemeToggle';
 import { TOP_NAV, TOP_NAV_UTILITY } from '../content/nav';
 import { SITE } from '../lib/seo';
@@ -85,6 +86,9 @@ const mobileLinks = [...TOP_NAV, ...TOP_NAV_UTILITY];
           </svg>
         </a>
       </div>
+      {/* Appears only once a demo has built the shared engine, so the nav
+          never constructs an AudioContext of its own. */}
+      <AudioBar client:idle />
       <ThemeToggle client:load />
       <MobileNav links={mobileLinks} pathname={pathname} client:load />
     </div>

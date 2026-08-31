@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import DemoShell from './DemoShell';
 import { SAMPLES, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
@@ -23,10 +24,10 @@ export default function SlotReel() {
     const e = await unlock();
     if (!e) return;
     await Promise.all([
-      e.loadSound('reel-spin', [...SAMPLES.slide], { bus: 'sfx' }),
-      e.loadSound('reel-stop', [...SAMPLES.chip], { bus: 'sfx' }),
-      e.loadSound('reel-tick', [...SAMPLES.collide], { bus: 'sfx' }),
-      e.loadSound('win-sting', [...SAMPLES.dice], { bus: 'sfx' }),
+      e.loadSound('reel-spin', [...SAMPLES.diceShake2], { bus: 'sfx' }),
+      e.loadSound('reel-stop', [...SAMPLES.chips1], { bus: 'sfx' }),
+      e.loadSound('reel-tick', [...SAMPLES.chips2], { bus: 'sfx' }),
+      e.loadSound('win-sting', [...SAMPLES.chime], { bus: 'sfx' }),
     ]);
     setLoaded(true);
     setBusNode(e.bus('sfx').output);
@@ -64,12 +65,7 @@ export default function SlotReel() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; load reels
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & load reels">
           <Waveform audioNode={busNode} variant="bars" label="sfx bus" className="mb-3" />
           <div className="mb-4 grid grid-cols-3 gap-2">
             {spinning.map((s, i) => (
@@ -98,8 +94,7 @@ export default function SlotReel() {
           <p className="mt-3 text-[10px] text-muted-foreground font-mono">
             scheduleAt(t) × 5 — start whoosh, ticks, three staggered stops, win sting
           </p>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

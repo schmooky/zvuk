@@ -15,7 +15,7 @@ const examples: Example[] = [
   {
     slug: 'snapshot-blend',
     label: 'Snapshot blend',
-    blurb: 'Slider drives a tension Parameter — engine.blendSnapshots(calm, combat, t) interpolates two captured mix shapes per frame.',
+    blurb: 'A slider drives a tension Parameter, and engine.blendSnapshots(calm, combat, t) interpolates two captured mix shapes every frame.',
     live: true,
     source: 'https://github.com/schmooky/zvuk/tree/main/examples/snapshot-blend',
   },
@@ -29,7 +29,7 @@ const examples: Example[] = [
   {
     slug: 'match-3',
     label: 'Match-3 cascade',
-    blurb: 'Concurrency limits + voice stealing as cascades stack — watch the live voice count climb.',
+    blurb: 'Concurrency limits and voice stealing as cascades stack. Watch the live voice count climb and then hold.',
     live: false,
     source: 'https://github.com/schmooky/zvuk/tree/main/examples/match-3',
   },
@@ -50,7 +50,7 @@ const examples: Example[] = [
   {
     slug: 'music-stinger-loop-tail',
     label: 'Music stinger → loop → tail',
-    blurb: 'engine.loadMusic({ intro, loop, outro }) — stinger plays once, loop body runs forever, outro fires at the next loop boundary so the music ends musically.',
+    blurb: 'engine.loadMusic({ intro, loop, outro }). The stinger plays once, the loop body runs until told otherwise, and the outro fires at the next loop boundary so the track ends on the beat.',
     live: false,
     source: 'https://github.com/schmooky/zvuk/tree/main/examples/music-stinger-loop-tail',
   },
@@ -62,8 +62,8 @@ const examples: Example[] = [
   eyebrow="Examples"
 >
   <p>
-    Each example is a zero-build app — <code>index.html</code> plus a small
-    TypeScript module — sitting under <code>examples/</code> in the repo.
+    Each example is a zero-build app (an <code>index.html</code> plus a small
+    TypeScript module) sitting under <code>examples/</code> in the repo.
     Where a live, playable version is hosted on this docs site, it's marked
     <span class="inline-block rounded border border-primary/40 bg-primary/10 px-1.5 py-0.5 font-mono text-[10px] text-primary">live</span>.
     The full vanilla source is on GitHub.
@@ -87,7 +87,7 @@ const examples: Example[] = [
               run live →
             </a>
           ) : (
-            <span class="font-mono text-muted-foreground/70">live: coming soon</span>
+            <span class="font-mono text-muted-foreground/70">live version coming soon</span>
           )}
           <a href={source} target="_blank" rel="noopener" class="font-mono text-muted-foreground hover:text-foreground hover:underline">
             source on github ↗

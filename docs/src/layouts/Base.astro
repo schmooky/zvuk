@@ -1,7 +1,11 @@
 ---
+import interLatin from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+import monoLatin from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url';
 import Footer from '../components/Footer.astro';
 import Nav from '../components/Nav.astro';
-import { SITE } from '../lib/seo';
+import Seo from '../components/Seo.astro';
+import { ogSlug } from '../lib/og-manifest';
+import { type FaqEntry, SITE } from '../lib/seo';
 import '../styles/global.css';
 
 interface Props {
@@ -9,19 +13,27 @@ interface Props {
   description?: string;
   /** Override the OG image slug. Defaults to a guess based on URL path. */
   og?: string;
+  /** Question/answer pairs to publish as FAQPage structured data. */
+  faq?: FaqEntry[];
+  /** ISO date this page's content last changed. */
+  modified?: string;
 }
-const { title = `${SITE.name} — ${SITE.tagline}`, description = SITE.description, og } = Astro.props as Props;
+const {
+  title = `${SITE.name} — ${SITE.tagline}`,
+  description = SITE.description,
+  og,
+  faq,
+  modified,
+} = Astro.props as Props;
 const canonical = new URL(Astro.url.pathname, SITE.url).toString();
-const ogSlug = og ?? deriveOgSlug(Astro.url.pathname);
-const ogImage = new URL(`/og/${ogSlug}.png`, SITE.url).toString();
-
-function deriveOgSlug(path: string): string {
-  if (path === '/' || path === '') return 'index';
-  const trimmed = path.replace(/\/$/, '').replace(/^\//, '');
-  // Take the last segment so /concepts/voice/ → "voice", /api/Voice/ → "Voice".
-  const last = trimmed.split('/').pop() ?? 'index';
-  return last.toLowerCase();
-}
+// Slugs are the full route path, so /api/Voice/ and /concepts/voice/ get
+// their own cards instead of colliding on a lowercased last segment.
+const slug = og ?? ogSlug(Astro.url.pathname);
+const ogImage = new URL(`/og/${slug}.png`, SITE.url).toString();
+const markdownHref = new URL(
+  Astro.url.pathname === '/' ? '/index.md' : `${Astro.url.pathname.replace(/\/$/, '')}.md`,
+  SITE.url,
+).toString();
 ---
 <!doctype html>
 <html lang="en" class="dark">
@@ -48,6 +60,27 @@ function deriveOgSlug(path: string): string {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
     <link rel="canonical" href={canonical} />
+    {/* A Markdown copy of this page, for anything that would otherwise strip
+        the HTML to read it. /llms.txt indexes the site; /llms-full.txt is the
+        whole corpus in one file. */}
+    <link rel="alternate" type="text/markdown" href={markdownHref} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f6cf7" />
+    <Seo
+      title={title}
+      description={description}
+      canonical={canonical}
+      pathname={Astro.url.pathname}
+      image={ogImage}
+      faq={faq}
+      modified={modified}
+    />
+    {/* Both faces are used above the fold; preloading beats waiting for the
+        CSS to be parsed before the font request even starts. */}
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoLatin} as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <Nav />

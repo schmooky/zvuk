@@ -1,5 +1,6 @@
 import { type Engine, StretchProcessor } from '@schmooky/zvuk';
 import { useRef, useState } from 'react';
+import DemoShell from './DemoShell';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 import CustomSoundField from './CustomSoundField';
@@ -33,7 +34,7 @@ export default function PitchStretch() {
     if (file) {
       sourceBufferRef.current = await decodeFileToSound(e, 'orig', file, 'sfx');
     } else {
-      await e.loadSound('orig', [...SAMPLES.music], { bus: 'sfx' });
+      await e.loadSound('orig', [...SAMPLES.chime], { bus: 'sfx' });
       const res = await fetch('/audio/card-shuffle.webm');
       sourceBufferRef.current = await e.context.decodeAudioData(await res.arrayBuffer());
     }
@@ -79,12 +80,7 @@ export default function PitchStretch() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} label="A/B your own sound" />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; load
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & load">
           <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-border/60 bg-background/40 p-3">
@@ -151,8 +147,7 @@ export default function PitchStretch() {
             </Button>
           </div>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

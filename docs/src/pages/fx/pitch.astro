@@ -56,57 +56,66 @@ v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
 ---
 <Docs
   title="Pitch & time-stretch"
-  description="Two ways to change 'speed': cheap playback-rate (alters pitch + tempo) and granular time-stretch (preserves pitch)."
+  description="Two ways to change speed. Cheap playback-rate moves pitch and tempo together; granular time-stretch holds the pitch."
   eyebrow="FX"
 >
 
-  <h2>TL;DR</h2>
   <p>
-    The Web Audio API gives you a free way to change playback rate via
-    <code>AudioBufferSourceNode.playbackRate</code> — 1.5× makes the buffer
-    finish 50% faster <em>and</em> raises the pitch by a fifth. zvuk exposes
-    this as <code>play({'{ pitch }'})</code>.
+    "Slow this down" means two completely different things depending on
+    whether you also wanted it to drop a fifth in pitch. Tape does one.
+    A DAW does the other. They cost about a thousand times different amounts.
   </p>
   <p>
-    For pitch-preserving tempo changes (slow it down without making it sound
-    underwater), use <code>StretchProcessor</code> — an offline granular
-    SOLA-style renderer that takes one AudioBuffer and returns a stretched copy
-    at the same pitch.
+    The cheap one is free: <code>AudioBufferSourceNode.playbackRate</code>
+    finishes the buffer faster and raises the pitch to match, exactly like
+    winding tape. At 1.5× a sample ends 50% sooner and sits a fifth higher.
+    zvuk exposes it as <code>play({'{ pitch }'})</code>.
+  </p>
+  <p>
+    The expensive one holds pitch while moving tempo.
+    <a href="/api/StretchProcessor/"><code>StretchProcessor</code></a> is an
+    offline granular renderer, SOLA-style, that takes one AudioBuffer and
+    returns a stretched copy at the original pitch.
   </p>
 
-  <h2>Live demo — A/B</h2>
+  <h2>Live demo</h2>
   <p>
-    Both modes on the same source. Twiddle and click both buttons; you should
-    clearly hear the difference between "chipmunk" and "tape slowdown."
+    Both modes on the same source. Move the slider and press both buttons.
+    One sounds like a chipmunk. The other sounds like the same performance,
+    slower.
   </p>
   <PitchStretch client:visible />
 
-  <h2>Pitch via <code>play()</code> — cheap, pitch + tempo</h2>
+  <h2>Pitch via <code>play()</code>, which moves tempo too</h2>
   <Snippet code={playRate} lang="ts" />
   <p>
-    Use this for: SFX that should feel "smaller" or "bigger", random pitch
-    variation on stacked one-shots, retro arcade effects.
+    Reach for this when a sound should feel smaller or bigger, when stacked
+    one-shots need random variation so they don't machine-gun, or when you
+    want an outright retro arcade effect.
   </p>
 
-  <h2>Time-stretch via <code>StretchProcessor</code> — preserves pitch</h2>
+  <h2>Time-stretch via <code>StretchProcessor</code>, which holds pitch</h2>
   <Snippet code={stretch} lang="ts" />
   <p>
-    Use this for: slowed-down music for boss intros, doubled-tempo loops for
-    chase scenes, normalising vocal cadence across recordings.
+    Reach for this when music has to slow for a boss intro, when a loop needs
+    doubling for a chase, or when vocal cadence has to match across takes
+    recorded on different days.
   </p>
 
   <h3>Pre-render multiple speeds</h3>
   <p>
-    The offline renderer — call once per buffer/factor pair, cache the result.
-    Use this when you know the factors at load time and don't need to ramp.
+    The renderer is offline, so call it once per buffer and factor pair and
+    cache what comes back. This is the right shape when you know the factors
+    at load time and never need to ramp between them.
   </p>
   <Snippet code={factory} lang="ts" />
 
   <h3>Realtime varispeed via AudioWorklet</h3>
   <p>
-    For live ramps — boss intros that bend in real time, gameplay slow-mo —
-    use the worklet node. The <code>stretch</code> param is a real
-    <code>AudioParam</code>, so all the standard automation methods work.
+    For a ramp that happens while audio is playing, use the worklet node
+    instead. Boss intros that bend, gameplay slow motion. Its
+    <code>stretch</code> parameter is a real <code>AudioParam</code>, so every
+    standard automation method works on it.
   </p>
   <div class="pitfall">
     <div class="pitfall-title">The realtime worklet is varispeed, not pitch-preserving.</div>
@@ -125,13 +134,12 @@ v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
     <li>
       <strong>StretchProcessor</strong> uses overlap-add granular synthesis
       with cross-correlation alignment for stretch factors below 2.5×, plus a
-      high-frequency-restore filter to compensate for the comb filtering
-      granular methods inevitably introduce. It's good for music and dialogue.
+      high-frequency-restore filter that compensates for the comb filtering
+      granular methods introduce. Good for music and dialogue.
     </li>
     <li>
-      <strong>For factors &gt; 3×</strong> you'll hear granular artifacts.
-      Pitch-shifting impressionistic ambience can hide them; clean dialogue
-      can't.
+      <strong>Past about 3×</strong> the granular artifacts are audible.
+      Impressionistic ambience hides them. Clean dialogue does not.
     </li>
     <li>
       <strong>Factor &lt; 1</strong> (i.e. play <em>faster</em> while preserving
@@ -143,19 +151,20 @@ v.setPlaybackRate(0.6, { duration: 0.8, curve: 'easeOut' });`;
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't time-stretch in a hot loop.</div>
-    The processor is offline but synchronous; a 1-second clip at 2× costs
-    ~30 ms on a fast machine. Pre-render at load time, not on every play.
+    The processor is offline but synchronous. A one-second clip at 2× costs
+    around 30 ms on a fast laptop, which is two dropped frames if you do it
+    during gameplay. Pre-render at load time.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't stretch SFX.</div>
-    Short transients (under 100 ms) sound granular and weird stretched.
-    Use <code>play({'{ pitch }'})</code> for SFX, <code>StretchProcessor</code>
-    for sustained sources.
+    Transients under about 100 ms come out granular and strange. Use
+    <code>play({'{ pitch }'})</code> for SFX and
+    <code>StretchProcessor</code> for sustained sources.
   </div>
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/voice/">Voice</a> — pitch jitter at play time.</li>
+    <li><a href="/concepts/voice/">Voice</a> covers pitch jitter at play time.</li>
     <li><a href="/fx/">FX index</a></li>
   </ul>
 </Docs>

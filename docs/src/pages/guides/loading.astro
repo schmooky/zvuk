@@ -1,4 +1,5 @@
 ---
+import VariantSpam from '../../components/demos/VariantSpam.tsx';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -124,7 +125,7 @@ await loadBank(engine);`;
 ---
 <Docs
   title="Loading sounds"
-  description="The patterns for getting audio off the network and into the engine — single, bulk, with progress, with cancellation."
+  description="The patterns for getting audio off the network and into the engine. Single, bulk, with progress, with cancellation."
   eyebrow="Guide"
 >
 
@@ -156,19 +157,19 @@ await loadBank(engine);`;
     First-class preloader: <code>engine.preload</code>
   </h2>
   <p>
-    For loading screens that ship a fixed manifest, <code>engine.preload</code>
-    handles the boilerplate: per-item progress, a concurrency cap so the rest
-    of the page's network isn't starved, and aggregated failure reporting that
-    doesn't short-circuit on the first broken asset. Items match the
-    <code>loadSound</code> shape one-for-one.
+    For a loading screen with a fixed manifest, <code>engine.preload</code>
+    handles the boilerplate. It reports per-item progress, caps concurrency so
+    the rest of the page's network isn't starved, and aggregates failures
+    rather than short-circuiting on the first broken asset. Items match the
+    <code>loadSound</code> shape one for one.
   </p>
   <Snippet code={preload} lang="ts" />
 
   <h2>Cancelling a preload</h2>
   <p>
     Pass an <code>AbortSignal</code> in <code>options</code>. The same
-    convention as a single <code>loadSound</code> call — pending items aren't
-    started, in-flight fetches receive the abort.
+    convention as a single <code>loadSound</code> call. Pending items are
+    never started and in-flight fetches receive the abort.
   </p>
   <Snippet code={preloadCancel} lang="ts" />
 
@@ -179,7 +180,7 @@ await loadBank(engine);`;
   </p>
   <Snippet code={cancel} lang="ts" />
 
-  <h2>Long media — stream, don't decode</h2>
+  <h2>Long media: stream, don't decode</h2>
   <p>
     For tracks longer than ~30 seconds, use <code>loadStream</code> instead of
     <code>loadSound</code>. The asset is read off disk progressively through an
@@ -188,7 +189,7 @@ await loadBank(engine);`;
   </p>
   <Snippet code={stream} lang="ts" />
 
-  <h2>Sprites — bundle short SFX</h2>
+  <h2>Sprites: bundle short SFX</h2>
   <p>
     For UI variants and cascade SFX that share a session, a single buffer with
     named regions is faster to load and lower-overhead per voice than N
@@ -196,25 +197,35 @@ await loadBank(engine);`;
   </p>
   <Snippet code={sprite} lang="ts" />
 
-  <h2>Variants — randomise stacked SFX</h2>
+  <h2>Variants: randomise stacked SFX</h2>
   <p>
     Slot games play coin/win/reel-stop variants on every interaction. A
     pure random picker can play the same one twice in a row, which sounds
     robotic. <code>engine.loadVariants</code> bundles N alternates and
-    picks one per <code>play()</code> using a configurable strategy:
-    <code>'random'</code>, <code>'no-repeat'</code> (default — never the
-    same as the previous pick), or <code>'shuffle-bag'</code> (Tetris-style
-    cycle through every variant before reshuffling).
+    picks one per <code>play()</code> using a configurable strategy.
+    <code>'random'</code> is uniform. <code>'no-repeat'</code>, the default,
+    never picks the same one twice running. <code>'shuffle-bag'</code> cycles
+    through every variant before reshuffling, the way Tetris deals pieces.
   </p>
   <Snippet code={variants} lang="ts" />
+  <p>
+    Four takes of one dice roll, below. Set the strategy to
+    <code>'random'</code> and mash the button: the same take comes up twice
+    in a row often enough to sound like a bug, and the history marks each
+    repeat in red. <code>'no-repeat'</code> makes that impossible.
+    <code>engine.variants(name).lastPick</code> is where the history comes
+    from, and it is also how you drive a subtitle or a telemetry event off
+    whichever take actually fired.
+  </p>
+  <VariantSpam client:visible />
 
   <h2>Unloading sounds</h2>
   <p>
     <code>removeSound(name)</code> drops the registry entry. The buffer
     stays in the internal LRU cache so a re-load is free. Use
-    <code>unloadSound(name)</code> (default <code>evictBuffer: true</code>)
-    when the user is unlikely to revisit the asset — the canonical
-    hot-swap-themes use case.
+    <code>unloadSound(name)</code>, which evicts by default,
+    when the user is unlikely to revisit the asset. Hot-swapping themes is
+    the canonical case.
   </p>
   <Snippet code={unload} lang="ts" />
 
@@ -239,7 +250,7 @@ await loadBank(engine);`;
   <div class="pitfall">
     <div class="pitfall-title">Don't load before unlock.</div>
     The decoder needs a live AudioContext. <code>loadSound</code> calls
-    <code>touch()</code> to construct the context lazily — but on iOS Safari,
+    <code>touch()</code> to construct the context lazily, but on iOS Safari
     <code>decodeAudioData</code> can hang on a suspended context. Always
     <code>await unlock()</code> first, ideally on the same gesture that
     triggers the load.

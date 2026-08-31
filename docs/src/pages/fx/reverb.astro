@@ -46,12 +46,17 @@ intensity.bindTo((v) => verb.setWet(v), { from: 0.1, to: 0.6 });`;
   eyebrow="FX"
 >
 
-  <h2>TL;DR</h2>
   <p>
-    Wraps a <code>ConvolverNode</code> with dry/wet mixing and pre-delay.
-    Pass an <code>impulse</code> AudioBuffer for a real space, or omit it
-    and zvuk generates a synthetic exponential-decay noise IR — cheap,
-    not as character-rich, but plenty for atmosphere.
+    Two sounds recorded in the same room share something no amount of EQ will
+    fake, and a mix where nothing shares a room sounds like a pile of files.
+  </p>
+  <p>
+    A <a href="/api/Reverb/"><code>Reverb</code></a> wraps a
+    <code>ConvolverNode</code> with dry/wet mixing and pre-delay. Pass an
+    <code>impulse</code> AudioBuffer to put your sounds in a real measured
+    space. Omit it and zvuk generates a synthetic exponential-decay noise
+    impulse instead, which costs nothing to ship and carries far less
+    character, but holds up fine as atmosphere.
   </p>
 
   <h2>API surface</h2>
@@ -75,19 +80,20 @@ intensity.bindTo((v) => verb.setWet(v), { from: 0.1, to: 0.6 });`;
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't reverb SFX.</div>
-    Individual hits get smeared and mushy. Reserve reverb for music, ambience,
-    voice — long-tailed sources. SFX want to land sharp.
+    Individual hits get smeared and mushy. Reserve reverb for the long-tailed
+    sources: music, ambience, voice. SFX want to land sharp.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't ship a 5-second IR for a UI bus.</div>
-    Convolution cost scales with IR length × buffer rate. A 5 s IR at 48 kHz
-    is the same compute every frame whether the bus has audio or not. Keep
-    IRs under 2 s unless you actually need a cathedral.
+    Convolution cost scales with impulse length times sample rate, and a five
+    second impulse at 48 kHz costs the same every frame whether the bus has
+    audio on it or not. Keep impulses under two seconds unless you genuinely
+    need a cathedral.
   </div>
 
   <h2>Related</h2>
   <ul>
     <li><a href="/fx/">FX index</a></li>
-    <li><a href="/concepts/parameter/">Parameter</a> — drive wet from a knob.</li>
+    <li><a href="/concepts/parameter/">Parameter</a> drives the wet amount from a knob.</li>
   </ul>
 </Docs>

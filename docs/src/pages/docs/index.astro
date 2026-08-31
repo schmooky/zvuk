@@ -8,18 +8,19 @@ import { SITE } from '../../lib/seo';
   eyebrow="Overview"
 >
   <p>
-    <strong>zvuk</strong> is a Web Audio API library that hands you the vocabulary you'd expect from
-    Wwise, FMOD, or Unreal: an Engine you talk to, a Mixer made of named Buses, Sounds that spawn
-    Voices, Snapshots that crossfade your whole mix, and Parameters that drive any value with
-    smooth ramps.
+    <strong>zvuk</strong> is a Web Audio API library built around the
+    vocabulary a game audio team already uses. There is an Engine you talk to,
+    a Mixer made of named Buses, Sounds that spawn Voices, Snapshots that
+    crossfade the whole mix, and Parameters that drive any value through a
+    curve. Wwise, FMOD and Unreal all name these things the same way.
   </p>
 
   <p>
-    Designed around the realities the Web Audio API doesn't smooth over:
-    autoplay restrictions, iOS Safari's quirky <code>AudioContext</code> lifecycle,
-    click-free parameter changes, polyphony at scale, and the discipline of disposing
-    everything you constructed. The library makes those concerns explicit and named, so
-    your application code can stay short.
+    It is designed around the parts the Web Audio API leaves to you. Autoplay
+    restrictions. iOS Safari's <code>AudioContext</code> lifecycle. Click-free
+    parameter changes. Polyphony at scale. Disposing everything you
+    constructed. Each of those is a named concern here, which is what keeps
+    the code at the call site short.
   </p>
 
   <h2>Conventions</h2>
@@ -39,9 +40,9 @@ import { SITE } from '../../lib/seo';
     <li><strong>Mixer:</strong> Master with headroom + optional soft limiter, named Buses with click-free fades, FX chain inserts.</li>
     <li><strong>Sources:</strong> Sound + Voice with jitter, fades, pause / resume, live <code>setPlaybackRate</code>, abort signals, lifecycle promises;
       <code>createSound</code> for procedural buffers.</li>
-    <li><strong>Sprites:</strong> one buffer, many named regions, one fetch — for cascades, UI variants, dialogue chunks.</li>
+    <li><strong>Sprites:</strong> one buffer, many named regions, one fetch. For cascades, UI variants and dialogue chunks.</li>
     <li><strong>Streams:</strong> <code>loadStream</code> for music tracks &gt; 30s via <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>.</li>
-    <li><strong>Crossfade:</strong> <code>engine.crossfade(from, to, &#123; duration &#125;)</code> — equal-power music swap in one call.</li>
+    <li><strong>Crossfade:</strong> <code>engine.crossfade(from, to, &#123; duration &#125;)</code> for an equal-power music swap in one call.</li>
     <li><strong>Concurrency:</strong> per-bus voice limit with steal strategies (<code>oldest</code> /
       <code>lowest-priority</code> / <code>quietest</code> / <code>none</code>).</li>
     <li><strong>FX:</strong> Compressor, Reverb (synthetic IR or your own), Filter (six biquad types),
@@ -49,21 +50,21 @@ import { SITE } from '../../lib/seo';
     <li><strong>Spatializer:</strong> 2D StereoPanner + 3D HRTF PannerNode per voice, with <code>voice.spatializer</code> exposed for live <code>setPan</code> / <code>setPosition</code>.</li>
     <li><strong>Loudness:</strong> RMS-based normalization on load (<code>loadSound(&#123; normalize: true &#125;)</code>) so sounds sit at uniform perceived loudness.</li>
     <li><strong>Parameters &amp; Snapshots:</strong> named knobs with <code>bindTo</code> mapping; whole-mix capture and crossfade.</li>
-    <li><strong>DX:</strong> <code>BusNotFoundError("sxf"; did you mean "sfx")</code> with Levenshtein suggestions; CLI (<code>zvuk transcode</code> + <code>zvuk gen bank.json</code>); auto-built TypeDoc reference, Pagefind search, OG cards, and an agent-readable <a href="/llms.txt"><code>llms.txt</code></a>.</li>
+    <li><strong>DX:</strong> errors carry a Levenshtein suggestion, so a mistyped bus name says <code>Did you mean "sfx"?</code>; a CLI with <code>zvuk transcode</code> and <code>zvuk gen bank.json</code>; an auto-built TypeDoc reference, Pagefind search, generated OG cards, and machine-readable <a href="/llms.txt"><code>llms.txt</code></a> plus <a href="/llms-full.txt"><code>llms-full.txt</code></a>.</li>
   </ul>
 
   <h2>What's next</h2>
   <p>
-    See the <a href="/roadmap/">roadmap</a> for sized, prioritised items, and
-    the <a href="/changelog/">changelog</a> for what's already landed.
-    v1.0.0 is the first stable release; the next pass is community-driven —
-    PRs welcome.
+    The <a href="/roadmap/">roadmap</a> lists sized, prioritised items and the
+    <a href="/changelog/">changelog</a> covers what has already landed. Pull
+    requests are welcome; <a href="https://github.com/schmooky/zvuk/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>
+    says what the gates are.
   </p>
 
   <h2>Read next</h2>
   <ul>
-    <li><a href="/docs/quickstart/">Quickstart</a> — two functions, sound playing.</li>
-    <li><a href="/concepts/engine/">The Engine</a> — lifecycle, unlock, state machine.</li>
-    <li><a href="/guides/asset-formats/">Asset formats</a> — the encoding pipeline you should be using.</li>
+    <li><a href="/docs/quickstart/">Quickstart</a> gets sound playing in two functions.</li>
+    <li><a href="/concepts/engine/">The Engine</a> covers lifecycle, unlock and the state machine.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> is the encoding pipeline you should be using.</li>
   </ul>
 </Docs>

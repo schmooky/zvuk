@@ -1,4 +1,5 @@
 import type { FxInsert } from '../fx/types';
+import { waitAudio } from '../runtime/wait';
 import type { Voice } from '../sources/voice';
 import type { AudioLevel, BusConfig, ConcurrencyConfig, FadeCurve, SendOptions } from '../types';
 import { applyRamp } from './curve';
@@ -41,8 +42,7 @@ export class Send {
   fadeTo(target: number, duration: number, curve: FadeCurve = 'linear'): Promise<void> {
     if (this.disposed) return Promise.resolve();
     applyRamp(this.gainNode.gain, this.ctx.currentTime, clamp01(target), duration, curve);
-    if (duration <= 0) return Promise.resolve();
-    return new Promise((res) => setTimeout(res, duration * 1000));
+    return waitAudio(this.ctx, duration);
   }
 
   dispose(): void {
@@ -129,6 +129,9 @@ export class Bus {
   }
 
   set muted(v: boolean) {
+    // Snapshot.blendWith writes mute on every bus on every frame; without
+    // this guard each of those is a redundant ramp.
+    if (this._muted === v) return;
     this._muted = v;
     this.rampOutput(v || this._soloVeiled ? 0 : this._level, 0.01);
   }
@@ -141,7 +144,7 @@ export class Bus {
     // gain while the bus is silenced — otherwise a fade would audibly un-mute
     // (or un-solo-veil) it. The stored level is applied when it is unmuted /
     // unveiled.
-    if (this._muted || this._soloVeiled) return wait(duration);
+    if (this._muted || this._soloVeiled) return waitAudio(this.ctx, duration);
     return this.ramp(to, duration, curve);
   }
 
@@ -343,7 +346,7 @@ export class Bus {
     const param = this.output.gain;
     const now = this.ctx.currentTime;
     applyRamp(param, now, to, duration, curve);
-    return wait(duration);
+    return waitAudio(this.ctx, duration);
   }
 
   dispose(): void {
@@ -373,20 +376,15 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v));
 }
 
-function wait(seconds: number): Promise<void> {
-  if (seconds <= 0) return Promise.resolve();
-  return new Promise((res) => setTimeout(res, seconds * 1000));
-}
-
 function pickVictim(
   voices: ReadonlySet<Voice>,
   strategy: NonNullable<ConcurrencyConfig['steal']>,
   newVoice: Voice,
 ): Voice | null {
-  // Snapshot RMS once per candidate up-front for 'quietest' so the comparison
-  // doesn't re-poll the AnalyserNode for every pair.
+  // Snapshot the level once per candidate up-front for 'quietest' so the
+  // comparison doesn't re-poll for every pair.
   const rmsCache: Map<Voice, number> | null = strategy === 'quietest' ? new Map<Voice, number>() : null;
-  if (rmsCache) for (const v of voices) if (v !== newVoice) rmsCache.set(v, v.level().rms);
+  if (rmsCache) for (const v of voices) if (v !== newVoice) rmsCache.set(v, v.levelHint());
 
   let victim: Voice | null = null;
   for (const v of voices) {

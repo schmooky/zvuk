@@ -1,4 +1,5 @@
 import { applyRamp, equalPowerCurve } from '../mixer/curve';
+import { waitAudio } from '../runtime/wait';
 import type { Spatializer } from '../spatial/spatializer';
 import type { AudioLevel, FadeOptions, PlayOptions, StopOptions } from '../types';
 
@@ -162,7 +163,9 @@ export class Voice {
     const param = this.gain.gain;
     const now = this.ctx.currentTime;
     applyRamp(param, now, clamp01(opts.to), opts.duration, opts.curve ?? 'linear');
-    return new Promise((res) => setTimeout(res, Math.max(0, opts.duration) * 1000));
+    // Resolves on the audio clock, and early if the voice finishes first —
+    // a voice stopped mid-fade shouldn't report for the full duration.
+    return waitAudio(this.ctx, opts.duration, this.ended);
   }
 
   /**
@@ -319,6 +322,13 @@ export class Voice {
     }
     this.basePitch = r;
     if (this.paused) return;
+    // The region timer is a wall-clock timeout sized against the old rate.
+    // Half speed means twice the wall time, so re-arm it from what's left of
+    // the region rather than cutting the voice off at the original moment.
+    if (this.regionTimer != null && this.regionDuration != null) {
+      const consumed = Math.max(0, this.currentOffset - this.startOffset);
+      this.armRegionTimer(Math.max(0, this.regionDuration - consumed));
+    }
     // Apply to every live source — single-source mode = one entry, crossfade
     // mode = the current live segment + any future ones (newly spawned
     // segments pick up basePitch in spawnCrossfadeSegment).
@@ -367,6 +377,23 @@ export class Voice {
       if (a > peak) peak = a;
     }
     return { rms: Math.sqrt(sumSq / buf.length), peak };
+  }
+
+  /**
+   * Cheap loudness proxy for voice stealing, in [0..1].
+   *
+   * `level()` allocates an AnalyserNode and keeps it for the voice's
+   * lifetime, so using it to rank 64 candidates left 64 permanent analysers
+   * on the graph — and a freshly created analyser reads silence anyway,
+   * because its buffer hasn't filled yet. Reuse a tap that already exists;
+   * otherwise read the voice's own gain, which costs nothing.
+   *
+   * @internal
+   */
+  levelHint(): number {
+    if (this.done) return 0;
+    if (this.levelAnalyser) return this.level().rms;
+    return this.gain.gain.value;
   }
 
   /** Async iterator of lifecycle cues — yields started, optional paused, ended. */
@@ -464,6 +491,10 @@ export class Voice {
       this.regionTimer = null;
     }
     if (remainingSec == null) return;
+    // A looping voice is already bounded by the source node's own
+    // loopStart/loopEnd. Stopping it after one region length would make
+    // SpriteRegion.loop mean "play once".
+    if (this.loop) return;
     const ms = Math.max(0, remainingSec * 1000) / Math.max(0.0001, this.basePitch);
     this.regionTimer = setTimeout(() => {
       this.regionTimer = null;

@@ -13,10 +13,12 @@ export interface WaveformProps {
   /** CSS class for the canvas (border, rounding, margin, etc.). */
   className?: string;
   /**
+   * Default `'wave'`.
+   *
    * - `'wave'` — time-domain oscilloscope.
-   * - `'bars'` — frequency-domain spectrum (default — reads well across
-   *   filters, routing, fades, anything where "what's loud right now" is
-   *   what you want to debug).
+   * - `'bars'` — frequency-domain spectrum. Reads well across filters,
+   *   routing, fades, anything where "what's loud right now" is what you
+   *   want to debug.
    * - `'bars-stereo'` — two parallel spectrum panels, one per channel.
    *   Splits `audioNode` through a `ChannelSplitterNode` so the L and R
    *   spectra are independent. Right call for spatial / panning demos
@@ -29,6 +31,13 @@ export interface WaveformProps {
   label?: string;
 }
 
+/** Stop animating after this long with nothing above the noise floor. */
+const SILENCE_MS = 1500;
+/** How often to check whether a parked visualiser should wake up. */
+const POLL_MS = 250;
+/** RMS below this counts as silence. */
+const FLOOR = 0.002;
+
 /**
  * Live waveform / spectrum visualiser. Lazily attaches an AnalyserNode to
  * `audioNode` as a passive sibling — no audio-path change. Cleans up on
@@ -37,6 +46,12 @@ export interface WaveformProps {
  * The component creates its own analyser instead of reading from
  * `bus.meter()` so the docs don't depend on a specific zvuk API for
  * visualisation. Same primitive, used directly.
+ *
+ * The frame loop is gated three ways, because a docs page can hold a dozen
+ * of these and they used to run at 60 fps forever, silent and off-screen:
+ * an IntersectionObserver parks it when scrolled out of view, a silence
+ * timeout parks it when the bus goes quiet, and `prefers-reduced-motion`
+ * renders one frame and stops.
  */
 export default function Waveform({
   audioNode,
@@ -98,6 +113,23 @@ export default function Waveform({
 
     let raf = 0;
     let stopped = false;
+    let visible = true;
+    let running = false;
+    let lastSoundAt = performance.now();
+    const reducedMotion =
+      typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /** Peak level across the analyser's current window. */
+    const level = (): number => {
+      const buf = timeBufs[0]!;
+      analysers[0]!.getFloatTimeDomainData(buf as Float32Array<ArrayBuffer>);
+      let sumSq = 0;
+      for (let i = 0; i < buf.length; i++) {
+        const v = buf[i] ?? 0;
+        sumSq += v * v;
+      }
+      return Math.sqrt(sumSq / buf.length);
+    };
 
     const drawSpectrum = (
       c2d: CanvasRenderingContext2D,
@@ -177,12 +209,52 @@ export default function Waveform({
         c2d.fillStyle = `${stroke}33`;
         c2d.fillRect(halfW - 0.5 * dpr, 0, 1 * dpr, canvas.height);
       }
+      if (reducedMotion) {
+        // One frame, then nothing. The canvas still shows the shape of the
+        // signal; it just doesn't move.
+        running = false;
+        return;
+      }
+      if (level() > FLOOR) lastSoundAt = performance.now();
+      if (!visible || performance.now() - lastSoundAt > SILENCE_MS) {
+        running = false;
+        return;
+      }
       raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+
+    const start = (): void => {
+      if (stopped || running) return;
+      running = true;
+      lastSoundAt = performance.now();
+      raf = requestAnimationFrame(draw);
+    };
+
+    // Wake back up when the bus starts making noise again, or when the card
+    // scrolls back into view. One cheap poll beats a permanent frame loop.
+    const poll = setInterval(() => {
+      if (stopped || running || reducedMotion || !visible) return;
+      if (level() > FLOOR) start();
+    }, POLL_MS);
+
+    let observer: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver === 'function') {
+      observer = new IntersectionObserver(
+        (entries) => {
+          visible = entries.some((e) => e.isIntersecting);
+          if (visible) start();
+        },
+        { rootMargin: '64px' },
+      );
+      observer.observe(canvas);
+    }
+    start();
 
     return () => {
       stopped = true;
+      running = false;
+      clearInterval(poll);
+      observer?.disconnect();
       cancelAnimationFrame(raf);
       try {
         if (splitter) audioNode.disconnect(splitter);

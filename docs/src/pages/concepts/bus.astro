@@ -100,27 +100,39 @@ engine.busGroup('combat').level = 1;`;
 ---
 <Docs
   title="Bus"
-  description="A named mix bucket with its own gain stage, FX chain, voice limit, and (optional) sidechain key."
+  description="A named mix bucket with its own gain stage, FX chain, voice limit, and optional sidechain key."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A Bus is the routing target for one or more sounds. You declare it once
-    in <code>createEngine</code>, then talk to it by name. Level changes and
-    mutes ramp over 10ms internally so you never get a click. <code>fadeTo</code>
-    accepts a curve for longer transitions.
+    Twenty sounds are playing and the player drags the "music" slider. Without
+    somewhere to put that instruction, you are iterating live voices and hoping
+    you catch the ones that started half a frame ago.
+  </p>
+  <p>
+    A bus is a named mix bucket. It owns a gain stage, an FX chain, a voice
+    limit, and an optional sidechain key. Sounds are routed to it by name at
+    play time, and the level you set on the bus applies to everything on it,
+    including voices that start later. See <a href="/api/Bus/"><code>Bus</code></a>
+    for the full reference.
   </p>
 
-  <h2>Mental model</h2>
+  <h2>What does a bus actually do?</h2>
+  <p>
+    You declare it once in <code>createEngine</code> and then talk to it by
+    name. Level changes and mutes ramp over 10 ms internally, so a slider drag
+    doesn't click. <code>fadeTo</code> takes a curve when you want something
+    longer than a slider.
+  </p>
+
   <Frame caption="A bus has three nodes: input → fxInput (FX chain head) → output. Voices target input; master takes output.">
     <SignalFlowDiagram />
   </Frame>
 
   <h2>API surface</h2>
-  <Snippet code={surface} lang="ts" title="Bus — public interface" />
+  <Snippet code={surface} lang="ts" title="The Bus interface" />
 
   <h2>Live demo</h2>
-  <p>Slam the slider — no click. Try the fade buttons for curve-based transitions.</p>
+  <p>Slam the slider. No click. The fade buttons run the same gain through a curve.</p>
   <BusFader client:visible />
 
   <h2>Recipes</h2>
@@ -133,45 +145,47 @@ engine.busGroup('combat').level = 1;`;
   <h3>Live VU meter via <code>bus.meter()</code></h3>
   <p>
     Returns <code>{ '{ rms, peak }' }</code> as linear values in <code>[0..1]</code>.
-    The first call attaches a passive AnalyserNode tap — no cost until you read,
-    no audio-path change. See the <code>rhythm-metronome</code> example
-    (<a href="https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome"><code>examples/rhythm-metronome/</code></a>)
-    for a full demo.
+    The first call attaches a passive AnalyserNode tap. Nothing is allocated
+    until you read, and the audio path is unchanged. The
+    <a href="https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome"><code>rhythm-metronome</code></a>
+    example drives a VU bar and a per-voice peak meter from it.
   </p>
   <Snippet code={meter} lang="ts" />
 
-  <h3>Sends — route a copy of one bus into another</h3>
+  <h3>Sends: route a copy of one bus into another</h3>
   <p>
-    The Wwise primitive: send a configurable share of a bus's signal into
-    another bus, instead of inserting an FX directly on the source. A
-    typical reverb routing — "send 30 % of music to a verb-only bus" — is
-    two lines and adjustable live.
+    A send routes a configurable share of one bus's signal into another,
+    instead of inserting an effect directly on the source. It is the Wwise
+    primitive for shared reverb. "Send 30 % of music to a verb-only bus" is
+    two lines, and the amount is adjustable while audio is playing.
   </p>
   <Snippet code={sends} lang="ts" />
 
-  <h3>Solo — A/B one bus without disturbing the rest</h3>
+  <h3>Solo: A/B one bus without disturbing the rest</h3>
   <p>
-    The engine coordinates the global rule: while any bus is in the solo set,
-    every non-soloed bus is muted via a tiny ramp; when the solo set drains,
-    every bus is restored. Solo state is independent of <code>muted</code>,
-    so un-soloing returns each bus to its user-visible mute setting.
+    The engine coordinates the global rule. While any bus is in the solo set,
+    every non-soloed bus is muted through the same 10 ms ramp, and when the
+    set drains, every bus is restored. Solo is tracked separately from
+    <code>muted</code>, so un-soloing returns each bus to whatever the user
+    had set.
   </p>
   <Snippet code={solo} lang="ts" />
 
-  <h3>Bus groups — address several buses at once</h3>
+  <h3>Bus groups: address several buses at once</h3>
   <p>
-    A <code>BusGroup</code> is a logical handle, not an audio node — it
-    applies <code>level</code> / <code>fadeTo</code> / <code>muted</code> /
-    <code>solo</code> to every member in parallel. Useful when several
-    buses always move together (combat = weapons + enemies + environment;
-    voice = dialogue + effort sounds; etc).
+    A <a href="/api/BusGroup/"><code>BusGroup</code></a> is a logical handle
+    rather than an audio node. It applies <code>level</code>,
+    <code>fadeTo</code>, <code>muted</code> and <code>solo</code> to every
+    member in parallel. Reach for it when several buses always move together.
+    Combat is usually weapons plus enemies plus environment; a voice group is
+    usually dialogue plus effort sounds.
   </p>
   <Snippet code={groups} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't write to <code>output.gain.value</code> directly.</div>
-    The Bus class wraps that with a 10ms ramp. Bypassing it produces audible clicks
+    The Bus class wraps that with a 10 ms ramp. Bypassing it produces audible clicks
     in Chrome and Firefox.
   </div>
   <div class="pitfall">
@@ -182,8 +196,8 @@ engine.busGroup('combat').level = 1;`;
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/concurrency/">Concurrency</a> — voice-limit policies.</li>
-    <li><a href="/concepts/mixer/">Mixer</a> — the wider bus graph.</li>
-    <li><a href="/guides/ducking/">Ducking</a> — sidechain a bus from another.</li>
+    <li><a href="/concepts/concurrency/">Concurrency</a> sets the voice-limit policy on a bus.</li>
+    <li><a href="/concepts/mixer/">Mixer</a> is the wider bus graph this sits in.</li>
+    <li><a href="/guides/ducking/">Ducking</a> sidechains one bus from another.</li>
   </ul>
 </Docs>

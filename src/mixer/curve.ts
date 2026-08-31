@@ -6,8 +6,9 @@ import type { FadeCurve } from '../types';
  * - linear:        linearRampToValueAtTime
  * - easeIn/Out/InOut + equal-power: setValueCurveAtTime with sampled curve
  *
- * The function cancels scheduled values from `now` first so back-to-back
- * fades chain cleanly without summing.
+ * Existing automation is cancelled from `now` first so back-to-back fades
+ * chain cleanly without summing. See `cancelAndPin` for why that cancel is
+ * not a plain `cancelScheduledValues`.
  */
 export function applyRamp(
   param: AudioParam,
@@ -19,21 +20,74 @@ export function applyRamp(
   const seconds = Math.max(0, duration);
   const from = param.value;
 
-  param.cancelScheduledValues(now);
-  param.setValueAtTime(from, now);
+  cancelAndPin(param, now, from);
 
   if (seconds === 0) {
-    param.setValueAtTime(to, now);
+    schedule(param, to, () => param.setValueAtTime(to, now));
     return;
   }
 
   if (curve === 'linear') {
-    param.linearRampToValueAtTime(to, now + seconds);
+    schedule(param, to, () => param.linearRampToValueAtTime(to, now + seconds));
     return;
   }
 
   const samples = sampleCurve(from, to, curve, 64);
-  param.setValueCurveAtTime(samples, now, seconds);
+  schedule(param, to, () => param.setValueCurveAtTime(samples, now, seconds));
+}
+
+type HoldableParam = AudioParam & { cancelAndHoldAtTime?: (t: number) => void };
+
+/**
+ * Clear whatever automation is already scheduled and pin `from` at `now` so
+ * the ramp that follows has a defined starting point.
+ *
+ * The hazard here is a `setValueCurveAtTime` that started before `now` and
+ * is still running: any other automation call inside a live curve's window
+ * is a NotSupportedError. Every non-linear curve goes through
+ * setValueCurveAtTime and equal-power is the default for
+ * `engine.crossfade`, so interrupting a fade with another fade walks
+ * straight into it.
+ *
+ * `cancelAndHoldAtTime` truncates the running curve and holds its value,
+ * which is exactly what an interrupted fade wants. Chromium 141 and
+ * WebKit 26 also drop an overlapping curve on plain
+ * `cancelScheduledValues` (measured — see conformance/ramp.test.ts), so
+ * the old path was not in fact throwing there; Firefox has no
+ * cancelAndHoldAtTime at all, hence keeping both. The try/catch is the
+ * part that matters: `voice.fade()` and `bus.fadeTo()` have no handler of
+ * their own, so a refusal on any engine used to escape to the caller.
+ */
+function cancelAndPin(param: AudioParam, now: number, from: number): void {
+  const p = param as HoldableParam;
+  if (typeof p.cancelAndHoldAtTime === 'function') {
+    try {
+      p.cancelAndHoldAtTime(now);
+    } catch {
+      param.cancelScheduledValues(now);
+    }
+  } else {
+    param.cancelScheduledValues(now);
+  }
+  try {
+    param.setValueAtTime(from, now);
+  } catch {
+    // `now` sits inside a curve window we couldn't truncate. The running
+    // curve's own value is the starting point instead.
+  }
+}
+
+/**
+ * Run one scheduling call, falling back to a direct write if the platform
+ * refuses it. A click is worse than nothing; an exception thrown out of
+ * `voice.fade()` or `bus.fadeTo()` is worse than a click.
+ */
+function schedule(param: AudioParam, to: number, fn: () => void): void {
+  try {
+    fn();
+  } catch {
+    param.value = to;
+  }
 }
 
 /**

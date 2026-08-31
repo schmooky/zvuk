@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Engine, Snapshot, Voice } from '@schmooky/zvuk';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import DemoShell from './DemoShell';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ export default function SnapshotCrossfade() {
 
   async function ensureSound(e: Engine, file: File | null): Promise<void> {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -36,7 +37,7 @@ export default function SnapshotCrossfade() {
     if (!e) return;
     await ensureSound(e, customFile);
     if (!voiceRef.current) {
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     }
     // Build the three snapshots from explicit state — we don't need to
     // mutate the engine to capture them.
@@ -71,7 +72,7 @@ export default function SnapshotCrossfade() {
       // Restart the looping music voice; the snapshots/crossfade logic operate
       // on the bus mix and are unaffected.
       voiceRef.current?.stop();
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -81,12 +82,7 @@ export default function SnapshotCrossfade() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      {state === 'cold' ? (
-        <Button variant="brand" size="lg" className="w-full" onClick={start}>
-          Unlock &amp; start
-        </Button>
-      ) : (
-        <>
+      <DemoShell state={state} onStart={start} label="Unlock & start">
           <Waveform audioNode={musicNode} variant="bars" label="music bus" />
           <div className="grid gap-2 sm:grid-cols-3">
             {PRESETS.map((p) => (
@@ -106,8 +102,7 @@ export default function SnapshotCrossfade() {
             <div>music level: <span className="text-primary">{PRESET_STATE[active].music.toFixed(2)}</span></div>
             <div>sfx level: <span className="text-primary">{PRESET_STATE[active].sfx.toFixed(2)}</span></div>
           </div>
-        </>
-      )}
+      </DemoShell>
     </Card>
   );
 }

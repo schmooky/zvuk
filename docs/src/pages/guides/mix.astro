@@ -36,14 +36,14 @@ createEngine({ master: { headroom: -3 } });`;
   <h2>Pick your buses up front</h2>
   <p>
     Most game-style apps land on the same five-or-six buses. Don't over-think this
-    on day one — you can always rename later.
+    on day one. You can always rename later.
   </p>
   <ul>
-    <li><strong>music</strong> — looped background tracks; one voice at a time, occasionally crossfaded.</li>
-    <li><strong>sfx</strong> — gameplay one-shots, dense, polyphonic.</li>
-    <li><strong>voice</strong> — VO, dialogue, alerts; usually exclusive (one at a time).</li>
-    <li><strong>ambience</strong> — looped environmental textures.</li>
-    <li><strong>ui</strong> — clicks, hovers, modal opens.</li>
+    <li><strong>music</strong> holds looped background tracks. One voice at a time, occasionally crossfaded.</li>
+    <li><strong>sfx</strong> holds gameplay one-shots. Dense and polyphonic.</li>
+    <li><strong>voice</strong> holds dialogue and alerts. Usually exclusive, one at a time.</li>
+    <li><strong>ambience</strong> holds looped environmental textures.</li>
+    <li><strong>ui</strong> holds clicks, hovers and modal opens.</li>
   </ul>
 
   <h2>Bare-bones declaration</h2>
@@ -70,7 +70,7 @@ createEngine({ master: { headroom: -3 } });`;
 
   <h2>What about ducking?</h2>
   <p>
-    Sidechain a target bus from a source bus — when the source is loud, the target
+    Sidechain a target bus from a source bus. When the source is loud, the target
     dips. See the <a href="/guides/ducking/">ducking guide</a>.
   </p>
 
@@ -83,7 +83,7 @@ createEngine({ master: { headroom: -3 } });`;
   <div class="pitfall">
     <div class="pitfall-title">Don't expose the master gain to UI.</div>
     Master is for mix headroom and mute (e.g. tab visibility). User volume
-    belongs on a bus or a parameter — most users want a music slider, not
+    belongs on a bus or a parameter. Most users want a music slider, not
     a global knob.
   </div>
 </Docs>
