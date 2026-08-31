@@ -219,6 +219,21 @@ export interface EngineConfig<TBusName extends string = string> {
    * thread regardless of tab visibility.
    */
   autoPauseOnHidden?: boolean;
+  /**
+   * Decoded-buffer cache limits. Decoded audio costs 4 bytes per sample per
+   * channel, so a few minutes of stereo 48 kHz is tens of megabytes and an
+   * entry count says nothing useful about memory.
+   *
+   * Defaults: 64 MiB, 128 entries. The cache is LRU on both.
+   */
+  cache?: CacheConfig;
+}
+
+export interface CacheConfig {
+  /** Ceiling on decoded bytes held in the cache. Default 64 MiB. */
+  maxBytes?: number;
+  /** Ceiling on cached entries, applied alongside `maxBytes`. Default 128. */
+  maxEntries?: number;
 }
 
 export interface FadeOptions {

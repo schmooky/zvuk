@@ -287,7 +287,7 @@ class EngineImpl implements Engine {
       autoPauseOnHidden: config.autoPauseOnHidden,
       latencyHint: config.latencyHint,
     });
-    this.decoder = new Decoder(() => this.host.touch());
+    this.decoder = new Decoder(() => this.host.touch(), config.cache ?? {});
     const declared = Object.keys(config.buses ?? {});
     this.busOrder = declared.length > 0 ? declared : ['default'];
     for (const name of this.busOrder) this.voices.set(name, new Set());
@@ -391,7 +391,7 @@ class EngineImpl implements Engine {
   async preload(items: readonly PreloadItem[], options: PreloadOptions = {}): Promise<void> {
     if (this.host.state === 'closed') throw new EngineClosedError();
     if (items.length === 0) return;
-    const concurrency = Math.max(1, options.concurrency ?? 4);
+    const concurrency = Math.max(1, options.concurrency ?? DEFAULT_LOAD_CONCURRENCY);
     const onProgress = options.onProgress;
     const batchSignal = options.signal;
     const total = items.length;
@@ -466,10 +466,12 @@ class EngineImpl implements Engine {
       throw new Error(`engine.loadVariants("${name}") requires at least one URL set`);
     }
     const { strategy, ...loadOpts } = options;
-    const sounds: Sound[] = [];
-    for (let i = 0; i < urls.length; i++) {
-      sounds.push(await this.loadSound(`__variant:${name}:${i}`, urls[i]!, loadOpts));
-    }
+    // Sequential awaits meant 8 variants cost 8 round trips. Same
+    // concurrency cap as preload so a big variant bundle doesn't starve the
+    // rest of the page's fetches.
+    const sounds = await mapConcurrent(urls, DEFAULT_LOAD_CONCURRENCY, (u, i) =>
+      this.loadSound(`__variant:${name}:${i}`, u, loadOpts),
+    );
     const v = new Variants(name, sounds, { strategy });
     this.variantsByName.set(name, v);
     return v;
@@ -491,13 +493,17 @@ class EngineImpl implements Engine {
     this.ensureGraph();
 
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    const loopBuf = await this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts);
-    const introBuf = parts.intro
-      ? await this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
-      : undefined;
-    const outroBuf = parts.outro
-      ? await this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
-      : undefined;
+    // Three independent fetches. Sequential awaits made a three-part track
+    // cost three round trips before a single note could play.
+    const [loopBuf, introBuf, outroBuf] = await Promise.all([
+      this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts),
+      parts.intro
+        ? this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
+        : Promise.resolve(undefined),
+      parts.outro
+        ? this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
+        : Promise.resolve(undefined),
+    ]);
 
     const ctx = this.host.touch();
     const buffers = {
@@ -788,6 +794,32 @@ class EngineImpl implements Engine {
  * Uses Levenshtein distance on the candidate set; if a close match exists,
  * it's surfaced in the error so a typo doesn't waste anyone's afternoon.
  */
+/** Default parallel fetches for preload and variant bundles. */
+const DEFAULT_LOAD_CONCURRENCY = 4;
+
+/**
+ * Map over `items` with at most `limit` calls in flight, preserving input
+ * order in the result. Rejects with the first failure, like Promise.all.
+ */
+async function mapConcurrent<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]!, i);
+    }
+  };
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return out;
+}
+
 function suggest(missing: string, candidates: readonly string[]): string {
   if (candidates.length === 0) return missing;
   let best: string | null = null;
