@@ -26,6 +26,8 @@ type ScheduledTask = {
  */
 export class Scheduler {
   private tasks: ScheduledTask[] = [];
+  /** Cancelled-but-still-queued task count, for compaction. */
+  private cancelled = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
 
@@ -36,12 +38,36 @@ export class Scheduler {
 
   scheduleAt(audioTime: number, fn: () => void): () => void {
     const task: ScheduledTask = { audioTime, fn, cancelled: false };
-    this.tasks.push(task);
-    this.tasks.sort((a, b) => a.audioTime - b.audioTime);
+    // Binary-search insert. Tasks arrive in roughly ascending order, so a
+    // full sort per insert was O(n log n) on an already-sorted array for
+    // every scheduled event.
+    this.tasks.splice(this.insertionIndex(audioTime), 0, task);
     this.arm();
     return () => {
+      if (task.cancelled) return;
       task.cancelled = true;
+      this.cancelled++;
+      // Cancelled tasks were only dropped when a tick happened to walk the
+      // queue. A caller that schedules and cancels far-future tasks kept
+      // every one of them alive.
+      if (this.cancelled > 32 && this.cancelled * 2 > this.tasks.length) this.compact();
     };
+  }
+
+  private insertionIndex(audioTime: number): number {
+    let lo = 0;
+    let hi = this.tasks.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.tasks[mid]!.audioTime <= audioTime) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  private compact(): void {
+    this.tasks = this.tasks.filter((t) => !t.cancelled);
+    this.cancelled = 0;
   }
 
   private arm(): void {
@@ -81,6 +107,7 @@ export class Scheduler {
       else remaining.push(t);
     }
     this.tasks = remaining;
+    this.cancelled = 0;
     for (const t of due) {
       try {
         t.fn();
@@ -111,5 +138,6 @@ export class Scheduler {
       this.unsubscribe = null;
     }
     this.tasks = [];
+    this.cancelled = 0;
   }
 }

@@ -265,6 +265,8 @@ class EngineImpl implements Engine {
   private buses = new Map<string, Bus>();
   private busOrder: string[] = [];
   private sounds = new Map<string, Sound>();
+  /** Sprite buffers and variant parts, keyed by their internal name. */
+  private internalSounds = new Map<string, Sound>();
   private sprites = new Map<string, Sprite>();
   private streams = new Map<string, StreamSound>();
   private musics = new Map<string, Music>();
@@ -326,6 +328,7 @@ class EngineImpl implements Engine {
     this.master?.dispose();
     this.master = null;
     this.sounds.clear();
+    this.internalSounds.clear();
     this.sprites.clear();
     for (const m of this.musics.values()) m.stopAll({ fade: 0 });
     this.musics.clear();
@@ -345,20 +348,35 @@ class EngineImpl implements Engine {
     url: string | readonly string[],
     options: LoadSoundOptions = {},
   ): Promise<Sound> {
+    return this.loadSoundAs(name, name, url, options, false);
+  }
+
+  /**
+   * Shared loader. `key` is the registry key; `publicName` is what spawned
+   * voices report as `sourceName`. They differ for sprites and variant
+   * bundles, whose parts are registered under internal keys.
+   */
+  private async loadSoundAs(
+    key: string,
+    publicName: string,
+    url: string | readonly string[],
+    options: LoadSoundOptions,
+    internal: boolean,
+  ): Promise<Sound> {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
 
     const decodeOpts: DecodeOptions = { signal: options.signal };
-    let buffer = await this.resolveBuffer(name, url, decodeOpts);
+    let buffer = await this.resolveBuffer(key, url, decodeOpts);
 
     if (options.normalize) {
       buffer = applyLoudnessNormalization(buffer, options.normalize, this.host.touch());
     }
 
     // Record the URL set so `unloadSound` can evict the cache entry later.
-    this.soundUrls.set(name, typeof url === 'string' ? [url] : [...url]);
-    return this.createSound(name, buffer, { bus: options.bus });
+    this.soundUrls.set(key, typeof url === 'string' ? [url] : [...url]);
+    return this.registerSound(key, publicName, buffer, { bus: options.bus }, internal);
   }
 
   private async resolveBuffer(
@@ -441,7 +459,7 @@ class EngineImpl implements Engine {
     regions: SpriteMap,
     options: LoadSoundOptions = {},
   ): Promise<Sprite> {
-    const sound = await this.loadSound(`__sprite:${name}`, url, options);
+    const sound = await this.loadSoundAs(`__sprite:${name}`, name, url, options, true);
     const sprite = new Sprite(name, sound, regions);
     this.sprites.set(name, sprite);
     return sprite;
@@ -449,7 +467,7 @@ class EngineImpl implements Engine {
 
   sprite(name: string): Sprite {
     const s = this.sprites.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sprites.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.sprites.keys()]));
     return s;
   }
 
@@ -470,7 +488,7 @@ class EngineImpl implements Engine {
     // concurrency cap as preload so a big variant bundle doesn't starve the
     // rest of the page's fetches.
     const sounds = await mapConcurrent(urls, DEFAULT_LOAD_CONCURRENCY, (u, i) =>
-      this.loadSound(`__variant:${name}:${i}`, u, loadOpts),
+      this.loadSoundAs(`__variant:${name}:${i}`, name, u, loadOpts, true),
     );
     const v = new Variants(name, sounds, { strategy });
     this.variantsByName.set(name, v);
@@ -479,7 +497,7 @@ class EngineImpl implements Engine {
 
   variants(name: string): Variants {
     const v = this.variantsByName.get(name);
-    if (!v) throw new SoundNotFoundError(suggest(name, [...this.variantsByName.keys()]));
+    if (!v) throw new SoundNotFoundError(name, suggest(name, [...this.variantsByName.keys()]));
     return v;
   }
 
@@ -522,7 +540,7 @@ class EngineImpl implements Engine {
 
     const busName = options.bus ?? this.busOrder[0]!;
     const bus = this.buses.get(busName);
-    if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
+    if (!bus) throw new BusNotFoundError(busName, suggest(busName, [...this.buses.keys()]));
 
     const music = new Music(name, {
       ctx: this.host.touch(),
@@ -537,7 +555,7 @@ class EngineImpl implements Engine {
 
   music(name: string): Music {
     const m = this.musics.get(name);
-    if (!m) throw new SoundNotFoundError(suggest(name, [...this.musics.keys()]));
+    if (!m) throw new SoundNotFoundError(name, suggest(name, [...this.musics.keys()]));
     return m;
   }
 
@@ -552,7 +570,7 @@ class EngineImpl implements Engine {
     const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
     const bus = options.bus ?? this.busOrder[0]!;
     const busObj = this.buses.get(bus);
-    if (!busObj) throw new BusNotFoundError(suggest(bus, [...this.buses.keys()]));
+    if (!busObj) throw new BusNotFoundError(bus, suggest(bus, [...this.buses.keys()]));
     const stream = new StreamSound(name, this.host.touch(), resolvedUrl, busObj.input);
     this.streams.set(name, stream);
     return stream;
@@ -560,7 +578,7 @@ class EngineImpl implements Engine {
 
   stream(name: string): StreamSound {
     const s = this.streams.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.streams.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.streams.keys()]));
     return s;
   }
 
@@ -597,21 +615,33 @@ class EngineImpl implements Engine {
   }
 
   createSound(name: string, buffer: AudioBuffer, options: { bus?: string } = {}): Sound {
+    return this.registerSound(name, name, buffer, options, false);
+  }
+
+  private registerSound(
+    name: string,
+    publicName: string,
+    buffer: AudioBuffer,
+    options: { bus?: string },
+    internal: boolean,
+  ): Sound {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
 
     const defaultBus = options.bus ?? this.busOrder[0]!;
-    if (!this.buses.has(defaultBus)) throw new BusNotFoundError(suggest(defaultBus, [...this.buses.keys()]));
+    if (!this.buses.has(defaultBus))
+      throw new BusNotFoundError(defaultBus, suggest(defaultBus, [...this.buses.keys()]));
 
     const sound = new Sound(name, {
       ctx: this.host.touch(),
       buffer,
       defaultBus,
+      sourceName: publicName,
       defaultStopFade: this.config.voice?.stopFade,
       resolveBusInput: (busName) => {
         const bus = this.buses.get(busName);
-        if (!bus) throw new BusNotFoundError(suggest(busName, [...this.buses.keys()]));
+        if (!bus) throw new BusNotFoundError(busName, suggest(busName, [...this.buses.keys()]));
         return bus.input;
       },
       resolveSpatializer: (_busName, opts) => {
@@ -647,7 +677,10 @@ class EngineImpl implements Engine {
       },
     });
 
-    this.sounds.set(name, sound);
+    // Sprite buffers and variant parts stay out of the public registry —
+    // they used to show up in `hasSound`, in did-you-mean suggestions, and
+    // as `__variant:coin:2` on `voice.sourceName`.
+    (internal ? this.internalSounds : this.sounds).set(name, sound);
     return sound;
   }
 
@@ -672,14 +705,14 @@ class EngineImpl implements Engine {
 
   sound(name: string): Sound {
     const s = this.sounds.get(name);
-    if (!s) throw new SoundNotFoundError(suggest(name, [...this.sounds.keys()]));
+    if (!s) throw new SoundNotFoundError(name, suggest(name, [...this.sounds.keys()]));
     return s;
   }
 
   bus(name: string): Bus {
     this.ensureGraph();
     const b = this.buses.get(name);
-    if (!b) throw new BusNotFoundError(suggest(name, [...this.buses.keys()]));
+    if (!b) throw new BusNotFoundError(name, suggest(name, [...this.buses.keys()]));
     return b;
   }
 
@@ -692,7 +725,7 @@ class EngineImpl implements Engine {
     }
     const existing = this.busGroups.get(name);
     if (!existing) {
-      throw new BusNotFoundError(suggest(name, [...this.busGroups.keys()]));
+      throw new BusNotFoundError(name, suggest(name, [...this.busGroups.keys()]));
     }
     return existing;
   }
@@ -820,8 +853,14 @@ async function mapConcurrent<T, R>(
   return out;
 }
 
-function suggest(missing: string, candidates: readonly string[]): string {
-  if (candidates.length === 0) return missing;
+/**
+ * Closest candidate to `missing`, or null when nothing is near enough.
+ * Callers pass the result to an error constructor as a hint — it used to
+ * return a string with quote characters spliced into it so the caller's own
+ * template would close around the suggestion.
+ */
+function suggest(missing: string, candidates: readonly string[]): string | null {
+  if (candidates.length === 0) return null;
   let best: string | null = null;
   let bestDist = Infinity;
   for (const c of candidates) {
@@ -836,10 +875,7 @@ function suggest(missing: string, candidates: readonly string[]): string {
   // suggest "music".
   const longest = Math.max(missing.length, best?.length ?? 0);
   const threshold = Math.max(1, Math.ceil(longest / 2));
-  if (best && bestDist <= threshold) {
-    return `${missing}"; did you mean "${best}`;
-  }
-  return missing;
+  return best && bestDist <= threshold ? best : null;
 }
 
 /**

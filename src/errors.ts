@@ -12,16 +12,23 @@ export class EngineClosedError extends ZvukError {
   }
 }
 
+/** `did you mean "x"?`, or nothing when no candidate was close enough. */
+function hintOf(hint: string | null | undefined): string {
+  return hint ? ` Did you mean "${hint}"?` : '';
+}
+
 export class BusNotFoundError extends ZvukError {
-  constructor(name: string) {
-    super(`Bus "${name}" is not configured. Declare it in createEngine({ buses: { ... } }).`);
+  constructor(name: string, hint?: string | null) {
+    super(`Bus "${name}" is not configured. Declare it in createEngine({ buses: { ... } }).${hintOf(hint)}`);
     this.name = 'BusNotFoundError';
   }
 }
 
 export class SoundNotFoundError extends ZvukError {
-  constructor(name: string) {
-    super(`Sound "${name}" is not loaded. Call engine.loadSound() or load a bank that contains it.`);
+  constructor(name: string, hint?: string | null) {
+    super(
+      `Sound "${name}" is not loaded. Call engine.loadSound() or load a bank that contains it.${hintOf(hint)}`,
+    );
     this.name = 'SoundNotFoundError';
   }
 }

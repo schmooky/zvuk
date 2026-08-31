@@ -12,7 +12,7 @@ describe('did-you-mean error messages', () => {
       throw new Error('expected throw');
     } catch (e) {
       expect(e).toBeInstanceOf(BusNotFoundError);
-      expect((e as Error).message).toContain('did you mean "sfx"');
+      expect((e as Error).message).toContain('Did you mean "sfx"');
     }
     await engine.close();
   });
@@ -26,7 +26,7 @@ describe('did-you-mean error messages', () => {
       throw new Error('expected throw');
     } catch (e) {
       expect(e).toBeInstanceOf(SoundNotFoundError);
-      expect((e as Error).message).toContain('did you mean "coin"');
+      expect((e as Error).message).toContain('Did you mean "coin"');
     }
     await engine.close();
   });

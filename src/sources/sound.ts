@@ -13,6 +13,13 @@ export interface SoundDeps {
   applyConcurrency?: (v: Voice, bus: string) => boolean;
   /** Engine-level default click-free fade for voice.stop() (seconds). */
   defaultStopFade?: number;
+  /**
+   * Name reported on spawned voices, when it differs from the registry key.
+   * Sprites and variant bundles register under internal keys; their voices
+   * should still say which public asset they came from so `engine.crossfade`
+   * can find them.
+   */
+  sourceName?: string;
 }
 
 /**
@@ -45,7 +52,7 @@ export class Sound {
       destination,
       options: { ...options, bus },
       spatializer,
-      sourceName: this.name,
+      sourceName: this.deps.sourceName ?? this.name,
       defaultStopFade: this.deps.defaultStopFade,
       onEnded: (v) => {
         this.deps.releaseVoice(v, bus);

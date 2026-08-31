@@ -35,7 +35,7 @@ describe('StreamSound', () => {
       engine.stream('inrto');
       throw new Error('expected throw');
     } catch (e) {
-      expect((e as Error).message).toContain('did you mean "intro"');
+      expect((e as Error).message).toContain('Did you mean "intro"');
     }
     await engine.close();
   });
