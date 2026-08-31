@@ -1,5 +1,95 @@
 # @schmooky/zvuk
 
+## 1.14.0
+
+### Minor Changes
+
+- [#95](https://github.com/schmooky/zvuk/pull/95) [`85d52d3`](https://github.com/schmooky/zvuk/commit/85d52d3c7f8264341dab6325c8f18d9f53806390) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Loading and cache improvements.
+
+  - Concurrent loads of the same URL now share one fetch and one decode.
+    The shared request is only aborted once every caller has aborted, so
+    one caller pulling out doesn't cancel the others.
+  - The decoded-buffer cache is budgeted in bytes, not entries. Configure
+    it with `createEngine({ cache: { maxBytes, maxEntries } })`; defaults
+    are 64 MiB and 128 entries.
+  - `DecodeOptions.onProgress` is implemented — byte-level download
+    progress, read off `response.body`.
+  - `loadMusic` fetches intro, loop and outro in parallel; `loadVariants`
+    runs through a worker pool at the same concurrency cap as `preload`,
+    instead of awaiting each in a loop.
+  - `Music` tracks the voices it spawns: `music.voices()` and
+    `music.stopAll()`.
+  - `EngineState` gains `'suspended'`. Code that switches exhaustively over
+    it needs a new branch.
+  - `variants.lastPick` reports which take the most recent `play()` chose, or
+    `-1` before the first. The bundle already tracked it internally; it is
+    read-only now so a subtitle, a telemetry event or an animation can follow
+    whichever alternate actually fired.
+
+### Patch Changes
+
+- [#95](https://github.com/schmooky/zvuk/pull/95) [`85d52d3`](https://github.com/schmooky/zvuk/commit/85d52d3c7f8264341dab6325c8f18d9f53806390) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix a set of audio-scheduling and lifecycle bugs.
+
+  - `applyRamp` now interrupts a running `setValueCurveAtTime` with
+    `cancelAndHoldAtTime` where the engine has it, and no longer lets a
+    refused scheduling call escape to the caller — `voice.fade()` and
+    `bus.fadeTo()` had no handler of their own.
+  - A looping sprite region stopped after one pass, which made
+    `SpriteRegion.loop` documented but non-functional.
+  - `voice.setPlaybackRate` never re-armed the region stop-timer, so a
+    `duration`-bounded voice at half speed still ended at the original wall
+    time.
+  - `resolveAsset` returning an `ArrayBuffer` had it detached by
+    `decodeAudioData`, so a resolver backed by a byte cache broke on its
+    second hit.
+  - `Ducker` started its envelope at 0 (dropping the target bus to silence
+    on insertion), wrote `gain.value = 1` on bypass (a click), left stale
+    envelope state that could disable ducking after un-bypass, ran its rAF
+    loop while bypassed, froze mid-duck in a hidden tab, and threw under
+    SSR.
+  - `Master.rewire()` dropped the meter analyser, so `masterMeter()` read
+    zero forever after any `setLimiter()` call. `setHeadroom` now ramps
+    instead of writing `gain.value`.
+  - `Bus.muted` had no equality guard, so `Snapshot.blendWith` fired a
+    redundant ramp on every bus on every frame.
+  - The engine reported `'live'` over a suspended context, so `unlock()`
+    early-returned and manual recovery was impossible. `EngineState` gains
+    `'suspended'`.
+  - `new AudioContext()` had no `webkitAudioContext` fallback.
+  - `close()` left bus groups and the solo set populated and never stopped
+    live `MusicVoice` instances.
+  - Detached fades in `crossfade()` had no `.catch`, and `preload` used
+    `Promise.all`, so an abort rejected the batch while siblings rejected
+    into the void.
+  - Errors stringified their cause into the message and discarded it;
+    they now pass it through as `cause`.
+  - Fade promises resolved on `setTimeout` rather than the audio clock, so
+    a voice stopped mid-fade still reported at the full duration and a
+    frozen ramp resolved anyway.
+  - `steal: 'quietest'` allocated a permanent `AnalyserNode` per candidate
+    voice.
+  - Sprite and variant parts leaked their internal registry names into
+    `hasSound`, into did-you-mean suggestions, and onto `voice.sourceName`,
+    which broke `engine.crossfade` for variants.
+  - `Scheduler.scheduleAt` full-sorted on every insert and never evicted
+    cancelled tasks.
+  - Errors built their did-you-mean text by splicing quote characters into
+    the caller's own template, producing `Bus "sxf"; did you mean "sfx" is
+not configured.` The suggestion is now a separate sentence.
+  - `tsup` ships a minified bundle. The tarball was published unminified at
+    25 kB gzipped while the README advertised a min+gzip figure, so the
+    number on the page described a build nobody was installing. It is
+    16.9 kB now, gated in CI at 18 kB, with a second gate at 16 kB on a
+    `createEngine`-only import (14.6 kB today).
+
+  No API change here, but worth knowing if you picked zvuk partly for the
+  "fully tree-shakable" line in the README: it wasn't true, and the README
+  now says what is. The FX classes drop out when unused. The engine core
+  does not, because `createEngine` statically reaches every source type,
+  so importing only `createEngine` still costs 14.6 kB of the 16.9 kB
+  whole. Loosening that is tracked in
+  [#94](https://github.com/schmooky/zvuk/issues/94).
+
 ## 1.13.0
 
 ### Minor Changes
