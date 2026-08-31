@@ -41,7 +41,7 @@ describe('Bus concurrency', () => {
     await engine.close();
   });
 
-  it("steal: 'quietest' picks the voice with the lowest live RMS — no console warnings", async () => {
+  it("steal: 'quietest' picks the quietest voice — no console warnings", async () => {
     const engine = createEngine({
       buses: { sfx: { concurrency: { max: 2, steal: 'quietest' } } },
     });
@@ -50,12 +50,11 @@ describe('Bus concurrency', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
-      // Force two voices with deterministically different live levels by
-      // overriding their level() method. Production paths use the analyser.
-      const loud = engine.sound('hit').play();
-      const quiet = engine.sound('hit').play();
-      Object.defineProperty(loud, 'level', { value: () => ({ rms: 0.9, peak: 1 }) });
-      Object.defineProperty(quiet, 'level', { value: () => ({ rms: 0.01, peak: 0.05 }) });
+      // Two voices with deterministically different levels. Ranking reads
+      // the voice's own gain unless a meter tap already exists, so setting
+      // volume is the production path.
+      const loud = engine.sound('hit').play({ volume: 0.9 });
+      const quiet = engine.sound('hit').play({ volume: 0.01 });
 
       // Spawn a third voice — must steal the quietest, not the oldest.
       engine.sound('hit').play();

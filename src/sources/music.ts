@@ -1,4 +1,5 @@
 import { applyRamp, equalPowerCurve } from '../mixer/curve';
+import { waitAudio } from '../runtime/wait';
 import type { FadeOptions, MusicPlayOptions, MusicState, SkipToOutroOptions, StopOptions } from '../types';
 
 const DEFAULT_STOP_FADE_SEC = 0.008;
@@ -162,7 +163,7 @@ export class MusicVoice {
     const param = this.gain.gain;
     const now = this.ctx.currentTime;
     applyRamp(param, now, clamp01(opts.to), opts.duration, opts.curve ?? 'linear');
-    return new Promise((res) => setTimeout(res, Math.max(0, opts.duration) * 1000));
+    return waitAudio(this.ctx, opts.duration, this.ended);
   }
 
   /**
