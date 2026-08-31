@@ -1,4 +1,6 @@
 ---
+import interLatin from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+import monoLatin from '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url';
 import Footer from '../components/Footer.astro';
 import Nav from '../components/Nav.astro';
 import { SITE } from '../lib/seo';
@@ -48,6 +50,10 @@ function deriveOgSlug(path: string): string {
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={ogImage} />
     <link rel="canonical" href={canonical} />
+    {/* Both faces are used above the fold; preloading beats waiting for the
+        CSS to be parsed before the font request even starts. */}
+    <link rel="preload" href={interLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoLatin} as="font" type="font/woff2" crossorigin />
   </head>
   <body>
     <Nav />

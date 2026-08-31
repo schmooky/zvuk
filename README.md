@@ -50,7 +50,7 @@ engine.bus('music').fadeTo(0.1, 0.8);
 
 zvuk is that layer, done once. It gives you the routing primitives a real game-audio team reaches for (Wwise / FMOD / RAD) without a 60 MB editor, behind an API small enough to keep in your head:
 
-- **Tiny & honest** — ~16 KB min+gzip, zero runtime dependencies, fully tree-shakable.
+- **Tiny & honest** — 17 kB min+gzip for the whole library, zero runtime dependencies, fully tree-shakable. CI fails the build above 18 kB.
 - **ESM-only & TypeScript-strict** — typed sound names, typed bus names, no `any` at the edges.
 - **No magic** — lazy `AudioContext` (importing the package does nothing), explicit lifecycle, real Web Audio nodes you can reach when you need to.
 - **Built for slot/casino & game audio**, useful anywhere sound matters.

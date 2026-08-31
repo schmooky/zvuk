@@ -1,5 +1,31 @@
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/**
+ * Fallback faces, metric-matched so the swap from system fonts to the real
+ * ones doesn't reflow the page. Both webfonts ship `font-display: swap`, so
+ * something is always readable; these overrides make sure it occupies the
+ * same space. Ratios come from each font's own ascender/descender over the
+ * fallback's, scaled by the average advance width.
+ */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial"), local("Helvetica Neue");
+  ascent-override: 90.20%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+  size-adjust: 107.12%;
+}
+@font-face {
+  font-family: "JetBrains Mono Fallback";
+  src: local("Menlo"), local("Courier New");
+  ascent-override: 102%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+  size-adjust: 100%;
+}
 
 /**
  * zvuk design system — shadcn (new-york) on Tailwind v4.
@@ -129,6 +155,13 @@
 }
 
 @theme inline {
+  /* Both stacks name a metric-matched fallback so `font-sans` and
+     `font-mono` utilities hold the same layout before the webfont lands. */
+  --font-sans: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono Fallback", ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -216,7 +249,7 @@
       radial-gradient(900px 500px at -10% 15%, color-mix(in oklab, var(--color-brand2) 9%, transparent), transparent 60%),
       var(--color-background);
     min-height: 100vh;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
+    font-family: "Inter Variable", "Inter Fallback", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif;
   }
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -287,7 +320,7 @@
     background: var(--color-code-bg);
     border: 1px solid var(--color-code-border);
     color: var(--color-code-fg);
-    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: "JetBrains Mono Variable", "JetBrains Mono Fallback", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   .prose-docs pre code { @apply bg-transparent p-0; color: inherit; }
   .prose-docs table { @apply w-full my-6 text-sm border-collapse; }
