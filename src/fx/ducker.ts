@@ -33,7 +33,12 @@ export class Ducker implements FxInsert {
   private rafId: number | null = null;
   /** Timestamp of the previous tick (ms), for measuring the real frame delta. */
   private lastTickMs = 0;
-  private envelope = 0;
+  /**
+   * Envelope-follower state, 1 = not ducking. It starts at unity: starting
+   * at 0 made every freshly-inserted ducker drop its target bus to silence
+   * and swell it back over the release time.
+   */
+  private envelope = 1;
   private targetGain = 1;
   private ctx: AudioContext;
   private cfg: Required<DuckerConfig>;
@@ -59,7 +64,10 @@ export class Ducker implements FxInsert {
     this.buf = new Float32Array(this.analyser.fftSize);
     sourceBus.output.connect(this.analyser);
 
-    this.tick();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibility);
+    }
+    this.startLoop();
   }
 
   setAmount(a: number): void {
@@ -77,11 +85,25 @@ export class Ducker implements FxInsert {
   set bypassed(v: boolean) {
     if (this._bypassed === v) return;
     this._bypassed = v;
-    if (v) this.gain.gain.value = 1;
+    if (v) {
+      // Ramp back to unity rather than writing .value, and park the loop —
+      // a bypassed ducker was still burning a frame callback forever.
+      this.releaseToUnity();
+      this.stopLoop();
+    } else {
+      // Re-enter from unity so the first tick after un-bypass doesn't chase
+      // a stale envelope, and so a loud source isn't mistaken for "already
+      // at target" and left un-ducked.
+      this.resetEnvelope();
+      this.startLoop();
+    }
   }
 
   dispose(): void {
-    if (this.rafId != null) cancelAnimationFrame(this.rafId);
+    this.stopLoop();
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibility);
+    }
     try {
       // Tear down the inbound edge from the source bus first — that's the
       // one that keeps the analyser (and its 1024-sample Float32Array) live
@@ -112,7 +134,8 @@ export class Ducker implements FxInsert {
     if (timeMs != null) this.lastTickMs = timeMs;
 
     if (this._bypassed) {
-      this.rafId = requestAnimationFrame(this.tick);
+      // Loop is parked by the setter; nothing to re-arm.
+      this.rafId = null;
       return;
     }
     this.analyser.getFloatTimeDomainData(this.buf as Float32Array<ArrayBuffer>);
@@ -135,4 +158,40 @@ export class Ducker implements FxInsert {
     }
     this.rafId = requestAnimationFrame(this.tick);
   };
+
+  /**
+   * A hidden tab stops firing rAF, so the envelope freezes wherever it was.
+   * Come back to a ducker that was mid-duck and the music stays quiet with
+   * nothing driving it back up. Reset to unity on return and let the next
+   * few frames re-duck if the source really is still loud.
+   */
+  private handleVisibility = (): void => {
+    if (document.visibilityState !== 'visible') return;
+    this.resetEnvelope();
+    if (!this._bypassed) this.startLoop();
+  };
+
+  private resetEnvelope(): void {
+    this.envelope = 1;
+    this.targetGain = 1;
+    this.lastTickMs = 0;
+    this.releaseToUnity();
+  }
+
+  private releaseToUnity(): void {
+    this.gain.gain.setTargetAtTime(1, this.ctx.currentTime, 0.005);
+  }
+
+  private startLoop(): void {
+    // No rAF under SSR — the rest of the codebase guards on `document`, and
+    // constructing a Ducker on the server used to throw here.
+    if (typeof requestAnimationFrame === 'undefined') return;
+    if (this.rafId != null) return;
+    this.tick();
+  }
+
+  private stopLoop(): void {
+    if (this.rafId != null) cancelAnimationFrame(this.rafId);
+    this.rafId = null;
+  }
 }

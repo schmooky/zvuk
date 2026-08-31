@@ -19,6 +19,10 @@ describe('Ducker frame-delta timing', () => {
     const fast = make(); // will step at 120 Hz
     const slow = make(); // will step at 30 Hz
 
+    // Both start fully ducked so the release leg has somewhere to travel.
+    fast.envelope = 0;
+    slow.envelope = 0;
+
     // First real timestamp seeds lastTickMs (uses the fallback dt) — identical
     // for both.
     fast.tick(1000);
