@@ -129,6 +129,9 @@ export class Bus {
   }
 
   set muted(v: boolean) {
+    // Snapshot.blendWith writes mute on every bus on every frame; without
+    // this guard each of those is a redundant ramp.
+    if (this._muted === v) return;
     this._muted = v;
     this.rampOutput(v || this._soloVeiled ? 0 : this._level, 0.01);
   }
