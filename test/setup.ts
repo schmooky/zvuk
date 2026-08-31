@@ -12,12 +12,16 @@ type ParamEvent =
   | { kind: 'cancelHold'; time: number };
 
 /**
- * AudioParam fake that models the one scheduling rule the library actually
- * trips over: an in-flight `setValueCurveAtTime` window makes any other
- * automation call inside that window throw NotSupportedError, and only
- * `cancelAndHoldAtTime` (or a `cancelScheduledValues` at or before the
- * curve's start) clears it. Every call is recorded in `events` so tests can
- * assert on what was scheduled rather than only on the final value.
+ * AudioParam fake that models the scheduling rule the old fake ignored: an
+ * in-flight `setValueCurveAtTime` window makes any other automation call
+ * inside that window throw NotSupportedError.
+ *
+ * This is deliberately stricter than Chromium 141 and WebKit 26, which drop
+ * an overlapping curve on plain `cancelScheduledValues`. It is the
+ * conservative reading of the spec, and it keeps the fake honest about
+ * engines that don't (Firefox has no `cancelAndHoldAtTime` to fall back
+ * on). Every call is recorded in `events` so tests can assert on what was
+ * scheduled rather than only on the final value.
  */
 class FakeAudioParam {
   value: number;

@@ -4,13 +4,10 @@
 
 Fix a set of audio-scheduling and lifecycle bugs.
 
-- `applyRamp` cancelled with `cancelScheduledValues`, which leaves a
-  `setValueCurveAtTime` that started earlier in place, so the pin that
-  followed threw `NotSupportedError`. Every non-linear curve uses
-  `setValueCurveAtTime` and `equal-power` is the default for
-  `engine.crossfade`, so two crossfades inside one fade duration crashed.
-  Uses `cancelAndHoldAtTime` where available, with the old path kept for
-  Firefox.
+- `applyRamp` now interrupts a running `setValueCurveAtTime` with
+  `cancelAndHoldAtTime` where the engine has it, and no longer lets a
+  refused scheduling call escape to the caller — `voice.fade()` and
+  `bus.fadeTo()` had no handler of their own.
 - A looping sprite region stopped after one pass, which made
   `SpriteRegion.loop` documented but non-functional.
 - `voice.setPlaybackRate` never re-armed the region stop-timer, so a

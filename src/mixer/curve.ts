@@ -42,14 +42,21 @@ type HoldableParam = AudioParam & { cancelAndHoldAtTime?: (t: number) => void };
  * Clear whatever automation is already scheduled and pin `from` at `now` so
  * the ramp that follows has a defined starting point.
  *
- * `cancelScheduledValues(now)` only drops events at or after `now`, so a
- * `setValueCurveAtTime` that started earlier survives — and any other
- * automation call landing inside that curve's window throws
- * NotSupportedError. Every non-linear curve here goes through
- * setValueCurveAtTime and equal-power is the default for `engine.crossfade`,
- * so two crossfades within one fade duration used to take the whole call
- * down. `cancelAndHoldAtTime` truncates the running curve instead. Firefox
- * still doesn't ship it, hence both paths.
+ * The hazard here is a `setValueCurveAtTime` that started before `now` and
+ * is still running: any other automation call inside a live curve's window
+ * is a NotSupportedError. Every non-linear curve goes through
+ * setValueCurveAtTime and equal-power is the default for
+ * `engine.crossfade`, so interrupting a fade with another fade walks
+ * straight into it.
+ *
+ * `cancelAndHoldAtTime` truncates the running curve and holds its value,
+ * which is exactly what an interrupted fade wants. Chromium 141 and
+ * WebKit 26 also drop an overlapping curve on plain
+ * `cancelScheduledValues` (measured — see conformance/ramp.test.ts), so
+ * the old path was not in fact throwing there; Firefox has no
+ * cancelAndHoldAtTime at all, hence keeping both. The try/catch is the
+ * part that matters: `voice.fade()` and `bus.fadeTo()` have no handler of
+ * their own, so a refusal on any engine used to escape to the caller.
  */
 function cancelAndPin(param: AudioParam, now: number, from: number): void {
   const p = param as HoldableParam;

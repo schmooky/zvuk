@@ -1,0 +1,8 @@
+[
+  {
+    "name": "@schmooky/zvuk (full import)",
+    "path": "dist/index.js",
+    "limit": "18 kB",
+    "gzip": true
+  }
+]
