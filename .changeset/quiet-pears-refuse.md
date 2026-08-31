@@ -53,4 +53,13 @@ Fix a set of audio-scheduling and lifecycle bugs.
 - `tsup` ships a minified bundle. The tarball was published unminified at
   25 kB gzipped while the README advertised a min+gzip figure, so the
   number on the page described a build nobody was installing. It is
-  16.9 kB now, gated in CI at 18 kB.
+  16.9 kB now, gated in CI at 18 kB, with a second gate at 16 kB on a
+  `createEngine`-only import (14.6 kB today).
+
+No API change here, but worth knowing if you picked zvuk partly for the
+"fully tree-shakable" line in the README: it wasn't true, and the README
+now says what is. The FX classes drop out when unused. The engine core
+does not, because `createEngine` statically reaches every source type,
+so importing only `createEngine` still costs 14.6 kB of the 16.9 kB
+whole. Loosening that is tracked in
+[#94](https://github.com/schmooky/zvuk/issues/94).

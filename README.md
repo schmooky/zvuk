@@ -50,7 +50,7 @@ engine.bus('music').fadeTo(0.1, 0.8);
 
 zvuk is that layer, done once. It gives you the routing primitives a game-audio team already reaches for in Wwise, FMOD or RAD, without the 60 MB editor, behind an API small enough to keep in your head.
 
-- **Tiny and honest.** 17 kB min+gzip for the whole library, zero runtime dependencies, fully tree-shakable. CI fails the build above 18 kB.
+- **Tiny and honest.** 17 kB min+gzip for the whole library, 15 kB if you only ever call `createEngine`. Zero runtime dependencies. The FX classes (`Reverb`, `Compressor`, `Filter`, `Ducker`, `StretchProcessor`) drop out when unused; the engine core does not, because it reaches every source type. CI fails the build above 18 kB full / 16 kB core.
 - **ESM-only and TypeScript-strict.** Typed sound names, typed bus names, no `any` at the edges.
 - **No magic.** The `AudioContext` is lazy, so importing the package does nothing. Lifecycle is explicit, and the real Web Audio nodes are reachable when you need them.
 - **Built for slot and casino audio**, useful anywhere sound matters.
