@@ -1,6 +1,18 @@
 import { EngineClosedError } from '../errors';
 
-export type EngineState = 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed';
+/**
+ * Engine lifecycle, mirroring the underlying AudioContext:
+ *
+ * - `cold` — no context yet, or a failed unlock.
+ * - `unlocking` — a resume() is in flight.
+ * - `live` — the context is running.
+ * - `suspended` — the context was paused, normally by `autoPauseOnHidden`
+ *   on tab hide. Recoverable with `unlock()`.
+ * - `interrupted` — iOS took the audio session (phone call, Siri).
+ *   `resume()` does not recover from this; the OS has to hand it back.
+ * - `closed` — terminal.
+ */
+export type EngineState = 'cold' | 'unlocking' | 'live' | 'suspended' | 'interrupted' | 'closed';
 
 type StateListener = (s: EngineState) => void;
 
@@ -49,7 +61,8 @@ export class AudioContextHost {
     if (!this._ctx) {
       const opts: AudioContextOptions = {};
       if (this.opts.latencyHint != null) opts.latencyHint = this.opts.latencyHint;
-      this._ctx = new AudioContext(opts);
+      const Ctor = resolveAudioContextCtor();
+      this._ctx = new Ctor(opts);
       this.attachVisibilityHandler();
       this.attachStateChangeHandler(this._ctx);
     }
@@ -64,8 +77,12 @@ export class AudioContextHost {
   /** Resume the context. Safe to call from any handler; promise resolves to live state. */
   async unlock(): Promise<void> {
     if (this._state === 'closed') throw new EngineClosedError();
-    if (this._state === 'live') return;
     if (this._unlocking) return this._unlocking;
+    // Check the context itself, not the cached enum. A context suspended
+    // behind our back (autoPauseOnHidden, an OS policy) with the enum still
+    // reading 'live' turned a user's manual unlock into a no-op, and there
+    // was no way back to audio.
+    if (this._state === 'live' && this._ctx?.state === 'running') return;
 
     this.setState('unlocking');
     const ctx = this.touch();
@@ -156,19 +173,44 @@ export class AudioContextHost {
       return;
     }
 
-    if (state === 'suspended' && this._state === 'interrupted') {
-      // Same 200ms beat as the visibility path — iOS rejects an immediate
-      // resume() right after the state flip.
-      setTimeout(() => {
-        if (this._ctx === ctx && ctx.state === 'suspended') {
-          void ctx.resume().catch(() => void 0);
-        }
-      }, 200);
+    if (state === 'suspended') {
+      if (this._state === 'interrupted') {
+        // Same 200ms beat as the visibility path — iOS rejects an immediate
+        // resume() right after the state flip.
+        setTimeout(() => {
+          if (this._ctx === ctx && ctx.state === 'suspended') {
+            void ctx.resume().catch(() => void 0);
+          }
+        }, 200);
+        return;
+      }
+      // Anything else that suspends a running context — auto-pause on tab
+      // hide, an OS policy — has to be reflected, or `state` keeps claiming
+      // 'live' over silence.
+      if (this._state === 'live' || this._state === 'unlocking') this.setState('suspended');
       return;
     }
 
-    if (state === 'running' && this._state === 'interrupted') {
+    if (state === 'running' && this._state !== 'live') {
       this.setState('live');
     }
   };
+}
+
+type AudioContextCtor = new (opts?: AudioContextOptions) => AudioContext;
+
+/**
+ * iOS Safari only exposed the prefixed constructor until 14.5, and the
+ * codec ladder here still targets iOS 16 and below.
+ */
+function resolveAudioContextCtor(): AudioContextCtor {
+  const g = globalThis as unknown as {
+    AudioContext?: AudioContextCtor;
+    webkitAudioContext?: AudioContextCtor;
+  };
+  const Ctor = g.AudioContext ?? g.webkitAudioContext;
+  if (!Ctor) {
+    throw new Error('No AudioContext constructor available in this environment.');
+  }
+  return Ctor;
 }

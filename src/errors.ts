@@ -1,6 +1,6 @@
 export class ZvukError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
     this.name = 'ZvukError';
   }
 }
@@ -26,9 +26,18 @@ export class SoundNotFoundError extends ZvukError {
   }
 }
 
+function describe(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
+/**
+ * A fetch or decode failure for one URL. The underlying failure is kept on
+ * `cause` as well as summarised into the message, so a logger that walks
+ * the cause chain gets the original stack.
+ */
 export class DecodeError extends ZvukError {
-  constructor(url: string, cause: unknown) {
-    super(`Failed to decode audio at "${url}": ${cause instanceof Error ? cause.message : String(cause)}`);
+  constructor(url: string, cause: unknown, message?: string) {
+    super(message ?? `Failed to decode audio at "${url}": ${describe(cause)}`, { cause });
     this.name = 'DecodeError';
   }
 }
@@ -52,10 +61,10 @@ export interface PreloadFailure {
 export class PreloadError extends ZvukError {
   readonly failures: readonly PreloadFailure[];
   constructor(failures: readonly PreloadFailure[]) {
-    const summary = failures
-      .map((f) => `  - ${f.name}: ${f.cause instanceof Error ? f.cause.message : String(f.cause)}`)
-      .join('\n');
-    super(`Failed to preload ${failures.length} item(s):\n${summary}`);
+    const summary = failures.map((f) => `  - ${f.name}: ${describe(f.cause)}`).join('\n');
+    super(`Failed to preload ${failures.length} item(s):\n${summary}`, {
+      cause: failures[0]?.cause,
+    });
     this.name = 'PreloadError';
     this.failures = failures;
   }
@@ -70,12 +79,15 @@ export class AggregateDecodeError extends DecodeError {
   readonly attempts: readonly DecodeAttempt[];
   constructor(urls: readonly string[], attempts: readonly DecodeAttempt[]) {
     const last = attempts[attempts.length - 1];
-    super(urls[urls.length - 1] ?? '<empty>', last?.cause);
+    const summary = attempts.map((a) => `  - ${a.url}: ${describe(a.cause)}`).join('\n');
+    // Built before super() rather than reassigned after it: rewriting
+    // this.message afterwards left `stack` carrying the old text.
+    super(
+      urls[urls.length - 1] ?? '<empty>',
+      last?.cause,
+      `Failed to load any of ${urls.length} fallback URLs:\n${summary}`,
+    );
     this.name = 'AggregateDecodeError';
     this.attempts = attempts;
-    const summary = attempts
-      .map((a) => `  - ${a.url}: ${a.cause instanceof Error ? a.cause.message : String(a.cause)}`)
-      .join('\n');
-    this.message = `Failed to load any of ${urls.length} fallback URLs:\n${summary}`;
   }
 }

@@ -32,6 +32,7 @@ interface MusicDeps {
 export class Music {
   readonly name: string;
   private deps: MusicDeps;
+  private live = new Set<MusicVoice>();
 
   constructor(name: string, deps: MusicDeps) {
     this.name = name;
@@ -51,7 +52,7 @@ export class Music {
   }
 
   play(options: MusicPlayOptions = {}): MusicVoice {
-    return new MusicVoice({
+    const voice = new MusicVoice({
       ctx: this.deps.ctx,
       buffers: this.deps.buffers,
       destination: this.deps.destination,
@@ -59,6 +60,24 @@ export class Music {
       defaultStopFade: this.deps.defaultStopFade,
       options,
     });
+    this.live.add(voice);
+    void voice.ended.then(() => this.live.delete(voice));
+    return voice;
+  }
+
+  /** Live playback instances spawned from this asset. */
+  voices(): readonly MusicVoice[] {
+    return Array.from(this.live);
+  }
+
+  /**
+   * Stop every live instance. `engine.close()` uses this — without it a
+   * music voice kept its source nodes running past the engine that owned
+   * them, the way streams used to.
+   */
+  stopAll(opts: StopOptions = {}): void {
+    for (const v of Array.from(this.live)) v.stop(opts);
+    this.live.clear();
   }
 }
 

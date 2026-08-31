@@ -327,8 +327,11 @@ class EngineImpl implements Engine {
     this.master = null;
     this.sounds.clear();
     this.sprites.clear();
+    for (const m of this.musics.values()) m.stopAll({ fade: 0 });
     this.musics.clear();
     this.variantsByName.clear();
+    this.busGroups.clear();
+    this.soloedBuses.clear();
     this.soundUrls.clear();
     for (const s of this.streams.values()) s.dispose();
     this.streams.clear();
@@ -424,7 +427,11 @@ class EngineImpl implements Engine {
         })(),
       );
     }
-    await Promise.all(workers);
+    // allSettled, not all: an AbortError from one worker used to reject the
+    // batch while its siblings kept running and rejected into the void.
+    const settled = await Promise.allSettled(workers);
+    const aborted = settled.find((r) => r.status === 'rejected');
+    if (aborted && aborted.status === 'rejected') throw aborted.reason;
     if (failures.length > 0) throw new PreloadError(failures);
   }
 
@@ -565,7 +572,7 @@ class EngineImpl implements Engine {
       loop: options.loop ?? true,
       volume: 0,
     });
-    void newVoice.fade({ to: toVolume, duration, curve });
+    void newVoice.fade({ to: toVolume, duration, curve }).catch(() => void 0);
     // Only fade out `from` instances on the same bus the new voice plays on —
     // crossfading on the music bus shouldn't stop the same sound playing on,
     // say, an ambience bus.
@@ -573,7 +580,12 @@ class EngineImpl implements Engine {
       (v) => v !== newVoice && v.sourceName === from && v.bus === newVoice.bus,
     );
     for (const v of outgoing) {
-      void v.fade({ to: 0, duration, curve }).then(() => v.stop());
+      // Detached from the caller: a rejection here would surface as an
+      // unhandled rejection rather than anything actionable.
+      void v
+        .fade({ to: 0, duration, curve })
+        .then(() => v.stop())
+        .catch(() => void 0);
     }
     return newVoice;
   }
