@@ -23,7 +23,7 @@ export default function VoiceJitter() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'hit', file, 'sfx');
-    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.chip], { bus: 'sfx' });
+    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.diceRoll1], { bus: 'sfx' });
   }
 
   async function start() {

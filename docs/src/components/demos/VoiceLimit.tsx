@@ -25,7 +25,7 @@ export default function VoiceLimit() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'sfx');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.chips1], { bus: 'sfx' });
   }
 
   async function start() {

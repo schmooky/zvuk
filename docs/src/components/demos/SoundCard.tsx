@@ -19,7 +19,7 @@ export default function SoundCard() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'hit', file, 'sfx');
-    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.chip], { bus: 'sfx' });
+    else if (!e.hasSound('hit')) await e.loadSound('hit', [...SAMPLES.gem], { bus: 'sfx' });
   }
 
   async function start() {

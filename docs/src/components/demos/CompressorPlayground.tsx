@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 export default function CompressorPlayground() {
@@ -48,7 +48,7 @@ export default function CompressorPlayground() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.fire], { bus: 'music' });
   }
 
   async function start() {
@@ -59,7 +59,7 @@ export default function CompressorPlayground() {
       compRef.current = new Compressor(e.context, cfg);
       e.bus('music').addFx(compRef.current);
     }
-    if (!voice) setVoice(e.sound('loop').play({ loop: true }));
+    if (!voice) setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     setBusNode(e.bus('music').output);
   }
 
@@ -70,7 +70,7 @@ export default function CompressorPlayground() {
     try {
       await ensureSound(e, file);
       voice?.stop();
-      setVoice(e.sound('loop').play({ loop: true }));
+      setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -99,7 +99,7 @@ export default function CompressorPlayground() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      <DemoShell state={state} onStart={start} label="Unlock & start music">
+      <DemoShell state={state} onStart={start} label="Unlock & start fire">
           <Waveform audioNode={busNode} variant="bars" label="bus output (post-compressor)" />
           <div className="rounded-lg border border-border/60 bg-background/40 p-3">
             <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em]">

@@ -12,13 +12,14 @@ type Track = 'a' | 'b';
 const FADE_SEC = 1.5;
 
 /**
- * Crossfade demo. Two multi-minute music beds on the same bus, swapped with
- * a 1.5 s equal-power fade so perceived loudness stays flat across the swap.
+ * Crossfade demo. Two ambience beds on the same bus, swapped with a 1.5 s
+ * equal-power fade so perceived loudness stays flat across the swap. Rain to
+ * birdsong is the canonical game case: the player walked from one place into
+ * another and the world has to follow.
  *
- * The beds are streamed, not decoded. Decoding three minutes of stereo audio
- * costs about 30 MB of PCM per track and a visible stall on a phone, which is
- * exactly the case `loadStream` exists for — and the demo may as well show
- * the thing the guides recommend.
+ * The beds are streamed, not decoded. At 68 and 72 seconds they are roughly
+ * 24 MB of PCM each once decoded, which is exactly the case `loadStream`
+ * exists for, so the demo may as well show the thing the guides recommend.
  */
 export default function CrossfadeDemo() {
   const { engine, state, error, unlock } = useDemoEngine({
@@ -41,8 +42,8 @@ export default function CrossfadeDemo() {
   async function start(): Promise<void> {
     const e = await unlock();
     if (!e) return;
-    streams.current.a = e.loadStream('musicA', [...SAMPLES.musicA], { bus: 'music' });
-    streams.current.b = e.loadStream('musicB', [...SAMPLES.musicB], { bus: 'music' });
+    streams.current.a = e.loadStream('rain', [...SAMPLES.rain], { bus: 'music' });
+    streams.current.b = e.loadStream('birds', [...SAMPLES.birds], { bus: 'music' });
     await streams.current.a.play({ loop: true, volume: 1 });
     setActive('a');
     setBusNode(e.bus('music').output);
@@ -68,18 +69,18 @@ export default function CrossfadeDemo() {
   return (
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
-      <DemoShell state={state} onStart={start} label="Unlock & start music A">
+      <DemoShell state={state} onStart={start} label="Unlock & start rain">
         <div className="flex flex-col gap-3">
           <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="flex items-center justify-between">
             <div className="flex gap-2">
-              <Pill on={active === 'a'}>music A</Pill>
-              <Pill on={active === 'b'}>music B</Pill>
+              <Pill on={active === 'a'}>rain</Pill>
+              <Pill on={active === 'b'}>birdsong</Pill>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">1500 ms · equal-power · streamed</span>
           </div>
           <Button variant="brand" disabled={busy} onClick={swap}>
-            {busy ? 'crossfading…' : `Crossfade to music ${active === 'a' ? 'B' : 'A'}`}
+            {busy ? 'crossfading…' : `Crossfade to ${active === 'a' ? 'birdsong' : 'rain'}`}
           </Button>
           <p className="text-[10px] text-muted-foreground">
             <code className="font-mono text-primary">engine.loadStream(...)</code> keeps both beds out of RAM;

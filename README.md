@@ -227,7 +227,7 @@ Pushing any non-`main` branch, or running `release.yml` via `workflow_dispatch`,
 
 ## Credits
 
-Demo audio under [`docs/public/audio/`](docs/public/audio/) includes selections from [Kenney's Digital Audio pack](https://kenney.nl/assets/digital-audio) ([CC0](https://creativecommons.org/publicdomain/zero/1.0/), used unmodified; license preserved at [`KENNEY-LICENSE.txt`](docs/public/audio/KENNEY-LICENSE.txt)). All other audio is original to this project.
+Demo audio lives under [`docs/public/audio/`](docs/public/audio/) and backs the interactive demos on the documentation site. None of it ships in the npm package. Sources, licences and the normalisation applied are recorded in [`docs/public/audio/CREDITS.md`](docs/public/audio/CREDITS.md).
 
 ## License
 

@@ -3,7 +3,7 @@ import type { Engine, Voice } from '@schmooky/zvuk';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import DemoShell from './DemoShell';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
 
@@ -28,14 +28,14 @@ export default function SpatialPanner() {
 
   async function ensureSound(e: Engine, file: File | null): Promise<void> {
     if (file) await decodeFileToSound(e, 'loop', file, 'sfx');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'sfx' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.fire], { bus: 'sfx' });
   }
 
   async function start(): Promise<void> {
     const e = await unlock();
     if (!e) return;
     await ensureSound(e, customFile);
-    voiceRef.current = e.sound('loop').play({ loop: true, spatializer: { pan: 0 } });
+    voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE, spatializer: { pan: 0 } });
     setBusNode(e.bus('sfx').output);
   }
 
@@ -48,7 +48,7 @@ export default function SpatialPanner() {
       voiceRef.current?.stop();
       // Restart the loop with the same play options (loop + spatializer) and
       // store the new voice so drag-to-pan keeps steering the live voice.
-      voiceRef.current = e.sound('loop').play({ loop: true, spatializer: { pan } });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE, spatializer: { pan } });
     } catch {
       setError('Could not decode that audio file.');
     }

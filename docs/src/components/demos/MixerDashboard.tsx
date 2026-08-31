@@ -21,13 +21,14 @@ import Waveform from './Waveform';
 type Sample = { name: string; sources: string[]; bus: 'music' | 'sfx' | 'ui' };
 
 const SAMPLES: Sample[] = [
-  { name: 'card-shuffle', sources: ['/audio/card-shuffle.webm', '/audio/card-shuffle.m4a'], bus: 'music' },
-  { name: 'chip-lay', sources: ['/audio/chip-lay-1.webm', '/audio/chip-lay-1.m4a'], bus: 'sfx' },
-  { name: 'chips-collide', sources: ['/audio/chips-collide-1.webm', '/audio/chips-collide-1.m4a'], bus: 'sfx' },
-  { name: 'dice-throw', sources: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'], bus: 'sfx' },
-  { name: 'card-place', sources: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'], bus: 'ui' },
-  { name: 'card-slide', sources: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'], bus: 'ui' },
+  { name: 'chime', sources: ['/audio/chime.webm', '/audio/chime.m4a'], bus: 'music' },
+  { name: 'bells', sources: ['/audio/bells-1.webm', '/audio/bells-1.m4a'], bus: 'music' },
+  { name: 'dice-roll', sources: ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'], bus: 'sfx' },
+  { name: 'dice-shake', sources: ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'], bus: 'sfx' },
+  { name: 'gem', sources: ['/audio/gem.webm', '/audio/gem.m4a'], bus: 'ui' },
+  { name: 'heart', sources: ['/audio/heart.webm', '/audio/heart.m4a'], bus: 'ui' },
 ];
+
 
 const BUS_NAMES = ['music', 'sfx', 'ui'] as const;
 type BusName = (typeof BUS_NAMES)[number];

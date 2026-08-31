@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Filter, type FilterKind, type Engine } from '@schmooky/zvuk';
 import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -49,7 +49,7 @@ export default function FilterSweep() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -60,7 +60,7 @@ export default function FilterSweep() {
       filterRef.current = new Filter(e.context, { type, frequency: freq, q });
       e.bus('music').addFx(filterRef.current);
     }
-    if (!voice) setVoice(e.sound('loop').play({ loop: true }));
+    if (!voice) setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     setBusNode(e.bus('music').output);
   }
 
@@ -71,7 +71,7 @@ export default function FilterSweep() {
     try {
       await ensureSound(e, file);
       voice?.stop();
-      setVoice(e.sound('loop').play({ loop: true }));
+      setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -85,7 +85,7 @@ export default function FilterSweep() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      <DemoShell state={state} onStart={start} label="Unlock & start music">
+      <DemoShell state={state} onStart={start} label="Unlock & start stream">
           <Waveform audioNode={busNode} variant="bars" label="bus output" />
           <div className="space-y-1.5">
             <Label className="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">type</Label>

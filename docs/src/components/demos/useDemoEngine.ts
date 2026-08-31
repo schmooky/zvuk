@@ -80,28 +80,70 @@ export async function decodeFileToSound(
   return buffer;
 }
 
+/**
+ * The demo sound set.
+ *
+ * Everything here is normalised to a consistent loudness with a -1.5 dBTP
+ * ceiling: the raw set spanned 22 dB of peak level and four files were
+ * already clipping, which on a shared bus is unusable. One-shots sit at
+ * -18 LUFS, beds 6 dB or more under, because beds play underneath things.
+ */
 export const SAMPLES = {
-  music: ['/audio/card-shuffle.webm', '/audio/card-shuffle.m4a'],
-  chip: ['/audio/chip-lay-1.webm', '/audio/chip-lay-1.m4a'],
-  collide: ['/audio/chips-collide-1.webm', '/audio/chips-collide-1.m4a'],
-  dice: ['/audio/dice-throw-1.webm', '/audio/dice-throw-1.m4a'],
-  card: ['/audio/card-place-1.webm', '/audio/card-place-1.m4a'],
-  slide: ['/audio/card-slide-1.webm', '/audio/card-slide-1.m4a'],
-  // Two music beds for the Crossfade demo, trimmed to 60 s and streamed
-  // rather than decoded. The pair used to ship as 7.6 MB of MP3 — nearly the
-  // whole audio payload of the site — and decoding three minutes of stereo
-  // costs tens of megabytes of PCM before a note plays.
-  musicA: ['/audio/music-a.webm', '/audio/music-a.m4a'],
-  musicB: ['/audio/music-b.webm', '/audio/music-b.m4a'],
-  // Kenney digital-audio pack (CC0). Useful for arcade-flavoured one-shots.
-  // These shipped as .ogg only, which Safari cannot decode — so eight demos
-  // threw DecodeError on every Apple device.
-  laser: ['/audio/laser1.webm', '/audio/laser1.m4a'],
-  laserAlt: ['/audio/laser2.webm', '/audio/laser2.m4a'],
-  powerUp: ['/audio/powerUp1.webm', '/audio/powerUp1.m4a'],
-  powerUpAlt: ['/audio/powerUp2.webm', '/audio/powerUp2.m4a'],
-  phaseJump: ['/audio/phaseJump1.webm', '/audio/phaseJump1.m4a'],
-  phaseJumpAlt: ['/audio/phaseJump2.webm', '/audio/phaseJump2.m4a'],
-  zap: ['/audio/zap1.webm', '/audio/zap1.m4a'],
-  zapAlt: ['/audio/zap2.webm', '/audio/zap2.m4a'],
+  /**
+   * Buffered beds. Arbitrary 12 s trims out of longer loops, so the seam is
+   * masked at runtime with `loopCrossfade` — which is a feature these demos
+   * want to be showing anyway.
+   */
+  stream: ['/audio/stream.webm', '/audio/stream.m4a'],
+  fire: ['/audio/fire.webm', '/audio/fire.m4a'],
+
+  /**
+   * Long ambience, streamed rather than decoded. 68 and 72 seconds, which is
+   * about 24 MB of PCM each if you decode them, and the reason `loadStream`
+   * exists. Left at full length because they are seamless loops and a trim
+   * would put a click at the loop point.
+   */
+  rain: ['/audio/rain.webm', '/audio/rain.m4a'],
+  birds: ['/audio/birds.webm', '/audio/birds.m4a'],
+
+  /** Pickups and stingers. */
+  gem: ['/audio/gem.webm', '/audio/gem.m4a'],
+  heart: ['/audio/heart.webm', '/audio/heart.m4a'],
+  chime: ['/audio/chime.webm', '/audio/chime.m4a'],
+  chimeQuick: ['/audio/chime-quick.webm', '/audio/chime-quick.m4a'],
+  bells1: ['/audio/bells-1.webm', '/audio/bells-1.m4a'],
+  bells2: ['/audio/bells-2.webm', '/audio/bells-2.m4a'],
+
+  /** Single takes, for demos that want one specific hit. */
+  chips1: ['/audio/chips-1.webm', '/audio/chips-1.m4a'],
+  chips2: ['/audio/chips-2.webm', '/audio/chips-2.m4a'],
+  diceRoll1: ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'],
+  diceShake2: ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'],
 } as const;
+
+/**
+ * Alternate takes of the same action, for `engine.loadVariants`. A pure
+ * random picker repeats itself often enough to sound broken, which is the
+ * whole reason the strategies exist.
+ */
+export const VARIANTS = {
+  diceRoll: [
+    ['/audio/dice-roll-1.webm', '/audio/dice-roll-1.m4a'],
+    ['/audio/dice-roll-2.webm', '/audio/dice-roll-2.m4a'],
+    ['/audio/dice-roll-3.webm', '/audio/dice-roll-3.m4a'],
+    ['/audio/dice-roll-4.webm', '/audio/dice-roll-4.m4a'],
+  ],
+  chips: [
+    ['/audio/chips-1.webm', '/audio/chips-1.m4a'],
+    ['/audio/chips-2.webm', '/audio/chips-2.m4a'],
+    ['/audio/chips-3.webm', '/audio/chips-3.m4a'],
+  ],
+  diceShake: [
+    ['/audio/dice-shake-2.webm', '/audio/dice-shake-2.m4a'],
+    ['/audio/dice-shake-3.webm', '/audio/dice-shake-3.m4a'],
+    ['/audio/dice-shake-4.webm', '/audio/dice-shake-4.m4a'],
+  ],
+} as const;
+
+/** Crossfade window used by the bed demos to hide an arbitrary trim point. */
+export const BED_LOOP_CROSSFADE = 0.4;

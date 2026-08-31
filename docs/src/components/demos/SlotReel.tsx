@@ -24,10 +24,10 @@ export default function SlotReel() {
     const e = await unlock();
     if (!e) return;
     await Promise.all([
-      e.loadSound('reel-spin', [...SAMPLES.slide], { bus: 'sfx' }),
-      e.loadSound('reel-stop', [...SAMPLES.chip], { bus: 'sfx' }),
-      e.loadSound('reel-tick', [...SAMPLES.collide], { bus: 'sfx' }),
-      e.loadSound('win-sting', [...SAMPLES.dice], { bus: 'sfx' }),
+      e.loadSound('reel-spin', [...SAMPLES.diceShake2], { bus: 'sfx' }),
+      e.loadSound('reel-stop', [...SAMPLES.chips1], { bus: 'sfx' }),
+      e.loadSound('reel-tick', [...SAMPLES.chips2], { bus: 'sfx' }),
+      e.loadSound('win-sting', [...SAMPLES.chime], { bus: 'sfx' }),
     ]);
     setLoaded(true);
     setBusNode(e.bus('sfx').output);

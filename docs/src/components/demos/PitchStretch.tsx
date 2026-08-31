@@ -34,7 +34,7 @@ export default function PitchStretch() {
     if (file) {
       sourceBufferRef.current = await decodeFileToSound(e, 'orig', file, 'sfx');
     } else {
-      await e.loadSound('orig', [...SAMPLES.music], { bus: 'sfx' });
+      await e.loadSound('orig', [...SAMPLES.chime], { bus: 'sfx' });
       const res = await fetch('/audio/card-shuffle.webm');
       sourceBufferRef.current = await e.context.decodeAudioData(await res.arrayBuffer());
     }

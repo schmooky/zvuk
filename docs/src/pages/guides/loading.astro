@@ -1,4 +1,5 @@
 ---
+import VariantSpam from '../../components/demos/VariantSpam.tsx';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -207,6 +208,16 @@ await loadBank(engine);`;
     through every variant before reshuffling, the way Tetris deals pieces.
   </p>
   <Snippet code={variants} lang="ts" />
+  <p>
+    Four takes of one dice roll, below. Set the strategy to
+    <code>'random'</code> and mash the button: the same take comes up twice
+    in a row often enough to sound like a bug, and the history marks each
+    repeat in red. <code>'no-repeat'</code> makes that impossible.
+    <code>engine.variants(name).lastPick</code> is where the history comes
+    from, and it is also how you drive a subtitle or a telemetry event off
+    whichever take actually fired.
+  </p>
+  <VariantSpam client:visible />
 
   <h2>Unloading sounds</h2>
   <p>

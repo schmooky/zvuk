@@ -44,6 +44,16 @@ export class Variants {
     this.strategy = options.strategy ?? 'no-repeat';
   }
 
+  /**
+   * Index of the variant the most recent `play()` picked, or `-1` before the
+   * first one. Read it when something outside the mix has to follow the
+   * pick: a subtitle for the line that actually fired, a telemetry event, an
+   * animation keyed to which take you got.
+   */
+  get lastPick(): number {
+    return this.lastIndex;
+  }
+
   /** Spawn a Voice on a randomly-picked variant. */
   play(options: PlayOptions = {}): Voice {
     return this.sounds[this.pick()]!.play(options);

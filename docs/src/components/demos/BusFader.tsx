@@ -7,7 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import DemoShell from './DemoShell';
 import Meter from './Meter';
 import CustomSoundField from './CustomSoundField';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 /**
@@ -39,7 +39,7 @@ export default function BusFader() {
   /** Load the user's file if one is picked, otherwise the bundled sample. */
   async function ensureLoop(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -47,7 +47,7 @@ export default function BusFader() {
     if (!e) return;
     await ensureLoop(e, customFile);
     if (!voice) {
-      const v = e.sound('loop').play({ loop: true });
+      const v = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
       setVoice(v);
     }
     setBusNode(e.bus('music').output);
@@ -60,7 +60,7 @@ export default function BusFader() {
     try {
       await ensureLoop(e, file);
       voice?.stop(); // restart so the new sound is audible immediately
-      setVoice(e.sound('loop').play({ loop: true }));
+      setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     } catch {
       setError('Could not decode that audio file.');
     }

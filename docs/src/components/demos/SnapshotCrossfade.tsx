@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Engine, Snapshot, Voice } from '@schmooky/zvuk';
 import DemoShell from './DemoShell';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import CustomSoundField from './CustomSoundField';
 import Waveform from './Waveform';
 import { Button } from '@/components/ui/button';
@@ -29,7 +29,7 @@ export default function SnapshotCrossfade() {
 
   async function ensureSound(e: Engine, file: File | null): Promise<void> {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.stream], { bus: 'music' });
   }
 
   async function start() {
@@ -37,7 +37,7 @@ export default function SnapshotCrossfade() {
     if (!e) return;
     await ensureSound(e, customFile);
     if (!voiceRef.current) {
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     }
     // Build the three snapshots from explicit state — we don't need to
     // mutate the engine to capture them.
@@ -72,7 +72,7 @@ export default function SnapshotCrossfade() {
       // Restart the looping music voice; the snapshots/crossfade logic operate
       // on the bus mix and are unaffected.
       voiceRef.current?.stop();
-      voiceRef.current = e.sound('loop').play({ loop: true });
+      voiceRef.current = e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE });
     } catch {
       setError('Could not decode that audio file.');
     }

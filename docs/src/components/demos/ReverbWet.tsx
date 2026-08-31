@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import DemoShell from './DemoShell';
 import CustomSoundField from './CustomSoundField';
-import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
+import { BED_LOOP_CROSSFADE, SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
 import Waveform from './Waveform';
 
 export default function ReverbWet() {
@@ -42,7 +42,7 @@ export default function ReverbWet() {
 
   async function ensureSound(e: Engine, file: File | null) {
     if (file) await decodeFileToSound(e, 'loop', file, 'music');
-    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.music], { bus: 'music' });
+    else if (!e.hasSound('loop')) await e.loadSound('loop', [...SAMPLES.chimeQuick], { bus: 'music' });
   }
 
   async function start() {
@@ -53,7 +53,7 @@ export default function ReverbWet() {
       reverbRef.current = new Reverb(e.context, { wet, decay: { seconds: decay } });
       e.bus('music').addFx(reverbRef.current);
     }
-    if (!voice) setVoice(e.sound('loop').play({ loop: true }));
+    if (!voice) setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     setBusNode(e.bus('music').output);
   }
 
@@ -64,7 +64,7 @@ export default function ReverbWet() {
     try {
       await ensureSound(e, file);
       voice?.stop();
-      setVoice(e.sound('loop').play({ loop: true }));
+      setVoice(e.sound('loop').play({ loop: true, loopCrossfade: BED_LOOP_CROSSFADE }));
     } catch {
       setError('Could not decode that audio file.');
     }
@@ -97,7 +97,7 @@ export default function ReverbWet() {
     <Card className="not-prose gap-4 p-5">
       {error && <div className="text-xs text-destructive">{error}</div>}
       <CustomSoundField onPick={handlePick} />
-      <DemoShell state={state} onStart={start} label="Unlock & start music">
+      <DemoShell state={state} onStart={start} label="Unlock & start chimes">
           <Waveform audioNode={busNode} variant="bars" label="bus output (post-reverb)" />
           <div className="grid gap-3 md:grid-cols-2">
             <div className="block">

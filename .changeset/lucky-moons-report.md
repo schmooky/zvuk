@@ -19,3 +19,7 @@ Loading and cache improvements.
   `music.stopAll()`.
 - `EngineState` gains `'suspended'`. Code that switches exhaustively over
   it needs a new branch.
+- `variants.lastPick` reports which take the most recent `play()` chose, or
+  `-1` before the first. The bundle already tracked it internally; it is
+  read-only now so a subtitle, a telemetry event or an animation can follow
+  whichever alternate actually fired.
