@@ -57,7 +57,7 @@
     "slot",
     "casino"
   ],
-  "author": "zvuk contributors",
+  "author": "schmooky (https://github.com/schmooky)",
   "license": "MIT",
   "engines": {
     "node": ">=20"
