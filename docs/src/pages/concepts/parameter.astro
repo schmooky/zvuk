@@ -24,12 +24,18 @@ const subscribe = `const off = intensity.subscribe((v) => console.log('intensity
   description="A named float you drive at runtime. Subscribers update immediately. Bind it to bus levels, FX values, anything."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A <code>Parameter</code> is the abstraction between "I want intensity to go
-    up" and "ten things change in the mix." You set the parameter; everything
-    bound to it (bus levels, FX wet, filter cutoff) updates with the curve and
-    range you specified.
+    Tension rises. You want the music bed up, the ambience down, the low-pass
+    on the drone opening, and the reverb wet going with it. Written by hand
+    that is four setters that have to stay in step, plus a fifth the day
+    someone adds another layer.
+  </p>
+  <p>
+    A <a href="/api/Parameter/"><code>Parameter</code></a> is a named float you
+    set at runtime, and a set of bindings that map it onto other values. You
+    set the parameter; everything bound to it updates through its own range
+    and curve. It is the seam between an idea a designer has and the ten
+    numbers that idea turns into.
   </p>
 
   <h2>Mental model</h2>
@@ -53,7 +59,7 @@ class Parameter {
 }`} lang="ts" title="Parameter" />
 
   <h2>Live demo</h2>
-  <p>One slider drives bus level <em>and</em> a derived value. Curves, ranges, the works.</p>
+  <p>One slider driving a bus level and a derived value, each through its own range and curve.</p>
   <ParameterModulator client:visible />
 
   <h2>Recipes</h2>
@@ -71,19 +77,20 @@ class Parameter {
   <div class="pitfall">
     <div class="pitfall-title">Parameters aren't ramps.</div>
     A parameter is a discrete value. Subscribers turn it into a ramp on their
-    own (e.g. by writing to a bus level which has its own 10 ms internal ramp).
-    For a guaranteed N-millisecond crossfade, use a Snapshot.
+    own, usually by writing to a bus level, which has its own 10 ms ramp
+    inside. When you need a guaranteed N-millisecond crossfade, use a
+    <a href="/concepts/snapshot/">Snapshot</a>.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't <code>set</code> in a tight loop.</div>
-    Each set runs every subscriber synchronously. If you're driving a parameter
-    from <code>requestAnimationFrame</code>, you're already at 60 Hz — fine.
-    Anything denser, throttle it.
+    Each set runs every subscriber synchronously. Driving a parameter from
+    <code>requestAnimationFrame</code> means 60 Hz, which is fine. Anything
+    denser than that, throttle it.
   </div>
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/snapshot/">Snapshot</a> — discrete state, crossfaded.</li>
-    <li><a href="/concepts/bus/">Bus</a> — common bind target.</li>
+    <li><a href="/concepts/snapshot/">Snapshot</a> handles discrete mix states, crossfaded.</li>
+    <li><a href="/concepts/bus/">Bus</a> is the most common bind target.</li>
   </ul>
 </Docs>

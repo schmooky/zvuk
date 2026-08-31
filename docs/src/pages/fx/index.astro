@@ -15,11 +15,12 @@ const fx = [
   eyebrow="Reference"
 >
   <p>
-    Every FX is a small class with the <code>FxInsert</code> contract:
-    <code>input</code> + <code>output</code> nodes, a <code>bypassed</code> toggle,
-    and a <code>dispose()</code> method. Add it to a bus with
-    <code>bus.addFx(fx)</code> — the bus splices it into the FX chain
-    between input and output, in order.
+    Every effect here is a small class implementing the same
+    <a href="/api/FxInsert/"><code>FxInsert</code></a> contract. It has an <code>input</code> node, an
+    <code>output</code> node, a <code>bypassed</code> toggle, and a
+    <code>dispose()</code>. Hand one to <code>bus.addFx(fx)</code> and the bus
+    splices it into its chain between input and output, in the order you
+    added it.
   </p>
 
   <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">

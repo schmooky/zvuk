@@ -4,8 +4,8 @@ import Base from '../layouts/Base.astro';
 import MixerDashboard from '../components/demos/MixerDashboard.tsx';
 ---
 <Base
-  title="zvuk — Audio Engine for the Web"
-  description="A Wwise-grade audio engine for the web: named mixer buses with FX inserts, sidechain ducking, mix snapshots, audio sprites, and a codec ladder that survives Safari. ESM-only, type-safe, 17 kB min+gzip."
+  title="zvuk: Audio Engine for the Web"
+  description="A Wwise-grade audio engine for the web. Named mixer buses with FX inserts, sidechain ducking, mix snapshots, audio sprites, and a codec ladder that survives Safari. ESM-only, type-safe, 17 kB min+gzip."
 >
   <Hero />
 
@@ -19,11 +19,11 @@ import MixerDashboard from '../components/demos/MixerDashboard.tsx';
         <strong class="text-foreground">Voice</strong>, <strong class="text-foreground">Snapshot</strong>,
         <strong class="text-foreground">Parameter</strong>. Routing is declarative.
         Lifecycle is explicit. The <code class="text-primary font-mono">AudioContext</code>
-        is constructed lazily — calling <code class="text-primary font-mono">createEngine()</code> before any
-        user gesture is safe.
+        is constructed lazily, so calling <code class="text-primary font-mono">createEngine()</code>
+        before any user gesture is safe.
       </p>
       <p class="text-lg text-muted-foreground">
-        Built for any application where audio matters — games, interactive learning,
+        Built for any application where audio matters. Games, interactive learning,
         ambient web experiences, kiosks, music apps. If you've ever fought autoplay
         on iOS or watched a clip cut itself off mid-playback, zvuk is the layer that
         handles those problems for you.

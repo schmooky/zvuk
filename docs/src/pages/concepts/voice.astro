@@ -102,16 +102,20 @@ requestAnimationFrame(function tick() {
   description="One playback instance. What sound.play() returns."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A <code>Voice</code> is a single, live playback. It owns its own gain stage
-    and source node, fires lifecycle cues, can be faded or stopped at any time,
-    and tears itself down on natural end. You don't construct it; you receive it
-    from <code>sound.play()</code>.
+    A sound is a file. A voice is one time you played it. The distinction only
+    starts to matter when the eighth copy is still ringing and you need to
+    stop the third.
+  </p>
+  <p>
+    A <a href="/api/Voice/"><code>Voice</code></a> is a single live playback.
+    It owns its own gain stage and source node, emits lifecycle cues, can be
+    faded or stopped at any point, and tears itself down when it ends. You
+    never construct one; <code>sound.play()</code> hands it to you.
   </p>
 
   <h2>API surface</h2>
-  <Snippet code={surface} lang="ts" title="Voice — public interface" />
+  <Snippet code={surface} lang="ts" title="The Voice interface" />
 
   <h2>Live demo</h2>
   <p>Hit the button repeatedly. Random pitch + volume jitter on every voice.</p>
@@ -124,10 +128,10 @@ requestAnimationFrame(function tick() {
 
   <h3>Fade-in on start</h3>
   <p>
-    <code>play({ fadeIn })</code> is the dual of the click-free stop
-    fade — voice ramps from <code>0</code> to <code>volume</code> over
-    the configured window. Convenience for ambient layers that should
-    drift in instead of pop in.
+    <code>play({'{'} fadeIn {'}'})</code> is the mirror of the click-free stop fade.
+    The voice ramps from <code>0</code> up to <code>volume</code> across the
+    window you give it. Reach for it on ambient layers that should drift in
+    rather than appear.
   </p>
   <Snippet code={fadeIn} lang="ts" />
 
@@ -140,27 +144,30 @@ requestAnimationFrame(function tick() {
   <h3>Pause / resume on blur</h3>
   <p>
     <code>pause()</code> tears down the current source node and remembers the
-    sample offset. <code>resume()</code> rebuilds the source and starts from
-    that offset — for looping voices this round-trips through the loop region.
+    sample offset. <code>resume()</code> rebuilds the source and starts again
+    from there. A looping voice round-trips through its loop region on the
+    way.
   </p>
   <Snippet code={pauseResume} lang="ts" />
 
   <h3>Loop crossfade (off by default)</h3>
   <p>
     AudioBufferSourceNode's native loop is a hard cut from
-    <code>loopEnd</code> back to <code>loopStart</code>. If those points
-    don't sit on a zero crossing, you get a click every loop. Setting
-    <code>loopCrossfade</code> spawns a parallel buffer source one
-    crossfade-window before the boundary and equal-power-ramps between
-    them — same trick a sample editor would offer.
+    <code>loopEnd</code> back to <code>loopStart</code>. When those points
+    don't sit on a zero crossing you get a click every single loop. Setting
+    <code>loopCrossfade</code> spawns a parallel buffer source one crossfade
+    window before the boundary and equal-power ramps between them. It is the
+    same trick a sample editor offers at edit time, done at runtime
+    instead.
   </p>
   <Snippet code={loopCrossfade} lang="ts" />
 
   <h3>Live playback-rate ramp</h3>
   <p>
     <code>setPlaybackRate</code> automates the underlying
-    <code>playbackRate</code> AudioParam. Pitch and tempo move together — for
-    pitch-preserving stretch see <a href="/fx/pitch/">pitch &amp; time-stretch</a>.
+    <code>playbackRate</code> AudioParam, so pitch and tempo move together.
+    When you need one without the other, see
+    <a href="/fx/pitch/">pitch and time-stretch</a>.
   </p>
   <Snippet code={liveRate} lang="ts" />
 
@@ -168,32 +175,32 @@ requestAnimationFrame(function tick() {
   <p>
     <code>voice.level()</code> returns <code>{ '{ rms, peak }' }</code> as
     linear values in <code>[0..1]</code>. The first call lazily attaches an
-    AnalyserNode to the voice's gain stage — no cost when nothing reads.
-    Powers the <code>'quietest'</code> voice-stealing strategy and any UI
-    that needs per-voice meters; see the
+    AnalyserNode to the voice's gain stage, so nothing is allocated until
+    something reads. Use it for per-voice meters and clip indicators. The
     <a href="https://github.com/schmooky/zvuk/tree/main/examples/rhythm-metronome"><code>rhythm-metronome</code> example</a>
-    for a runnable demo.
+    drives one.
   </p>
   <Snippet code={liveLevel} lang="ts" />
 
   <h3>Live spatial control</h3>
   <p>
-    The Spatializer is now exposed on the Voice. Hold the ref, call
-    <code>setPan</code>/<code>setPosition</code> from your render loop.
+    The spatializer is exposed on the voice. Hold the reference and call
+    <code>setPan</code> or <code>setPosition</code> from your render loop.
   </p>
   <Snippet code={liveSpatial} lang="ts" />
 
   <h2>Stop semantics</h2>
   <p>
-    <code>voice.stop()</code> applies a short click-free fade-out before the
-    source node actually stops — Web Audio cuts buffers mid-waveform on
-    <code>source.stop()</code>, which produces a digital click on non-zero
-    crossings. The default ~8 ms ramp on the gain stage suppresses that
-    without being audible as a fade. Pass <code>{'{'} fade: 0 {'}'}</code> for
-    a sample-accurate hard cut, or set <code>voice.stopFade</code> on the
-    engine to override the default. The behaviour applies to all stop
-    paths: explicit <code>stop()</code>, <code>AbortSignal</code> aborts,
-    region-timer expiry, and concurrency-driven stealing.
+    <code>source.stop()</code> cuts a buffer wherever it happens to be. If
+    that lands off a zero crossing, the speaker gets a step function and you
+    hear a click. <code>voice.stop()</code> ramps the gain stage down over
+    about 8 ms first, which is short enough that nobody reads it as a fade
+    and long enough that nobody hears the cut. Pass
+    <code>{'{'} fade: 0 {'}'}</code> for a sample-accurate hard cut, or set
+    <code>voice.stopFade</code> on the engine to change the default. Every
+    stop path goes through it: an explicit <code>stop()</code>, an
+    <code>AbortSignal</code> abort, a region timer expiring, and a voice
+    stolen by a concurrency cap.
   </p>
 
   <h2>Pitfalls</h2>
@@ -211,8 +218,8 @@ requestAnimationFrame(function tick() {
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/sound/">Sound</a> — what spawned this voice.</li>
-    <li><a href="/concepts/concurrency/">Concurrency</a> — voice limits + stealing.</li>
-    <li><a href="/concepts/spatializer/">Spatializer</a> — pan / 3D position.</li>
+    <li><a href="/concepts/sound/">Sound</a> is what spawned this voice.</li>
+    <li><a href="/concepts/concurrency/">Concurrency</a> covers voice limits and stealing.</li>
+    <li><a href="/concepts/spatializer/">Spatializer</a> covers pan and 3D position.</li>
   </ul>
 </Docs>

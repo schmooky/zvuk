@@ -41,22 +41,27 @@ engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
   description="The named bus graph that routes every voice from source to speakers."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    The Mixer is your declarative routing model. You name your buses
-    (<code>music</code>, <code>sfx</code>, <code>voice</code>, etc.), give each
-    one a level and behavior, and the engine builds the audio graph for you.
-    The mixer is what separates "I called <code>.play()</code>" from
-    "I shipped a mix."
+    Every project ships a volume slider. Most ship three. The interesting part
+    is never the slider; it is having somewhere for it to point that survives
+    the twentieth sound you add.
+  </p>
+  <p>
+    The mixer is the declarative routing model. It is a set of
+    <a href="/api/Bus/">named buses</a>, each with a level, optional FX
+    inserts, an optional voice cap, and an optional sidechain key. You name them at construction and the engine builds the
+    audio graph. Bus outputs sum at the master, which applies headroom and
+    sends to the destination.
   </p>
 
-  <h2>Mental model</h2>
+  <h2>Why declare buses up front?</h2>
   <p>
-    Sources fan in through their default bus. Each bus has its own level,
-    optional FX inserts, optional concurrency cap, and an optional sidechain
-    key. Bus outputs sum at the master, which applies headroom and sends to
-    the destination.
+    Because the alternative is deciding routing at every call site, and call
+    sites multiply. With named buses, "duck the music while dialogue plays"
+    is one rule written once, and it applies to dialogue lines that don't
+    exist yet.
   </p>
+
   <Frame title="bus graph" caption="Three buses, FX inserts, sidechain key (voice → music). Master sums and applies headroom.">
     <BusGraphDiagram />
   </Frame>
@@ -66,7 +71,7 @@ engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
   <Snippet code={access} lang="ts" title="Talk to a bus by name" />
 
   <h2>Live demo</h2>
-  <p>Sliders, mute, real voice counter — live engine, real samples.</p>
+  <p>Three buses, six samples, a live voice counter. Sliders and mute drive the running engine.</p>
   <MixerDashboard client:visible />
 
   <h2>Recipes</h2>
@@ -76,10 +81,11 @@ engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
   <h3>Master limiter</h3>
   <p>
     Headroom is a static gain offset. The optional limiter is a fast-attack
-    <code>DynamicsCompressor</code> (ratio 20, ~1 ms attack) used as a soft
-    limiter on the master output — it catches most transients headroom alone
-    can't tame, but with a finite attack and no lookahead it does not guarantee
-    a hard 0 dBFS ceiling.
+    <code>DynamicsCompressor</code> at ratio 20 with a 1 ms attack, used as a
+    soft limiter on the master output. It catches most of the transients
+    headroom alone can't tame. It is not a brick wall: with a finite attack
+    and no lookahead, peaks above the threshold still get through, so don't
+    treat it as a guaranteed 0 dBFS ceiling.
   </p>
   <Snippet code={limiterLive} lang="ts" />
 
@@ -97,8 +103,8 @@ engine.bus('sfx').addFx(comp);   // FX run between bus.input and bus.output`;
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/bus/">Bus</a> — single-bus details and the FX chain.</li>
-    <li><a href="/concepts/snapshot/">Snapshot</a> — capture &amp; crossfade the whole mix.</li>
-    <li><a href="/guides/mix/">Building your mix</a> — practical guide.</li>
+    <li><a href="/concepts/bus/">Bus</a> covers a single bus and its FX chain.</li>
+    <li><a href="/concepts/snapshot/">Snapshot</a> captures and crossfades the whole mix.</li>
+    <li><a href="/guides/mix/">Building your mix</a> is the practical version of this page.</li>
   </ul>
 </Docs>

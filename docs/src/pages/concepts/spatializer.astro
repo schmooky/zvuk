@@ -76,17 +76,22 @@ occlusion.set(0.7);          // boss is now mostly muffled
   description="Stereo pan or full 3D positional audio. PannerNode wrapped, HRTF on by default."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    Pass <code>spatializer</code> in <code>play()</code> to insert a
-    <code>StereoPannerNode</code> (2D) or <code>PannerNode</code> (3D HRTF)
-    between the voice and its bus. For positions that change over time —
-    e.g. a moving NPC — construct a <code>Spatializer</code> manually so
-    you can hold its reference and update it per frame.
+    A footstep behind you and a footstep in front of you are the same sample.
+    What tells them apart is where the engine puts it, and the browser will
+    do that for you if you hand it a position.
+  </p>
+  <p>
+    A <a href="/api/Spatializer/"><code>Spatializer</code></a> sits between one
+    voice and its bus, as either a <code>StereoPannerNode</code> for a flat
+    left-right pan or a <code>PannerNode</code> in HRTF mode for a position in
+    3D. Pass <code>spatializer</code> to <code>play()</code> for a fixed
+    placement. For a source that moves, hold the object and update it per
+    frame.
   </p>
 
   <h2>Mental model</h2>
-  <Frame caption="2D pan is cheap (StereoPannerNode). 3D uses PannerNode in HRTF mode — one node per voice.">
+  <Frame caption="2D pan is cheap (StereoPannerNode). 3D uses PannerNode in HRTF mode, one node per voice.">
     <SpatialDiagram />
   </Frame>
 
@@ -120,47 +125,49 @@ class Spatializer {
 
   <h3>Live binding from the spawned Voice</h3>
   <p>
-    Spawning with <code>spatializer</code> now stores the node on the
-    returned voice. No more re-attaching, no separate ref to manage.
+    Spawning with <code>spatializer</code> stores the node on the returned
+    voice, so there is nothing to re-attach and no second reference to keep
+    in sync.
   </p>
   <Snippet code={livePerVoice} lang="ts" />
 
   <h3>3D distance config</h3>
   <p>
-    Previously hard-coded; now exposed both as construction options and
-    live setters. <code>refDistance</code> is the no-attenuation radius;
-    <code>maxDistance</code> anchors the rolloff curve;
-    <code>rolloffFactor</code> scales how aggressively distance bites;
-    <code>distanceModel</code> picks the curve shape
-    (<code>'inverse'</code>, <code>'linear'</code>, or <code>'exponential'</code>).
+    Four values, available both as construction options and as live setters.
+    <code>refDistance</code> is the radius inside which nothing attenuates.
+    <code>maxDistance</code> anchors the far end of the rolloff curve.
+    <code>rolloffFactor</code> scales how hard distance bites.
+    <code>distanceModel</code> picks the curve shape, one of
+    <code>'inverse'</code>, <code>'linear'</code> or
+    <code>'exponential'</code>.
   </p>
   <Snippet code={distance3D} lang="ts" />
 
   <h3>Occlusion — "behind a wall"</h3>
   <p>
-    A single 0..1 knob driving an internal lowpass filter (cutoff sweeps
-    log-style from 22050 Hz to ~500 Hz) plus a small gain dip
-    (up to -6 dB at amount = 1). The standard shape of a sound that's
-    obstructed — bind it to a <code>Parameter</code> and you get a single
-    handle for whole-room occlusion changes.
+    One knob from 0 to 1, driving an internal lowpass whose cutoff sweeps
+    logarithmically from 22050 Hz down to about 500 Hz, plus a gain dip
+    reaching -6 dB at full amount. That is roughly what a wall does to a
+    sound. Bind it to a <a href="/concepts/parameter/">Parameter</a> and one
+    handle moves the whole room.
   </p>
   <Snippet code={occlusion} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't 3D-spatialize music.</div>
-    Music wants to feel "wide", not "located." HRTF on a stereo music bus is
-    a noticeable downgrade. Pan it manually if you want a side-bias.
+    Music wants to feel wide, not located. HRTF on a stereo music bus is an
+    audible downgrade. Pan it manually if you want a side bias.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't construct a Spatializer per frame.</div>
-    HRTF nodes are cheap-ish but not free. Hold one per emitter and
-    <code>setPosition</code> it.
+    HRTF nodes are cheap but not free. Hold one per emitter and call
+    <code>setPosition</code> on it.
   </div>
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/voice/">Voice</a> — the spatialized voice.</li>
-    <li><a href="/concepts/bus/">Bus</a> — what spatializers route into.</li>
+    <li><a href="/concepts/voice/">Voice</a> is what gets spatialized.</li>
+    <li><a href="/concepts/bus/">Bus</a> is what a spatializer routes into.</li>
   </ul>
 </Docs>

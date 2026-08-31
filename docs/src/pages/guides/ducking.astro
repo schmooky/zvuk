@@ -38,7 +38,7 @@ ducker.setThreshold(0.02); // more sensitive — duck even on quiet whispers`;
 
   <h2>Why not just use DynamicsCompressorNode?</h2>
   <p>
-    Web Audio's compressor is internally-keyed only — it compresses based on
+    Web Audio's compressor is internally keyed. It compresses based on
     its own input. To get true sidechain (key from a different bus) you need
     an envelope follower on the source bus driving a gain on the target. The
     <code>Ducker</code> is exactly that, packaged.
@@ -49,7 +49,7 @@ ducker.setThreshold(0.02); // more sensitive — duck even on quiet whispers`;
     The follower runs on the main thread at ~60 Hz. That's <em>perfectly fine</em>
     for speech ducking, where the smallest meaningful event (a syllable) is ~100
     ms. For sample-accurate audio-rate sidechain (e.g. compressing a kick under
-    a snare), use a custom AudioWorklet — that's planned for a future release.
+    a snare), use a custom AudioWorklet. That one is planned for a future release.
   </p>
 
   <h2>Pitfalls</h2>

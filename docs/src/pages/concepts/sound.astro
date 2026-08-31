@@ -49,11 +49,16 @@ engine.sprite('ui').play('click');`;
   description="A loaded sample. Owns one decoded AudioBuffer and spawns Voices on play()."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A <code>Sound</code> is the immutable, decoded representation of an audio
-    asset. Each call to <code>sound.play()</code> spawns a fresh <code>Voice</code>
-    attached to the sound's default bus (or an override). The buffer is shared;
+    Fire the same coin sound eight times in one cascade and you want eight
+    independent playbacks, each with its own volume, pitch and stop time,
+    from one download.
+  </p>
+  <p>
+    A <a href="/api/Sound/"><code>Sound</code></a> is the decoded, immutable
+    representation of an audio asset. Every call to <code>sound.play()</code>
+    spawns a fresh <a href="/concepts/voice/">Voice</a> on the sound's default
+    bus, or on one you name. The buffer is shared across all of them; the
     voices are not.
   </p>
 
@@ -95,17 +100,18 @@ interface PlayOptions {
 
   <h3>Loudness-normalize on load</h3>
   <p>
-    RMS-based normalization runs once per buffer at decode time. Removes the
-    "every sound is mastered at a different level" workflow tax without
-    affecting the original asset on disk.
+    RMS-based normalization runs once per buffer at decode time. It takes
+    the edge off a library where every asset was mastered by a different
+    person at a different level, and it never touches the file on disk.
   </p>
   <Snippet code={normalize} lang="ts" />
 
   <h3>Audio sprites</h3>
   <p>
-    See <a href="/concepts/engine/">Engine</a> for the full sprite story.
-    The short version: <code>loadSprite</code> shares the same fetch + decode
-    + cache path as <code>loadSound</code>, then maps named regions onto it.
+    <a href="/concepts/engine/">Engine</a> has the full sprite story.
+    Briefly, <code>loadSprite</code> shares the same fetch, decode and cache
+    path as <code>loadSound</code>, then maps named regions onto the
+    result.
   </p>
   <Snippet code={sprite} lang="ts" />
 
@@ -123,8 +129,8 @@ interface PlayOptions {
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/voice/">Voice</a> — what <code>play()</code> returns.</li>
-    <li><a href="/guides/loading/">Loading sounds</a> — bulk load patterns.</li>
-    <li><a href="/guides/asset-formats/">Asset formats</a> — the codec ladder.</li>
+    <li><a href="/concepts/voice/">Voice</a> is what <code>play()</code> returns.</li>
+    <li><a href="/guides/loading/">Loading sounds</a> covers bulk load patterns.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> covers the codec ladder.</li>
   </ul>
 </Docs>

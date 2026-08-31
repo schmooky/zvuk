@@ -46,7 +46,7 @@ if (canPlay('audio/webm; codecs="opus"')) {
   <p>
     Ship every sound as <strong>two files</strong>:
     a <code>.webm</code> with the <strong>Opus</strong> codec (primary), and an <code>.m4a</code> with
-    the <strong>AAC LC</strong> codec (fallback for iOS Safari ≤16). Pass them as an array — zvuk
+    the <strong>AAC LC</strong> codec (fallback for iOS Safari ≤16). Pass them as an array and zvuk
     picks the one your browser can decode.
   </p>
   <Snippet code={ladder} lang="ts" />
@@ -67,7 +67,7 @@ if (canPlay('audio/webm; codecs="opus"')) {
 
   <p>
     For SFX (short, dense, high-frequency), Opus around 64–96 kbps is indistinguishable from
-    source. AAC needs 96–128 kbps to match. Both are dramatically smaller than MP3 — and the
+    source. AAC needs 96–128 kbps to match. Both are dramatically smaller than MP3, and the
     Opus/AAC pair covers 100% of browsers.
   </p>
 
@@ -85,7 +85,7 @@ if (canPlay('audio/webm; codecs="opus"')) {
 
   <h2>What about MP3?</h2>
   <p>
-    MP3 is fine — it ships everywhere — but it's strictly larger than the Opus/AAC pair at
+    MP3 is fine, and it ships everywhere, but it is strictly larger than the Opus/AAC pair at
     equivalent quality. The only reason to use it is licensing paranoia, which expired in 2017.
     Skip it.
   </p>
@@ -106,7 +106,7 @@ if (canPlay('audio/webm; codecs="opus"')) {
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Don't ship .ogg as your only source.</div>
-    Safari does not decode OGG. Many free SFX packs ship .ogg — transcode to webm/m4a before serving.
+    Safari does not decode OGG. Many free SFX packs ship .ogg. Transcode to webm and m4a before serving.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Don't forget faststart for M4A.</div>

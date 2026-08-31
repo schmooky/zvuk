@@ -37,7 +37,7 @@ const close = `await engine.close();`;
 ---
 <Docs
   title="Quickstart"
-  description="Two function calls and a user gesture. That's it."
+  description="Two function calls and a user gesture."
   eyebrow="Start here"
 >
   <h2>1. Install</h2>
@@ -45,44 +45,49 @@ const close = `await engine.close();`;
 
   <h2>2. Construct the engine</h2>
   <p>
-    Declare your buses up front. <code>createEngine</code> does <em>not</em> touch the AudioContext —
-    it just records the shape of the mix. Safe to call at module load.
+    Declare your buses up front. <code>createEngine</code> does not touch the
+    AudioContext. It records the shape of the mix and nothing else, so calling
+    it at module load is safe.
   </p>
   <Snippet code={create} lang="ts" />
 
   <h2>3. Unlock from a user gesture</h2>
   <p>
-    Browsers block audio until the user does something. Call <code>engine.unlock()</code> from a
-    click, tap, or keypress handler — it's idempotent and safe to call repeatedly.
+    Browsers block audio until the user does something. Call
+    <code>engine.unlock()</code> from a click, tap or keypress handler. It is
+    idempotent, so calling it from several handlers is fine.
   </p>
   <Snippet code={unlock} lang="ts" />
 
   <p>
-    Pass an array of URLs to ship a codec ladder. The first one your browser can decode wins —
-    see <a href="/guides/asset-formats/">Asset formats</a> for why this matters.
+    Pass an array of URLs to ship a codec ladder. The first one your browser
+    can decode wins. <a href="/guides/asset-formats/">Asset formats</a>
+    explains why that matters more than it sounds.
   </p>
 
   <h2>4. Play, fade, mix</h2>
   <p>
-    All time-valued options in zvuk are <strong>seconds</strong> — fades,
-    crossfades, attack/release, snapshot applies, every one of them. Matches
-    the Web Audio API; nothing else to remember.
+    Every time-valued option in zvuk is in <strong>seconds</strong>. Fades,
+    crossfades, attack and release, snapshot applies, all of them. That
+    matches the Web Audio API, so there is one convention to remember rather
+    than two.
   </p>
   <Snippet code={playFade} lang="ts" />
 
   <h2>5. Clean up</h2>
   <p>
-    When you're done — e.g. SPA route change, game teardown — call <code>engine.close()</code>.
-    All voices stop, the AudioContext closes, listeners detach. The engine cannot be reused;
-    construct a new one if needed.
+    On an SPA route change or a game teardown, call
+    <code>engine.close()</code>. Every voice stops, the AudioContext closes,
+    and listeners detach. Close is terminal. Construct a new engine if you
+    need audio again.
   </p>
   <Snippet code={close} lang="ts" />
 
   <h2>Where to go next</h2>
   <ul>
-    <li><a href="/concepts/engine/">The Engine</a> — full lifecycle, state machine, scheduler.</li>
-    <li><a href="/concepts/bus/">Bus</a> — routing, concurrency, sidechain.</li>
-    <li><a href="/recipes/">Recipes</a> — six clickable patterns to copy.</li>
-    <li><a href="/guides/asset-formats/">Asset formats</a> — webm/Opus + m4a/AAC, the right way.</li>
+    <li><a href="/concepts/engine/">The Engine</a> covers the full lifecycle, state machine and scheduler.</li>
+    <li><a href="/concepts/bus/">Bus</a> covers routing, concurrency and sidechain.</li>
+    <li><a href="/recipes/">Recipes</a> has six patterns you can click and copy.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> walks through webm/Opus and m4a/AAC.</li>
   </ul>
 </Docs>

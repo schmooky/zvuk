@@ -68,7 +68,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
   </p>
   <ul>
     <li>
-      <strong>Audio time</strong> — what the Web Audio thread does. Sample-
+      <strong>Audio time</strong> is what the Web Audio thread does. Sample-
       accurate, runs independently of the main thread, unaffected by tab blur.
       Anything stamped onto an <code>AudioParam</code>
       (<code>setValueAtTime</code>, <code>linearRampToValueAtTime</code>,
@@ -77,7 +77,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
       thread.
     </li>
     <li>
-      <strong>JS dispatch time</strong> — when the main thread fires user
+      <strong>JS dispatch time</strong> is when the main thread fires user
       callbacks (<code>engine.scheduleAt(t, fn)</code>, region-end callbacks,
       end-of-fade resolutions). This depends on a JavaScript timer, which is
       what this guide is about.
@@ -88,7 +88,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
   <p>
     Without a <code>tickSource</code>, zvuk dispatches scheduled callbacks via
     <code>setTimeout</code>. We do <strong>not</strong> spin up an internal
-    <code>requestAnimationFrame</code> loop — running a parallel rAF in a
+    <code>requestAnimationFrame</code> loop. Running a parallel rAF in a
     library that's likely embedded in a host that already has one is a
     waste, and rAF doesn't actually fix the visibility problem (more on that
     below).
@@ -121,7 +121,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
   <p>
     If your host (Pixi, GSAP, a custom render loop) is already running an
     rAF on every frame, hand it to zvuk. The scheduler subscribes
-    <strong>lazily</strong> — only while there are pending tasks — so your
+    <strong>lazily</strong>, only while there are pending tasks, so your
     60 Hz loop isn't waking the scheduler 60 times a second to do nothing.
   </p>
 
@@ -145,7 +145,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
     By default, zvuk listens for <code>visibilitychange</code> and suspends
     the AudioContext while the tab is hidden, then resumes automatically on
     return. This is also the iOS Safari reliability workaround for
-    suspension-on-blur. While suspended, audio time stops advancing — so
+    suspension-on-blur. While suspended, audio time stops advancing, so
     scheduled callbacks pause right along with the audio they were paired
     with.
   </p>
@@ -169,7 +169,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
       </tr>
       <tr>
         <td>Slot machine, casino, casual game</td>
-        <td>Same — inject the host ticker for crisp wheel/reel sync.</td>
+        <td>Same. Inject the host ticker for crisp wheel and reel sync.</td>
       </tr>
       <tr>
         <td>Music player, background-audio app</td>
@@ -181,7 +181,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
       </tr>
       <tr>
         <td>You need sample-accurate sample triggers</td>
-        <td>Stamp <code>AudioParam</code> values directly with the <code>audioTime</code> you scheduled against (close over it — the callback isn't passed it). The ticker only affects when your JS confirmation runs, not when the audio fires.</td>
+        <td>Stamp <code>AudioParam</code> values directly with the <code>audioTime</code> you scheduled against, closing over it, since the callback isn't passed it. The ticker only affects when your JS confirmation runs, not when the audio fires.</td>
       </tr>
     </tbody>
   </table>
@@ -198,13 +198,13 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
     Hidden tabs throttle <code>setTimeout</code> to ~1 Hz; they pause
     <code>requestAnimationFrame</code> entirely (0 Hz). For audio that must
     be sample-accurate <em>through</em> blur, schedule on
-    <code>AudioParam</code> directly — that's the only path that runs on
+    <code>AudioParam</code> directly. That is the only path that runs on
     the audio thread independent of the main thread.
   </div>
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/voice/">Voice</a> — fade / stop / cues fire on these timers.</li>
-    <li><a href="/concepts/engine/">Engine</a> — <code>scheduleAt</code> API.</li>
+    <li><a href="/concepts/voice/">Voice</a> fades, stops and cues fire on these timers.</li>
+    <li><a href="/concepts/engine/">Engine</a> exposes the <code>scheduleAt</code> API.</li>
   </ul>
 </Docs>

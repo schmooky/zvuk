@@ -38,12 +38,17 @@ tension.set(0.75);                          // per-frame friendly`;
   description="Capture a mix state. Apply it later with a smooth crossfade. Your menu/gameplay/boss switcher in one call."
   eyebrow="Concept"
 >
-  <h2>TL;DR</h2>
   <p>
-    A <code>Snapshot</code> is an immutable record of bus levels, mutes, and
-    parameter values. Capture once when the mix is right, then re-apply
-    later with <code>fade</code> (in seconds) to crossfade the whole mix in
-    one call. No more orchestrating ten <code>fadeTo</code> calls by hand.
+    Getting a mix right takes an afternoon of nudging eight sliders. Getting
+    back to it from the menu screen takes eight <code>fadeTo</code> calls
+    that all have to start together and land together, and one of them will
+    drift the day someone adds a ninth bus.
+  </p>
+  <p>
+    A <a href="/api/Snapshot/"><code>Snapshot</code></a> is an immutable
+    record of bus levels, mutes and parameter values. You capture one when
+    the mix sounds right and apply it later with a fade, in seconds, and the
+    whole mix crossfades in one call.
   </p>
 
   <h2>Mental model</h2>
@@ -80,27 +85,28 @@ class Snapshot {
 
   <h3>Blend continuously between two snapshots</h3>
   <p>
-    <code>apply</code> is a one-shot crossfade. For an interpolated mix that
-    follows a knob — game tension, distance to a boss room, time of day —
-    capture two snapshots and let a <a href="/concepts/parameter/">Parameter</a>
-    drive <code>blendSnapshots</code>.
+    <code>apply</code> is a one-shot crossfade. When you want a mix that
+    follows a knob instead of a switch, capture two snapshots and let a
+    <a href="/concepts/parameter/">Parameter</a> drive
+    <code>blendSnapshots</code>. Game tension, distance to a boss room and
+    time of day all read naturally that way.
   </p>
   <Snippet code={blend} lang="ts" />
   <p>
-    Each call snaps the mix instantly (every bus level setter still rides a
-    10&nbsp;ms anti-click ramp internally), so calling it on every frame is
-    cheap. Buses or parameters that aren't present in both snapshots are
-    skipped. Mute flips at <code>t = 0.5</code> rather than interpolating.
-    The <a href="/examples/snapshot-blend/">snapshot-blend example</a> wires
-    a slider through a Parameter end-to-end.
+    Each call snaps the mix instantly, so calling it every frame is cheap.
+    Every bus-level setter still rides its own 10 ms anti-click ramp
+    underneath. Buses and parameters missing from either snapshot are
+    skipped, and mute flips at <code>t = 0.5</code> rather than
+    interpolating. The <a href="/examples/snapshot-blend/">snapshot-blend
+    example</a> wires a slider through a Parameter end to end.
   </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">
     <div class="pitfall-title">Snapshots don't include voices.</div>
-    They restore the <em>mix</em>, not what's playing on it. If you need a
-    "boss music starts" effect, trigger the boss music yourself <em>then</em>
-    apply the snapshot.
+    They restore the <em>mix</em>, not what is playing on it. For a "boss
+    music starts" moment, trigger the boss music yourself, then apply the
+    snapshot.
   </div>
   <div class="pitfall">
     <div class="pitfall-title">Capturing twice does not snapshot motion.</div>
@@ -110,7 +116,7 @@ class Snapshot {
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/parameter/">Parameter</a> — for continuous values.</li>
-    <li><a href="/concepts/mixer/">Mixer</a> — the bus state being captured.</li>
+    <li><a href="/concepts/parameter/">Parameter</a> handles continuous values.</li>
+    <li><a href="/concepts/mixer/">Mixer</a> holds the bus state being captured.</li>
   </ul>
 </Docs>

@@ -105,25 +105,40 @@ try {
 ---
 <Docs
   title="Engine"
-  description="The root object. Owns the AudioContext, the bus graph, the scheduler, every loaded sound."
+  description="The root object. Owns the AudioContext, the bus graph, the scheduler, and every loaded sound."
   eyebrow="Concept"
 >
-
-  <h2>TL;DR</h2>
   <p>
-    The <code>Engine</code> is the only object you construct directly. Everything else
-    (<code>Bus</code>, <code>Sound</code>, <code>Voice</code>, <code>Parameter</code>,
-    <code>Snapshot</code>) is reached through it. Lifecycle is explicit — the underlying
-    <code>AudioContext</code> is created on first use, never in the constructor — so
-    <code>createEngine()</code> is safe to call before any user interaction.
+    Constructing an <code>AudioContext</code> at module load used to be
+    normal. Then browsers made autoplay a permission, and now the context you
+    built before the user touched anything starts suspended, stays suspended,
+    and swallows every sound you play through it.
+  </p>
+  <p>
+    The engine is the root object and the only one you construct directly.
+    Buses, sounds, voices, parameters and snapshots are all reached through
+    it. It holds the <code>AudioContext</code>, the bus graph, the scheduler,
+    and every loaded asset. The context is created on first use rather than
+    in the constructor, so <code>createEngine()</code> is safe to call before
+    any user interaction. See <a href="/api/Engine/"><code>Engine</code></a>
+    for the full surface.
+  </p>
+
+  <h2>How do I unlock audio on iOS Safari?</h2>
+  <p>
+    Call <code>await engine.unlock()</code> from inside a real user gesture:
+    a click, a tap, a keydown. It is idempotent, and repeated calls return the
+    same in-flight promise, so wiring it to several handlers is fine.
+    Visibility and focus changes suspend and resume the context on their own
+    afterwards.
   </p>
 
   <h2>State machine</h2>
   <p>
-    Five states (including <code>interrupted</code>, used on iOS phone-call /
-    Siri interruptions), one terminal transition. <code>unlock()</code> is the only thing you
-    call manually; visibility/focus changes auto-suspend and auto-resume the context
-    behind the scenes.
+    Six states, one terminal transition. <code>suspended</code> covers a tab
+    that went to the background. <code>interrupted</code> is the iOS state for
+    a phone call or Siri taking the audio session, which
+    <code>resume()</code> cannot recover from on its own.
   </p>
   <Frame caption="Engine lifecycle. unlock() is idempotent and returns the same in-flight promise.">
     <StateMachineDiagram />
@@ -131,21 +146,23 @@ try {
 
   <h2>Signal flow</h2>
   <p>
-    Each <code>play()</code> call attaches a <code>Voice</code> to its bus's input node.
-    Voices feed through bus FX (if any), out the bus's output, into the master, and
-    onward to <code>ctx.destination</code>. Everything else is variation on this graph.
+    Each <code>play()</code> call attaches a voice to its bus's input node.
+    Voices feed through the bus FX chain if there is one, out of the bus
+    output, into master, and on to <code>ctx.destination</code>. Everything
+    else in the library is a variation on this graph.
   </p>
   <Frame title="signal flow">
     <SignalFlowDiagram />
   </Frame>
 
   <h2>API surface</h2>
-  <Snippet code={surface} lang="ts" title="Engine — public interface" />
+  <Snippet code={surface} lang="ts" title="The Engine interface" />
 
   <h2>Live demo</h2>
   <p>
-    The mixer dashboard below runs a real <code>Engine</code> with three buses, six
-    pre-loaded samples in <code>.webm</code>/<code>.m4a</code> pairs, and a live voice counter.
+    The dashboard below runs three buses, six samples in
+    <code>.webm</code>/<code>.m4a</code> pairs, and a voice counter that
+    updates as voices start and end.
   </p>
   <MixerDashboard client:visible />
 
@@ -161,39 +178,47 @@ try {
   <h3>Audio-clock scheduling</h3>
   <p>
     <code>scheduleAt</code> dispatches a callback against the audio clock. It
-    runs on the main thread, so timing is within a tick (a few ms) — not
-    sample-accurate. For sample-accurate playback, stamp Web Audio parameters
-    (e.g. <code>source.start(t)</code>) with the audio time directly.
+    runs on the main thread, so the drift is bounded by one tick, a few
+    milliseconds. It is not sample-accurate. When you need that, stamp the Web
+    Audio parameter itself with the audio time and let the audio thread do the
+    work: <code>source.start(t)</code>, or
+    <code>gain.linearRampToValueAtTime(v, t)</code>.
   </p>
   <Snippet code={schedule} lang="ts" />
 
-  <h3>Audio sprites — one buffer, many regions</h3>
+  <h3>Audio sprites: one buffer, many regions</h3>
   <p>
-    Use sprites for low-latency one-shots that share a buffer: cascades, UI
-    variants, dialogue chunks. One fetch, one decode, region-bound voices.
+    Sprites suit low-latency one-shots that can share a buffer. Cascades, UI
+    variants, dialogue chunks. One fetch, one decode, and voices bound to a
+    named region of the result.
   </p>
   <Snippet code={sprites} lang="ts" />
 
   <h3>Stream long media instead of decoding it</h3>
   <p>
-    For tracks &gt; 30s, prefer <code>loadStream</code> over <code>loadSound</code>.
-    It uses an internal <code>HTMLAudioElement</code> + <code>MediaElementAudioSource</code>,
-    so the asset is read off disk progressively — and iOS Safari stops choking on it.
+    Past about thirty seconds, prefer <code>loadStream</code> over
+    <code>loadSound</code>. Decoded audio costs four bytes per sample per
+    channel, so three minutes of stereo at 48 kHz is roughly 70 MB of resident
+    memory. A stream reads progressively through an
+    <code>HTMLAudioElement</code>, which is also the path iOS Safari is
+    happiest with.
   </p>
   <Snippet code={streams} lang="ts" />
 
   <h3>Crossfade music tracks in one call</h3>
   <p>
-    Equal-power by default, so the perceived loudness stays flat across the swap.
-    Outgoing voices are matched by <code>sourceName</code>.
+    Equal-power by default, so perceived loudness stays flat across the swap
+    instead of dipping in the middle. Outgoing voices are matched by
+    <code>sourceName</code>.
   </p>
   <Snippet code={crossfade} lang="ts" />
   <CrossfadeDemo client:visible />
 
   <h3>"Did you mean…" lookups</h3>
   <p>
-    Misspelled bus or sound names produce errors that include the closest
-    declared name (Levenshtein) — so the typo doesn't waste an afternoon.
+    A misspelled bus or sound name produces an error carrying the closest
+    declared name, by Levenshtein distance. It is a small thing that saves an
+    afternoon roughly once per project.
   </p>
   <Snippet code={didYouMean} lang="ts" />
 
@@ -218,8 +243,8 @@ try {
 
   <h2>Related</h2>
   <ul>
-    <li><a href="/concepts/mixer/">Mixer</a> — the bus graph rooted at the engine.</li>
-    <li><a href="/concepts/bus/">Bus</a> — routing, level, mute, fade.</li>
-    <li><a href="/concepts/voice/">Voice</a> — what <code>play()</code> returns.</li>
+    <li><a href="/concepts/mixer/">Mixer</a> is the bus graph rooted at the engine.</li>
+    <li><a href="/concepts/bus/">Bus</a> covers routing, level, mute and fade.</li>
+    <li><a href="/concepts/voice/">Voice</a> is what <code>play()</code> returns.</li>
   </ul>
 </Docs>
