@@ -228,6 +228,35 @@
   50%      { opacity: 1; }
 }
 
+/**
+ * Reduced motion. The repo had no `prefers-reduced-motion` query at all,
+ * against a 40-second infinite marquee, a breathing status dot, and a scroll
+ * -triggered fade on every article.
+ *
+ * Infinite loops stop outright — a marquee that stops mid-scroll would hide
+ * half its content, so it also snaps back to the start. One-shot entrance
+ * animations and hover transitions collapse to something near-instant rather
+ * than disappearing, so state changes stay legible.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none !important;
+    transform: none !important;
+  }
+  .animate-pulse-slow {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
