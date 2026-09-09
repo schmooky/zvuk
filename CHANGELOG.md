@@ -1,5 +1,90 @@
 # @schmooky/zvuk
 
+## 1.14.1
+
+### Patch Changes
+
+- [#97](https://github.com/schmooky/zvuk/pull/97) [`5f22d95`](https://github.com/schmooky/zvuk/commit/5f22d953e107117892f58df90c8dee586af4b3ca) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Run voice and music lifecycle timers on the audio clock instead of the wall
+  clock.
+
+  Third member of the same family as the loop-crossfade stall, from the other
+  direction: a deadline that belongs to the audio clock, tracked on the wrong
+  one. The engine suspends its own AudioContext whenever the tab is hidden —
+  `autoPauseOnHidden` is on by default — which parks the audio clock while
+  `setTimeout` keeps counting. `waitAudio` exists because of exactly this, and
+  `voice.fade()` already used it; the timers that end voices did not.
+
+  - `voice.stop({ fade })` and `music.stop({ fade })` tore the node graph down
+    and resolved `.ended` after `fade` seconds of _wall_ time. Hide the tab
+    mid-fade and `.ended` resolved over a ramp that had not run and a source
+    that had not reached its scheduled stop — against the documented contract
+    that it "resolves when the audio actually stops".
+  - A duration-bounded region (the sprite path, where nothing on the audio
+    thread bounds the source) was cut short by however long the tab spent
+    hidden, losing the audio it still owed.
+  - The music part-handover timers reported `currentPart` as `'loop'` or
+    `'outro'` before those parts had started.
+
+  All four now wait on the audio clock through a new internal `afterAudio`,
+  which `waitAudio` is also built on. A closed context's clock never advances
+  again, so a wait on one fires rather than hanging — `.ended` still settles if
+  the engine closes mid-fade.
+
+  The Web Audio test fake used to reset `currentTime` to zero whenever the
+  context left the running state, which hid all of this. It now holds the clock
+  across a suspend and resumes from where it left off, as engines do.
+
+- [#97](https://github.com/schmooky/zvuk/pull/97) [`c68ba2c`](https://github.com/schmooky/zvuk/commit/c68ba2c2742f89c5f88aeadbaf02b1da15a43db3) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix `music.skipToOutro({ at: 'loop-end' })` cutting the music instantly instead
+  of ending it on the bar.
+
+  Same family as the loop-crossfade stall: an absolute audio time that had gone
+  stale, then used as though it were still ahead of the clock. Engines clamp a
+  past-dated `start()`/`stop()` up to the current time, so the loop was cut
+  wherever it happened to be and the outro fired immediately.
+
+  - On the native-loop path — the default, since `loopCrossfade` is off unless
+    you ask for it — the next-boundary marker was written once when the loop
+    started and never again, because that path has no segment chain to re-anchor
+    it. Every iteration after the first read a boundary that was already behind
+    the clock. Boundaries are now computed against the clock from the loop's
+    anchor, so the outro lands on the next real one.
+  - Called during the intro, the outro was scheduled an intro duration from _now_
+    rather than at the intro's own end, leaving a hole as wide as the part of the
+    intro that had already played. The intro's scheduled end is now tracked and
+    used.
+  - A boundary can still be behind us if the main thread stalled through it. That
+    case now asks for "now" plainly instead of a time it knows has gone.
+
+  `engine.scheduleAt` and the internal `Scheduler` also picked up documentation on
+  clamping a stamped `audioTime` to the clock — dispatch is a JS callback and can
+  run after its own deadline, which is the same footgun this release fixes
+  internally.
+
+- [#97](https://github.com/schmooky/zvuk/pull/97) [`111f656`](https://github.com/schmooky/zvuk/commit/111f656f421466721d7e285a0b762903c5e8ffd9) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fix looped sounds going permanently silent after a main-thread stall.
+
+  A loop-crossfade chain (`play({ loop: true, loopCrossfade })` and the music
+  loop) stamps each segment's gain envelope at an absolute audio time computed
+  one segment earlier, and wakes a timer shortly before it. When the main thread
+  stalls past that deadline — a lazily loaded bundle, a batch of texture uploads,
+  or a backgrounded tab's throttled timers — the segment was still stamped at the
+  time that had already passed. Chromium and WebKit clamp past-dated automation
+  up to the current time, so the segment's fade-in and fade-out legs landed on
+  the same instant and the second one was refused with `NotSupportedError`. The
+  exception escaped the timer callback before it could re-arm, so the loop fell
+  silent and stayed silent for the rest of that voice's life while one-shot
+  sounds around it kept playing.
+
+  A segment that misses its deadline is now rebased onto the audio clock, comes
+  in at full level when the whole crossfade window has already passed, and chains
+  the next wake-up off where it actually landed rather than off the deadline it
+  missed — so one late segment no longer makes every later one late too. The
+  envelope calls are guarded and the chain re-arms itself regardless, so a
+  refusal from any engine can no longer end the loop.
+
+  Covered by a rendered-audio conformance spec on Chromium and WebKit, and by
+  stall regression specs for both the voice and music chains. The Web Audio test
+  fake now models the past-dated clamp that made the failure possible.
+
 ## 1.14.0
 
 ### Minor Changes
