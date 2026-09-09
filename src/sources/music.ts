@@ -1,4 +1,4 @@
-import { applyRamp, equalPowerCurve } from '../mixer/curve';
+import { applyRamp, scheduleSegmentEnvelope } from '../mixer/curve';
 import { waitAudio } from '../runtime/wait';
 import type { FadeOptions, MusicPlayOptions, MusicState, SkipToOutroOptions, StopOptions } from '../types';
 
@@ -239,7 +239,11 @@ export class MusicVoice {
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffers.intro!;
     src.connect(this.gain);
-    src.start(when);
+    try {
+      src.start(when);
+    } catch {
+      /* already started */
+    }
     src.onended = () => {
       // Detach by reference so a stop()-driven onended doesn't double-fire.
       if (this.introSource === src) this.introSource = null;
@@ -250,14 +254,17 @@ export class MusicVoice {
   private scheduleLoopStart(when: number): void {
     if (this.done) return;
     const segment = this.spawnLoopSegment(when, /* fadeIn */ false);
-    this.nextLoopBoundaryAt = when + this.buffers.loop.duration;
+    // Chain off where the segment actually landed, not the deadline we asked
+    // for — see spawnLoopSegment on why the two can differ.
+    const startedAt = segment.startTime;
+    this.nextLoopBoundaryAt = startedAt + this.buffers.loop.duration;
 
     // When crossfade is on, arm the next segment slightly before the
     // boundary. When it's off, the loop is a single source with native
     // looping — but we still need to flip state from 'intro' to 'loop'
     // at the boundary, so arm a state-flip timer if there's an intro.
     if (this.loopCrossfadeSec > 0 && this.crossfadeViable()) {
-      this.armNextLoopSegment(when);
+      this.armNextLoopSegment(startedAt);
     } else {
       // Single-source native loop path.
       segment.source.loop = true;
@@ -272,7 +279,7 @@ export class MusicVoice {
       if (!this.buffers.intro) this.state = 'loop';
       else {
         // Schedule a state transition right at the boundary.
-        const ms = Math.max(0, (when - this.ctx.currentTime) * 1000);
+        const ms = Math.max(0, (startedAt - this.ctx.currentTime) * 1000);
         setTimeout(() => {
           if (!this.done && this.state === 'intro') this.state = 'loop';
         }, ms);
@@ -280,42 +287,47 @@ export class MusicVoice {
     }
   }
 
-  private spawnLoopSegment(when: number, fadeIn: boolean): { source: AudioBufferSourceNode; gain: GainNode } {
+  private spawnLoopSegment(
+    when: number,
+    fadeIn: boolean,
+  ): { source: AudioBufferSourceNode; gain: GainNode; startTime: number } {
+    // `when` is a deadline, not a guarantee. A stalled main thread or a hidden
+    // tab's throttled timers can wake the arm timer well after it has passed,
+    // and both Chromium and WebKit clamp past-dated automation up to the
+    // current time — which collapses the segment's two envelope legs onto the
+    // same instant and gets the second one refused with NotSupportedError.
+    // Rebase the segment onto the clock so every stamp is still ahead of it.
+    const now = this.ctx.currentTime;
+    const start = Math.max(when, now);
+    // Past a full crossfade window there is nothing left to fade against —
+    // the previous segment has already gone silent. Coming in at full level
+    // keeps the audible gap no longer than the stall itself made it.
+    const rampIn = fadeIn && now - when < this.loopCrossfadeSec;
+
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffers.loop;
     src.loop = false;
 
     const segGain = this.ctx.createGain();
-    if (fadeIn) {
-      // Equal-power fade-in (sin) so it sums to constant power against the
-      // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
-      segGain.gain.setValueAtTime(0, when);
-      segGain.gain.setValueCurveAtTime(equalPowerCurve(0, 1), when, this.loopCrossfadeSec);
-    } else {
-      segGain.gain.setValueAtTime(1, when);
-    }
-    if (this.crossfadeViable()) {
-      // Equal-power fade-out (cos) at the segment's tail so it sits under the
-      // next segment's fade-in.
-      const fadeOutAt = when + this.buffers.loop.duration - this.loopCrossfadeSec;
-      segGain.gain.setValueAtTime(1, fadeOutAt);
-      segGain.gain.setValueCurveAtTime(equalPowerCurve(1, 0), fadeOutAt, this.loopCrossfadeSec);
-    }
+    scheduleSegmentEnvelope(segGain.gain, start, this.buffers.loop.duration, this.loopCrossfadeSec, {
+      fadeIn: rampIn,
+      fadeOut: this.crossfadeViable(),
+    });
     src.connect(segGain).connect(this.gain);
     try {
       // Crossfade-on path uses an explicit duration so the source ends
       // itself; crossfade-off path uses native looping (handled in
       // scheduleLoopStart by mutating src.loop).
       if (this.crossfadeViable()) {
-        src.start(when, 0, this.buffers.loop.duration);
+        src.start(start, 0, this.buffers.loop.duration);
       } else {
-        src.start(when);
+        src.start(start);
       }
     } catch {
       /* already started */
     }
     src.onended = () => this.releaseLoopSegment(src, segGain);
-    const entry = { source: src, gain: segGain, startTime: when };
+    const entry = { source: src, gain: segGain, startTime: start };
     this.loopChain.push(entry);
     return entry;
   }
@@ -333,9 +345,20 @@ export class MusicVoice {
       if (this.done || (this.state !== 'loop' && this.state !== 'intro')) return;
       // Transition from intro → loop happens at the very first loop spawn.
       this.state = 'loop';
-      this.spawnLoopSegment(nextStart, /* fadeIn */ true);
-      this.nextLoopBoundaryAt = nextStart + this.buffers.loop.duration;
-      this.armNextLoopSegment(nextStart);
+      // Chain off where the segment actually landed. A late wake-up rebases
+      // it onto the clock, and arming from the deadline we missed instead
+      // would leave every following wake-up late too — a catch-up burst
+      // stacking several segments onto the same instant.
+      let startedAt = nextStart;
+      try {
+        startedAt = this.spawnLoopSegment(nextStart, /* fadeIn */ true).startTime;
+      } finally {
+        // Re-arm whatever happened above. An exception escaping this
+        // callback used to end the loop for good: the music fell silent and
+        // stayed that way.
+        this.nextLoopBoundaryAt = startedAt + this.buffers.loop.duration;
+        this.armNextLoopSegment(startedAt);
+      }
     }, delayMs);
   }
 

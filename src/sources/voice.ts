@@ -1,4 +1,4 @@
-import { applyRamp, equalPowerCurve } from '../mixer/curve';
+import { applyRamp, scheduleSegmentEnvelope } from '../mixer/curve';
 import { waitAudio } from '../runtime/wait';
 import type { Spatializer } from '../spatial/spatializer';
 import type { AudioLevel, FadeOptions, PlayOptions, StopOptions } from '../types';
@@ -521,44 +521,50 @@ export class Voice {
    */
   private startCrossfadeChain(when: number): AudioBufferSourceNode {
     const first = this.spawnCrossfadeSegment(when, /* fadeIn */ false);
-    this.armNextCrossfadeSegment(when);
+    this.armNextCrossfadeSegment(first.startTime);
     return first.source;
   }
 
   private spawnCrossfadeSegment(
     when: number,
     fadeIn: boolean,
-  ): { source: AudioBufferSourceNode; gain: GainNode } {
+  ): { source: AudioBufferSourceNode; gain: GainNode; startTime: number } {
+    // `when` is a deadline, not a guarantee. A stalled main thread (a lazily
+    // loaded bundle, a texture upload, any long task) or a hidden tab's
+    // throttled timers can wake the arm timer well after it has passed, and
+    // both Chromium and WebKit clamp past-dated automation up to the current
+    // time — which collapses the segment's two envelope legs onto the same
+    // instant and gets the second one refused with NotSupportedError. Rebase
+    // the whole segment onto the clock so every stamp is still ahead of it.
+    const now = this.ctx.currentTime;
+    const start = Math.max(when, now);
+    // Past a full crossfade window there is nothing left to fade against —
+    // the previous segment has already gone silent. Coming in at full level
+    // keeps the audible gap no longer than the stall itself made it.
+    const rampIn = fadeIn && now - when < this.crossfadeSec;
+
     const src = this.ctx.createBufferSource();
     src.buffer = this.buffer;
     src.loop = false;
     src.playbackRate.value = this.basePitch;
 
     const segGain = this.ctx.createGain();
-    if (fadeIn) {
-      // Equal-power fade-in (sin) so it sums to constant power against the
-      // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
-      segGain.gain.setValueAtTime(0, when);
-      segGain.gain.setValueCurveAtTime(equalPowerCurve(0, 1), when, this.crossfadeSec);
-    } else {
-      segGain.gain.setValueAtTime(1, when);
-    }
-    // Equal-power fade-out (cos) at the segment's tail.
-    const fadeOutAt = when + this.crossfadeRegionLen - this.crossfadeSec;
-    segGain.gain.setValueAtTime(1, fadeOutAt);
-    segGain.gain.setValueCurveAtTime(equalPowerCurve(1, 0), fadeOutAt, this.crossfadeSec);
+    scheduleSegmentEnvelope(segGain.gain, start, this.crossfadeRegionLen, this.crossfadeSec, {
+      fadeIn: rampIn,
+      fadeOut: true,
+    });
 
     src.connect(segGain).connect(this.gain);
     try {
       // Web Audio honours start(when, offset, duration); the source stops
-      // itself at `when + duration / playbackRate` without a setTimeout.
-      src.start(when, this.crossfadeRegionStart, this.crossfadeRegionLen);
+      // itself at `start + duration / playbackRate` without a setTimeout.
+      src.start(start, this.crossfadeRegionStart, this.crossfadeRegionLen);
     } catch {
       /* already started */
     }
     src.onended = () => this.releaseCrossfadeSegment(src, segGain);
 
-    const entry = { source: src, gain: segGain, startTime: when };
+    const entry = { source: src, gain: segGain, startTime: start };
     this.crossfadeChain.push(entry);
     return entry;
   }
@@ -576,8 +582,19 @@ export class Voice {
     this.crossfadeArmTimer = setTimeout(() => {
       this.crossfadeArmTimer = null;
       if (this.done || this.stopping || this.paused) return;
-      this.spawnCrossfadeSegment(nextStart, /* fadeIn */ true);
-      this.armNextCrossfadeSegment(nextStart);
+      // Chain off where the segment actually landed. A late wake-up rebases
+      // it onto the clock, and arming from the deadline we missed instead
+      // would leave every following wake-up late too — a catch-up burst
+      // stacking several segments onto the same instant.
+      let startedAt = nextStart;
+      try {
+        startedAt = this.spawnCrossfadeSegment(nextStart, /* fadeIn */ true).startTime;
+      } finally {
+        // Re-arm whatever happened above. An exception escaping this
+        // callback used to end the chain for good: the voice fell silent
+        // and stayed that way until something replaced it.
+        this.armNextCrossfadeSegment(startedAt);
+      }
     }, delayMs);
   }
 

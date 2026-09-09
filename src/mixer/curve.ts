@@ -99,6 +99,56 @@ export function equalPowerCurve(from: number, to: number, n = 33): Float32Array 
   return sampleCurve(from, to, 'equal-power', n);
 }
 
+/**
+ * Stamp one loop-crossfade segment's equal-power gain envelope: an optional
+ * rising leg at `start`, and a falling leg `crossfadeSec` before the segment
+ * ends, so the next segment's rising leg sums against it to constant power.
+ *
+ * `start` must not be behind `ctx.currentTime`. Chromium and WebKit both
+ * clamp past-dated automation up to the current time, so an envelope stamped
+ * entirely in the past collapses its two legs onto the same instant and the
+ * second call is refused:
+ *
+ *   NotSupportedError: setValueAtTime(1, 1) overlaps setValueCurveAtTime(..., 1, 0.1)
+ *
+ * Callers rebase `start` onto the clock so that can't arise. The try/catch is
+ * the second line of defence: these calls happen inside a timer callback that
+ * has to re-arm itself afterwards, and an exception escaping it silences the
+ * loop for the rest of the voice's life.
+ */
+export function scheduleSegmentEnvelope(
+  param: AudioParam,
+  start: number,
+  segmentLen: number,
+  crossfadeSec: number,
+  opts: { fadeIn: boolean; fadeOut: boolean },
+): void {
+  try {
+    if (opts.fadeIn) {
+      // Equal-power fade-in (sin) so it sums to constant power against the
+      // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
+      param.setValueAtTime(0, start);
+      param.setValueCurveAtTime(equalPowerCurve(0, 1), start, crossfadeSec);
+    } else {
+      param.setValueAtTime(1, start);
+    }
+  } catch {
+    // Refused — an audible segment at a flat level beats a silent one.
+    param.value = 1;
+  }
+
+  if (!opts.fadeOut) return;
+
+  const fadeOutAt = start + segmentLen - crossfadeSec;
+  try {
+    param.setValueAtTime(1, fadeOutAt);
+    param.setValueCurveAtTime(equalPowerCurve(1, 0), fadeOutAt, crossfadeSec);
+  } catch {
+    // Refused — the segment's own source stops at the boundary regardless,
+    // so the cost is a seam click rather than a gain stuck open.
+  }
+}
+
 function sampleCurve(from: number, to: number, curve: FadeCurve, n: number): Float32Array {
   const out = new Float32Array(n);
   const rising = to >= from;

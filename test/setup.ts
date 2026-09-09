@@ -12,15 +12,25 @@ type ParamEvent =
   | { kind: 'cancelHold'; time: number };
 
 /**
- * AudioParam fake that models the scheduling rule the old fake ignored: an
- * in-flight `setValueCurveAtTime` window makes any other automation call
- * inside that window throw NotSupportedError.
+ * AudioParam fake that models two scheduling rules the old fake ignored.
  *
- * This is deliberately stricter than Chromium 141 and WebKit 26, which drop
- * an overlapping curve on plain `cancelScheduledValues`. It is the
- * conservative reading of the spec, and it keeps the fake honest about
- * engines that don't (Firefox has no `cancelAndHoldAtTime` to fall back
- * on). Every call is recorded in `events` so tests can assert on what was
+ * 1. An in-flight `setValueCurveAtTime` window makes any other automation
+ *    call inside that window throw NotSupportedError. This is deliberately
+ *    stricter than Chromium 141 and WebKit 26, which drop an overlapping
+ *    curve on plain `cancelScheduledValues`. It is the conservative reading
+ *    of the spec, and it keeps the fake honest about engines that don't
+ *    (Firefox has no `cancelAndHoldAtTime` to fall back on).
+ *
+ * 2. A past-dated event is clamped up to `currentTime` rather than refused.
+ *    That clamp is what turns a missed deadline into a hard failure: stamp
+ *    two events that are both behind the clock and they land on the same
+ *    instant, so the second one lands inside the first one's curve window
+ *    and is refused. Measured on Chromium 141 and WebKit 26 —
+ *    `setValueAtTime(1, 1) overlaps setValueCurveAtTime(..., 1, 0.1)`.
+ *    Params only clamp when they were given a clock; the ones that aren't
+ *    scheduled against absolute audio time don't need one.
+ *
+ * Every call is recorded in `events` so tests can assert on what was
  * scheduled rather than only on the final value.
  */
 class FakeAudioParam {
@@ -30,18 +40,26 @@ class FakeAudioParam {
   events: ParamEvent[] = [];
   /** Active setValueCurveAtTime window, or null. */
   private curve: { start: number; end: number } | null = null;
+  private clock: (() => number) | undefined;
 
-  constructor(initial = 1) {
+  constructor(initial = 1, clock?: () => number) {
     this.value = initial;
     this.defaultValue = initial;
+    this.clock = clock;
+  }
+
+  /** Past-dated events are pulled up to the current time, as engines do. */
+  private clamp(t: number): number {
+    const now = this.clock?.();
+    return now != null && t < now ? now : t;
   }
 
   private assertOutsideCurve(t: number): void {
     const c = this.curve;
-    // An event at exactly the curve's start time is legal (the library pins
-    // a start value immediately before scheduling the curve); anything
-    // strictly inside the window is not.
-    if (c && t > c.start && t <= c.end) {
+    // Once a curve is on the timeline it occupies its whole window, start
+    // included. Pinning a start value immediately *before* scheduling the
+    // curve is still legal — there's no curve to overlap yet.
+    if (c && t >= c.start && t <= c.end) {
       throw new DOMException(
         `Cannot schedule at ${t}: inside an active setValueCurveAtTime window`,
         'NotSupportedError',
@@ -49,25 +67,29 @@ class FakeAudioParam {
     }
   }
 
-  setValueAtTime(v: number, t: number) {
+  setValueAtTime(v: number, time: number) {
+    const t = this.clamp(time);
     this.assertOutsideCurve(t);
     this.events.push({ kind: 'setValue', value: v, time: t });
     this.value = v;
   }
-  linearRampToValueAtTime(v: number, t: number) {
+  linearRampToValueAtTime(v: number, time: number) {
+    const t = this.clamp(time);
     this.assertOutsideCurve(t);
     this.events.push({ kind: 'linearRamp', value: v, time: t });
     this.value = v;
   }
-  setValueCurveAtTime(curve: Float32Array, t: number, d: number) {
+  setValueCurveAtTime(curve: Float32Array, time: number, d: number) {
+    const t = this.clamp(time);
     this.assertOutsideCurve(t);
     this.events.push({ kind: 'curve', value: curve[curve.length - 1] ?? this.value, time: t, duration: d });
     this.curve = { start: t, end: t + d };
     this.value = curve[curve.length - 1] ?? this.value;
   }
   setTargetAtTime(target: number, start: number, timeConstant: number) {
-    this.assertOutsideCurve(start);
-    this.events.push({ kind: 'target', value: target, time: start, timeConstant });
+    const t = this.clamp(start);
+    this.assertOutsideCurve(t);
+    this.events.push({ kind: 'target', value: target, time: t, timeConstant });
     this.value = target;
   }
   cancelScheduledValues(t: number) {
@@ -98,7 +120,16 @@ class FakeAudioNode {
 }
 
 class FakeGainNode extends FakeAudioNode {
-  gain = new FakeAudioParam(1);
+  gain: FakeAudioParam;
+  /**
+   * Gain is the one param the library stamps at absolute audio times it
+   * computed earlier (loop-crossfade envelopes), so it's the one that needs
+   * a clock to model the past-dated clamp.
+   */
+  constructor(clock?: () => number) {
+    super();
+    this.gain = new FakeAudioParam(1, clock);
+  }
 }
 
 class FakeBiquadFilterNode extends FakeAudioNode {
@@ -250,7 +281,7 @@ class FakeAudioContext {
   }
 
   createGain() {
-    return new FakeGainNode();
+    return new FakeGainNode(() => this.currentTime);
   }
   createBufferSource() {
     return new FakeAudioBufferSourceNode();
