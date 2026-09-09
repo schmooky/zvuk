@@ -1,5 +1,5 @@
 import { applyRamp, scheduleSegmentEnvelope } from '../mixer/curve';
-import { waitAudio } from '../runtime/wait';
+import { afterAudio, waitAudio } from '../runtime/wait';
 import type { FadeOptions, MusicPlayOptions, MusicState, SkipToOutroOptions, StopOptions } from '../types';
 
 const DEFAULT_STOP_FADE_SEC = 0.008;
@@ -124,7 +124,8 @@ export class MusicVoice {
   private outroSource: AudioBufferSourceNode | null = null;
   private loopChain: { source: AudioBufferSourceNode; gain: GainNode; startTime: number }[] = [];
   private loopArmTimer: ReturnType<typeof setTimeout> | null = null;
-  private outroTimer: ReturnType<typeof setTimeout> | null = null;
+  // Cancel handle for the outro handover. Audio-clock driven — see afterAudio.
+  private outroTimer: (() => void) | null = null;
   // Audio time the next crossfade segment is due to start. The chain re-anchors
   // it on every spawn, so it only means anything on the crossfade path — the
   // native-loop path has no chain to re-anchor it and reads the boundary off
@@ -204,7 +205,10 @@ export class MusicVoice {
       this.finish();
       return;
     }
-    setTimeout(() => this.finish(), fade * 1000);
+    // On the audio clock: a suspended context freezes the ramp we just
+    // scheduled, and tearing the graph down over a fade that never ran
+    // resolves `ended` on audio that is still owed.
+    afterAudio(this.ctx, fade, () => this.finish());
   }
 
   /**
@@ -290,11 +294,11 @@ export class MusicVoice {
       // also need to update state at start time. Safer to set it here.
       if (!this.buffers.intro) this.state = 'loop';
       else {
-        // Schedule a state transition right at the boundary.
-        const ms = Math.max(0, (startedAt - this.ctx.currentTime) * 1000);
-        setTimeout(() => {
+        // Flip state at the boundary — on the audio clock, so a tab hide
+        // during the intro doesn't report the loop as playing early.
+        afterAudio(this.ctx, startedAt - this.ctx.currentTime, () => {
           if (!this.done && this.state === 'intro') this.state = 'loop';
-        }, ms);
+        });
       }
     }
   }
@@ -497,8 +501,7 @@ export class MusicVoice {
     if (!buf) {
       // Without an outro the music is effectively "ending now"; finish
       // when the scheduled time arrives.
-      const ms = Math.max(0, (when - this.ctx.currentTime) * 1000);
-      this.outroTimer = setTimeout(() => this.finish(), ms);
+      this.outroTimer = afterAudio(this.ctx, when - this.ctx.currentTime, () => this.finish());
       return;
     }
     const src = this.ctx.createBufferSource();
@@ -515,11 +518,10 @@ export class MusicVoice {
     };
     this.outroSource = src;
     // Flip state at the outro's start, not at scheduling time.
-    const ms = Math.max(0, (when - this.ctx.currentTime) * 1000);
-    this.outroTimer = setTimeout(() => {
+    this.outroTimer = afterAudio(this.ctx, when - this.ctx.currentTime, () => {
       this.outroTimer = null;
       if (!this.done) this.state = 'outro';
-    }, ms);
+    });
   }
 
   private cancelTimers(): void {
@@ -528,7 +530,7 @@ export class MusicVoice {
       this.loopArmTimer = null;
     }
     if (this.outroTimer != null) {
-      clearTimeout(this.outroTimer);
+      this.outroTimer();
       this.outroTimer = null;
     }
   }

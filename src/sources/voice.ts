@@ -1,5 +1,5 @@
 import { applyRamp, scheduleSegmentEnvelope } from '../mixer/curve';
-import { waitAudio } from '../runtime/wait';
+import { afterAudio, waitAudio } from '../runtime/wait';
 import type { Spatializer } from '../spatial/spatializer';
 import type { AudioLevel, FadeOptions, PlayOptions, StopOptions } from '../types';
 
@@ -56,7 +56,11 @@ export class Voice {
   private regionDuration: number | undefined;
   private loopStart: number | undefined;
   private loopEnd: number | undefined;
-  private regionTimer: ReturnType<typeof setTimeout> | null = null;
+  // Cancel handle for the region bound. Audio-clock driven, not wall-clock:
+  // the engine parks its context on every tab hide, and a region that still
+  // has audio owed must not be cut because wall time went by while it was
+  // frozen.
+  private regionTimer: (() => void) | null = null;
   private stopFade: number;
   // Loop-crossfade state. Inactive when crossfadeSec === 0.
   // In crossfade mode, `source` is the most-recently-armed segment and the
@@ -203,7 +207,7 @@ export class Voice {
     for (const src of this.activeSources()) src.onended = null;
 
     if (this.regionTimer != null) {
-      clearTimeout(this.regionTimer);
+      this.regionTimer();
       this.regionTimer = null;
     }
 
@@ -222,7 +226,10 @@ export class Voice {
       return;
     }
 
-    setTimeout(() => this.finish('ended'), fade * 1000);
+    // On the audio clock: a suspended context freezes the ramp we just
+    // scheduled, and tearing the graph down over a fade that never ran breaks
+    // the promise `ended` makes about resolving after it completes.
+    afterAudio(this.ctx, fade, () => this.finish('ended'));
   }
 
   private activeSources(): AudioBufferSourceNode[] {
@@ -252,7 +259,7 @@ export class Voice {
     this.currentOffset = offset;
     this.paused = true;
     if (this.regionTimer != null) {
-      clearTimeout(this.regionTimer);
+      this.regionTimer();
       this.regionTimer = null;
     }
     if (this.crossfadeArmTimer != null) {
@@ -447,7 +454,7 @@ export class Voice {
     if (this.done) return;
     this.done = true;
     if (this.regionTimer != null) {
-      clearTimeout(this.regionTimer);
+      this.regionTimer();
       this.regionTimer = null;
     }
     if (this.crossfadeArmTimer != null) {
@@ -487,7 +494,7 @@ export class Voice {
 
   private armRegionTimer(remainingSec: number | undefined): void {
     if (this.regionTimer != null) {
-      clearTimeout(this.regionTimer);
+      this.regionTimer();
       this.regionTimer = null;
     }
     if (remainingSec == null) return;
@@ -495,11 +502,11 @@ export class Voice {
     // loopStart/loopEnd. Stopping it after one region length would make
     // SpriteRegion.loop mean "play once".
     if (this.loop) return;
-    const ms = Math.max(0, remainingSec * 1000) / Math.max(0.0001, this.basePitch);
-    this.regionTimer = setTimeout(() => {
+    const seconds = Math.max(0, remainingSec) / Math.max(0.0001, this.basePitch);
+    this.regionTimer = afterAudio(this.ctx, seconds, () => {
       this.regionTimer = null;
       if (!this.done) this.stop();
-    }, ms);
+    });
   }
 
   private bindSourceLifecycle(src: AudioBufferSourceNode, hook: (v: Voice) => void): void {

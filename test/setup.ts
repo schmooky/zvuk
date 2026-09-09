@@ -257,7 +257,12 @@ class FakeAudioContext {
   destination = new FakeAudioNode();
   sampleRate = 44100;
   audioWorklet = new FakeAudioWorklet();
-  private _startTime = Date.now();
+  // The audio clock only advances while the context is running, and holds its
+  // value across a suspend/resume rather than restarting from zero. The engine
+  // suspends itself on every tab hide by default, so a fake that reset the
+  // clock there hid every place a wall-clock timer stands in for this one.
+  private _runningSince: number | null = null;
+  private _elapsed = 0;
   private _stateListeners: Array<() => void> = [];
 
   addEventListener(type: string, listener: () => void) {
@@ -270,14 +275,19 @@ class FakeAudioContext {
   }
   /** Test helper: set state and fire statechange listeners synchronously. */
   _setState(s: 'suspended' | 'running' | 'closed' | 'interrupted') {
+    if (this._runningSince != null) {
+      // Bank what the clock ran up while it was running, then park it.
+      this._elapsed += (Date.now() - this._runningSince) / 1000;
+      this._runningSince = null;
+    }
     this.state = s;
-    if (s === 'running') this._startTime = Date.now();
+    if (s === 'running') this._runningSince = Date.now();
     for (const l of this._stateListeners) l();
   }
 
   get currentTime() {
-    if (this.state !== 'running') return 0;
-    return (Date.now() - this._startTime) / 1000;
+    if (this._runningSince == null) return this._elapsed;
+    return this._elapsed + (Date.now() - this._runningSince) / 1000;
   }
 
   createGain() {
