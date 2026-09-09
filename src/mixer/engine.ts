@@ -197,6 +197,18 @@ export interface Engine<TBusName extends string = string> {
    */
   crossfade(from: string, to: string, options?: CrossfadeOptions): Voice;
 
+  /**
+   * Run `fn` when the audio clock reaches `audioTime`. Returns a cancel
+   * function.
+   *
+   * Dispatch is a JS callback, so it is not sample-accurate and can run late —
+   * by a tick when the main thread is keeping up, by however long it was
+   * wedged when it isn't. Stamp Web Audio parameters with the `audioTime` you
+   * scheduled against for sample accuracy, but clamp it to the clock first:
+   * `Math.max(audioTime, ctx.currentTime)`. Engines pull a past-dated event up
+   * to the current time rather than refusing it, so two of them land on the
+   * same instant and the second is refused with NotSupportedError.
+   */
   scheduleAt(audioTime: number, fn: () => void): () => void;
 
   /** All currently active voices (across all buses). */

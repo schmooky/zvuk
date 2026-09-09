@@ -125,9 +125,19 @@ export class MusicVoice {
   private loopChain: { source: AudioBufferSourceNode; gain: GainNode; startTime: number }[] = [];
   private loopArmTimer: ReturnType<typeof setTimeout> | null = null;
   private outroTimer: ReturnType<typeof setTimeout> | null = null;
-  // Wall-clock anchor for the loop chain — when the next iteration is due
-  // to start in audioContext time. Used by skipToOutro({ at: 'loop-end' }).
+  // Audio time the next crossfade segment is due to start. The chain re-anchors
+  // it on every spawn, so it only means anything on the crossfade path — the
+  // native-loop path has no chain to re-anchor it and reads the boundary off
+  // `loopAnchorAt` instead. Both go through nextLoopBoundary().
   private nextLoopBoundaryAt = Number.POSITIVE_INFINITY;
+  // Audio time the loop part starts. On the native-loop path one source loops
+  // itself forever from here, so every boundary is a whole number of loop
+  // durations past it.
+  private loopAnchorAt = Number.POSITIVE_INFINITY;
+  // Audio time the intro is scheduled to finish, or -Infinity when there is
+  // no intro. Not the same as "an intro duration from now" once playback has
+  // started, which is what skipToOutro used to assume.
+  private introEndsAt = Number.NEGATIVE_INFINITY;
 
   constructor(deps: MusicVoiceDeps) {
     this.ctx = deps.ctx;
@@ -244,6 +254,7 @@ export class MusicVoice {
     } catch {
       /* already started */
     }
+    this.introEndsAt = when + this.buffers.intro!.duration;
     src.onended = () => {
       // Detach by reference so a stop()-driven onended doesn't double-fire.
       if (this.introSource === src) this.introSource = null;
@@ -257,6 +268,7 @@ export class MusicVoice {
     // Chain off where the segment actually landed, not the deadline we asked
     // for — see spawnLoopSegment on why the two can differ.
     const startedAt = segment.startTime;
+    this.loopAnchorAt = startedAt;
     this.nextLoopBoundaryAt = startedAt + this.buffers.loop.duration;
 
     // When crossfade is on, arm the next segment slightly before the
@@ -377,26 +389,55 @@ export class MusicVoice {
     }
   }
 
+  /**
+   * Audio time of the next natural loop boundary.
+   *
+   * Under crossfade the chain re-anchors `nextLoopBoundaryAt` every time it
+   * spawns a segment, so that marker is current by construction. The
+   * native-loop path has no chain — one source loops itself for the whole
+   * playback — so its boundaries are a grid off the loop's start, and the
+   * answer has to be computed against the clock each time it's asked for.
+   * Reading a marker that was written once, at the first boundary, is how
+   * `skipToOutro({ at: 'loop-end' })` came to fire instantly on every
+   * iteration but the first.
+   */
+  private nextLoopBoundary(): number {
+    if (this.crossfadeViable()) return this.nextLoopBoundaryAt;
+    if (!Number.isFinite(this.loopAnchorAt)) return this.loopAnchorAt;
+    const elapsed = this.ctx.currentTime - this.loopAnchorAt;
+    const dur = this.buffers.loop.duration;
+    if (elapsed < 0 || dur <= 0) return this.loopAnchorAt;
+    // Strictly the next one: landing on the boundary we are already standing
+    // on would schedule the outro into the past.
+    return this.loopAnchorAt + (Math.floor(elapsed / dur) + 1) * dur;
+  }
+
   private skipToOutroAtLoopEnd(): void {
-    // Disable fresh segment spawns; the next-loop-end timer (or the
-    // nextLoopBoundaryAt marker) tells us when to fire the outro.
+    // Disable fresh segment spawns; the boundary computed below tells us when
+    // to fire the outro.
     if (this.loopArmTimer != null) {
       clearTimeout(this.loopArmTimer);
       this.loopArmTimer = null;
     }
-    // If we're still in the intro, schedule the outro at intro-end +
-    // (we can't know the loop boundary until the loop has started). The
-    // simplest correct behaviour: start outro right after intro ends if
-    // the user calls skipToOutro before the loop. Otherwise honour the
-    // computed nextLoopBoundaryAt.
+    // Still in the intro? There is no loop boundary yet, so the outro takes
+    // over the moment the intro finishes — at the intro's own scheduled end,
+    // not an intro length from now, which would leave a hole as wide as the
+    // part of the intro that has already played.
     let outroAt: number;
     if (this.state === 'intro') {
-      outroAt = this.ctx.currentTime + (this.buffers.intro?.duration ?? 0);
+      outroAt = this.introEndsAt;
       // Don't start the loop at all — re-anchor.
       this.cancelLoopArm();
     } else {
-      outroAt = this.nextLoopBoundaryAt;
+      outroAt = this.nextLoopBoundary();
     }
+
+    // A boundary can still be behind us: the main thread may have stalled
+    // through it, or the state may not have caught up with the audio thread.
+    // Stamping the outro in the past gets clamped to the current time anyway,
+    // and drags the loop's stop() along with it — so ask for "now" plainly
+    // rather than for a time we know has gone.
+    outroAt = Math.max(outroAt, this.ctx.currentTime);
 
     // Tell the in-flight loop segments to stop themselves at outroAt.
     this.stopLoopSourcesAt(outroAt);

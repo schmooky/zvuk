@@ -14,11 +14,18 @@ type ScheduledTask = {
  * source: an injected `TickSource` (host's render loop — Pixi, GSAP) when
  * configured, otherwise `setTimeout`. This dispatches JS callbacks, so it is
  * NOT sample-accurate — the drift vs `ctx.currentTime` is bounded by one tick
- * (a few ms for setTimeout, ~16 ms at 60 fps for an external ticker). For true
- * sample-accurate playback, callers should stamp Web Audio API parameters
- * (gain ramps, source.start) directly with the `audioTime` they scheduled
- * against (close over it) — that scheduling happens on the audio thread and is
- * unaffected by tab-blur throttling either way.
+ * (a few ms for setTimeout, ~16 ms at 60 fps for an external ticker) when the
+ * main thread is keeping up, and by however long it was wedged when it isn't.
+ * For true sample-accurate playback, callers should stamp Web Audio API
+ * parameters (gain ramps, source.start) directly with the `audioTime` they
+ * scheduled against (close over it) — that scheduling happens on the audio
+ * thread and is unaffected by tab-blur throttling either way.
+ *
+ * Clamp that stamp to the clock — `Math.max(audioTime, ctx.currentTime)` —
+ * because a task can run after its own time has passed, and engines don't
+ * refuse a past-dated event, they pull it up to the current time. Stamp two
+ * that are both behind the clock and they land on the same instant, where the
+ * second is refused with NotSupportedError for overlapping the first.
  *
  * Tick-source mode subscribes lazily — only while there are pending tasks —
  * so a 60 fps host loop isn't waking the scheduler 60 times a second to do
