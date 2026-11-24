@@ -502,6 +502,8 @@
      rendered with both github-light and github-dark; the light colours are
      inline, the dark ones arrive as --shiki-dark and take over under .dark. */
   .astro-code { background-color: var(--color-code-bg) !important; }
+  /* Code reads as typed: no `=>` → ⇒ or `!==` → ≢ ligatures. */
+  pre, code, kbd, .astro-code { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
   .dark .astro-code,
   .dark .astro-code span {
     color: var(--shiki-dark) !important;

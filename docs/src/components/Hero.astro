@@ -10,63 +10,55 @@ import CopyCommand from './CopyCommand.astro';
   pill. The right column is the marrow move: the code that makes the sound,
   rather than a picture of it.
 */
+// Lines stay under ~54 columns so the panel never scrolls sideways.
 const sample = `import { createEngine } from '@schmooky/zvuk';
 
-// Safe at module load: no AudioContext yet.
 const engine = createEngine({
-  buses: {
-    music: { level: 0.8, sidechain: { from: 'voice', amount: 0.6 } },
-    sfx: {},
-    voice: {},
-  },
+  buses: { music: {}, sfx: {}, voice: {} },
 });
 
 button.onclick = async () => {
   await engine.unlock(); // the gesture iOS wants
+
   await engine.loadSound('coin', [
     '/sfx/coin.webm',
     '/sfx/coin.m4a', // Safari fallback
-  ], { bus: 'sfx', limit: { max: 3, cooldown: 0.05 } });
+  ], { bus: 'sfx', limit: { max: 3 } });
 
-  // Pull the music down for as long as the coin rings.
-  engine.sound('coin').play({ duck: { bus: 'music', amount: 0.4 } });
+  // The music dips while the coin rings.
+  engine.sound('coin').play({
+    duck: { bus: 'music', amount: 0.4 },
+  });
 };`;
 ---
 <section class="relative overflow-hidden border-b border-border">
   <div class="grid-bg pointer-events-none absolute inset-0 opacity-60" aria-hidden="true"></div>
   <div class="container relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14 lg:py-24">
     <div class="flex min-w-0 flex-col items-start">
-      <a href="/changelog/" class="eyebrow hover:underline underline-offset-4">
-        <span class="inline-block size-1.5 rounded-full bg-primary animate-pulse-slow" aria-hidden="true"></span>
-        Version {SITE.version} · Web Audio · MIT
-      </a>
+      <p class="eyebrow">Web Audio engine for games</p>
 
       <h1 class="display-1 mt-5">
         <span class="block">Audio engine</span>
         <span class="block text-primary">for the web.</span>
       </h1>
 
-      <p class="mt-7 max-w-lg text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
-        Named buses with FX inserts, sidechain ducking, mix snapshots, sprites and a
-        codec ladder that survives Safari. The <code class="font-mono text-[0.9em] text-foreground">AudioContext</code>
-        stays lazy until the first gesture. ESM-only, typed, no dependencies.
+      <p class="mt-7 max-w-[34rem] text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
+        Buses, FX, ducking, snapshots and music on a beat grid, with a codec
+        ladder that survives Safari. Typed, ESM-only, no dependencies.
       </p>
 
       <div class="mt-9 flex flex-wrap items-center gap-3">
         <a
           href="/docs/quickstart/"
-          class="group inline-flex h-12 items-center gap-2 rounded-md bg-primary pl-6 pr-5 text-[15px] font-semibold text-primary-foreground transition-[transform,filter] duration-150 hover:brightness-110 active:scale-[0.98]"
+          class="inline-flex h-12 items-center rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-[transform,filter] duration-150 hover:brightness-110 active:scale-[0.98]"
         >
           Get started
-          <svg class="size-4 transition-transform duration-150 group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
         </a>
         <a
           href="/recipes/"
           class="inline-flex h-12 items-center rounded-md border border-border px-6 text-[15px] font-semibold text-foreground transition-colors duration-150 hover:border-foreground/60 hover:bg-secondary/60"
         >
-          Browse the recipes
+          See the recipes
         </a>
       </div>
 
@@ -80,7 +72,7 @@ button.onclick = async () => {
         <span>main.ts</span>
         <span>ts</span>
       </div>
-      <div class="overflow-x-auto text-[12.5px] leading-[1.7] sm:text-[13px] [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:px-5 [&_pre]:py-4">
+      <div class="overflow-x-auto text-[12.5px] leading-[1.75] sm:text-[13px] [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:px-5 [&_pre]:py-4">
         <Code code={sample} lang="ts" themes={{ light: 'github-light', dark: 'github-dark' }} />
       </div>
     </div>

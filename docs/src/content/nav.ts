@@ -104,18 +104,25 @@ export function sectionOf(pathname: string): NavSection | undefined {
   return DOCS_NAV.find((s) => s.items.some((i) => i.href === path));
 }
 
-export const TOP_NAV = [
-  { href: '/docs/', label: 'Docs' },
-  { href: '/concepts/', label: 'Concepts' },
-  { href: '/fx/', label: 'FX' },
-  { href: '/guides/', label: 'Guides' },
+export interface TopNavItem {
+  href: string;
+  label: string;
+  /** Path prefixes that light this item up. Defaults to `href`. */
+  match?: string[];
+}
+
+/**
+ * Five destinations, ordered by how a reader arrives: learn it, see it,
+ * copy it, look it up, check what changed. Concepts, FX and Guides are
+ * sections of the docs sidebar, not top-level places of their own.
+ */
+export const TOP_NAV: TopNavItem[] = [
+  { href: '/docs/', label: 'Docs', match: ['/docs/', '/concepts/', '/fx/', '/guides/', '/roadmap/'] },
+  { href: '/examples/', label: 'Examples', match: ['/examples/', '/playground/'] },
   { href: '/recipes/', label: 'Recipes' },
-  { href: '/examples/', label: 'Examples' },
+  { href: '/api/', label: 'API', match: ['/api/', '/reference/'] },
   { href: '/changelog/', label: 'Changelog' },
 ];
 
-/** Smaller utility links rendered next to the GitHub button. */
-export const TOP_NAV_UTILITY = [
-  { href: '/api/', label: 'API' },
-  { href: '/llms.txt', label: 'llms.txt' },
-];
+/** Links that live in the footer and the mobile menu, not the top bar. */
+export const TOP_NAV_UTILITY: TopNavItem[] = [{ href: '/llms.txt', label: 'llms.txt' }];

@@ -85,12 +85,12 @@ function bucketsFor(v: ChangelogVersion): { bump: 'major' | 'minor' | 'patch'; i
                 <a href={`#v${v.version}`} class="hover:text-primary">v{v.version}</a>
               </h2>
               <a
-                href={`https://github.com/${SITE.github.split('/').slice(-2).join('/')}/releases/tag/v${v.version}`}
+                href={`https://github.com/${SITE.github.split('/').slice(-2).join('/')}/releases/tag/${encodeURIComponent(`${SITE.npmName}@${v.version}`)}`}
                 target="_blank"
                 rel="noopener"
                 class="font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground hover:text-primary"
               >
-                GitHub release →
+                Release on GitHub
               </a>
             </header>
             {bucketsFor(v).map(({ bump, items }) => (

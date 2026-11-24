@@ -3,7 +3,7 @@ import FeatureGrid from '../components/FeatureGrid.astro';
 import Hero from '../components/Hero.astro';
 import Base from '../layouts/Base.astro';
 import MixerDashboard from '../components/demos/MixerDashboard.tsx';
-import { V2_NEW } from '../content/v2';
+import { V2_HEADLINE } from '../content/v2';
 
 const paths = [
   { label: 'Start here', title: 'Quickstart', body: 'pnpm add, createEngine, one gesture, one sound.', href: '/docs/quickstart/' },
@@ -13,7 +13,7 @@ const paths = [
 ---
 <Base
   title="zvuk: Audio Engine for the Web"
-  description="A Wwise-grade audio engine for the web. Named mixer buses with FX inserts, sidechain ducking, mix snapshots, audio sprites, and a codec ladder that survives Safari. ESM-only, type-safe, 17 kB min+gzip."
+  description="A Wwise-grade audio engine for the web. Mixer buses with FX inserts, ducking, mix snapshots, sprites, music on a beat grid and a codec ladder that survives Safari. ESM-only, typed, about 22 kB gzipped."
 >
   <Hero />
 
@@ -46,20 +46,19 @@ const paths = [
           <p class="eyebrow">New in v2</p>
           <h2 class="display mt-4 text-4xl sm:text-5xl">What's new in 2.0.</h2>
           <p class="lead mt-5">
-            Scheduled starts, per-voice ducking, a tempo grid for music,
-            per-sound limits and a master fader. Out first as a
-            <code class="font-mono text-[0.9em] text-foreground">next</code> pre-release.
+            The six that change how a game sounds. The full list is in the
+            <a href="/changelog/" class="font-medium text-foreground underline underline-offset-4">changelog</a>;
+            2.0 ships first as a <code class="font-mono text-[0.9em] text-foreground">next</code> pre-release.
           </p>
         </div>
-        <a href="/guides/migrating-to-v2/" class="inline-flex h-11 items-center rounded-md border border-border px-5 text-sm font-semibold hover:border-foreground/60 hover:bg-secondary/60">
-          Migrating to v2 →
+        <a href="/guides/migrating-to-v2/" class="inline-flex h-11 items-center rounded-md border border-border px-5 text-sm font-semibold transition-colors hover:border-foreground/60 hover:bg-secondary/60">
+          Migration guide
         </a>
       </div>
       <div class="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {V2_NEW.map((item) => (
+        {V2_HEADLINE.map((item) => (
           <a href={item.href} class="card-link">
-            <span class="card-label">New in v2</span>
-            <strong class="mt-1.5">{item.title}</strong>
+            <strong>{item.title}</strong>
             <span>{item.body}</span>
           </a>
         ))}
@@ -69,9 +68,11 @@ const paths = [
 
   <FeatureGrid />
 
-  <section class="pb-8">
+  <section class="border-t border-border py-20 sm:py-24">
     <div class="container">
-      <div class="grid gap-3 md:grid-cols-3">
+      <p class="eyebrow">Start</p>
+      <h2 class="display mt-4 text-4xl sm:text-5xl">Pick a way in.</h2>
+      <div class="mt-10 grid gap-3 md:grid-cols-3">
         {paths.map((p) => (
           <a href={p.href} class="card-link">
             <span class="card-label">{p.label}</span>
