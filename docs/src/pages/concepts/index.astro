@@ -1,8 +1,10 @@
 ---
+import CardGrid from '../../components/CardGrid.astro';
 import Docs from '../../layouts/Docs.astro';
 
 const concepts = [
   { slug: 'engine',       label: 'Engine',       blurb: 'The root object. Lifecycle, unlock, scheduler.' },
+  { slug: 'master',       label: 'Master bus',   blurb: 'Headroom, limiter and the meter at the top of the graph.' },
   { slug: 'mixer',        label: 'Mixer',        blurb: 'The named bus graph. Routing made declarative.' },
   { slug: 'bus',          label: 'Bus',          blurb: 'A mix bucket with level, fade, FX and a voice limit.' },
   { slug: 'sound',        label: 'Sound',        blurb: 'A loaded sample. Spawns Voices on play.' },
@@ -17,24 +19,13 @@ const concepts = [
 <Docs
   title="Concepts"
   description="The vocabulary you need to think in zvuk."
-  eyebrow="Reference"
+  eyebrow="Concepts"
 >
   <p>
-    These ten pages are the vocabulary. Read them in any order; they
+    These pages are the vocabulary. Read them in any order; they
     cross-link. If you would rather click than read, the
     <a href="/recipes/">recipes</a> are short and each one runs.
   </p>
 
-  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
-    {concepts.map(({ slug, label, blurb }) => (
-      <a
-        href={`/concepts/${slug}/`}
-        class="rounded-xl border border-border bg-card/40 p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"
-      >
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">/concepts/{slug}/</div>
-        <div class="mt-1 font-semibold">{label}</div>
-        <div class="mt-1 text-sm text-muted-foreground">{blurb}</div>
-      </a>
-    ))}
-  </div>
+  <CardGrid cards={concepts.map((c) => ({ href: `/concepts/${c.slug}/`, title: c.label, body: c.blurb }))} />
 </Docs>

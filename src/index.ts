@@ -6,6 +6,7 @@ export {
   EngineClosedError,
   PreloadError,
   SoundNotFoundError,
+  SpriteRegionNotFoundError,
   ZvukError,
 } from './errors';
 export type { CompressorConfig } from './fx/compressor';
@@ -43,6 +44,7 @@ export {
   applyLoudnessNormalization,
   computeNormalizationGain,
 } from './runtime/loudness';
+export type { BeatEvent, MusicGrid } from './sources/music';
 export { Music, MusicVoice } from './sources/music';
 export { Sound } from './sources/sound';
 export type { SpriteMap, SpriteRegion, SpriteRegionPlayOptions } from './sources/sprite';
@@ -50,14 +52,19 @@ export { Sprite } from './sources/sprite';
 export { StreamSound } from './sources/stream';
 export type { VariantStrategy, VariantsOptions } from './sources/variants';
 export { Variants } from './sources/variants';
+export type { VoiceCue } from './sources/voice';
 export { Voice } from './sources/voice';
+export { Listener } from './spatial/listener';
 export { Spatializer } from './spatial/spatializer';
 export type {
+  AssetKind,
   AssetResolver,
   AudioLevel,
   BusConfig,
+  CacheConfig,
   ConcurrencyConfig,
   DistanceModel,
+  DuckOptions,
   EngineConfig,
   FadeCurve,
   FadeOptions,
@@ -69,15 +76,22 @@ export type {
   MusicPlayOptions,
   MusicState,
   PlayOptions,
+  PreloadBytesEvent,
   PreloadItem,
+  PreloadMusicItem,
   PreloadOptions,
   PreloadProgressEvent,
+  PreloadSoundItem,
+  PreloadSpriteItem,
+  PreloadVariantsItem,
   ResolveAssetContext,
   ResolvedAsset,
   SendOptions,
   SidechainConfig,
   SkipToOutroOptions,
+  SoundLimit,
   SpatialOptions,
+  StealStrategy,
   StopOptions,
   TickSource,
   VoiceDefaults,

@@ -1,4 +1,6 @@
 ---
+import MusicGridDemo from '../../components/demos/MusicGridDemo.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -7,18 +9,72 @@ const surface = `class Music {
   readonly loopDuration: number;
   readonly hasIntro: boolean;
   readonly hasOutro: boolean;
+  readonly grid: Readonly<MusicGrid> | undefined;        // v2, with bpm
 
-  play(options?: { volume?: number; fadeIn?: number }): MusicVoice;
+  play(options?: { at?: number; volume?: number; fadeIn?: number }): MusicVoice;
+  voices(): readonly MusicVoice[];
+  stopAll(opts?: { fade?: number }): void;
 }
 
 class MusicVoice {
   readonly currentPart: 'intro' | 'loop' | 'outro' | 'ended';
   readonly ended: Promise<void>;
+  readonly isPaused: boolean;                            // v2
+  readonly tempo: Readonly<MusicGrid> | undefined;       // v2
 
   fade(opts: { to: number; duration: number; curve?: FadeCurve }): Promise<void>;
   stop(opts?: { fade?: number }): void;
-  skipToOutro(opts?: { at?: 'loop-end' | 'now' }): void;
-}`;
+  pause(): void;                                         // v2
+  resume(): void;                                        // v2
+  skipToOutro(opts?: { at?: 'loop-end' | 'now' | 'bar' | 'beat' }): void;
+
+  // v2 tempo grid; all undefined / no-op without bpm
+  nextBeat(from?: number): number | undefined;
+  nextBar(from?: number): number | undefined;
+  beatAt(time?: number): { beat: number; bar: number; beatInBar: number } | undefined;
+  onBeat(fn: (e: BeatEvent) => void): () => void;
+}
+
+interface MusicGrid { bpm: number; beatsPerBar: number; offset: number }
+interface BeatEvent { time: number; beat: number; bar: number; beatInBar: number }`;
+
+const grid = `await engine.loadMusic('bonus', {
+  intro: ['/music/bonus-intro.webm', '/music/bonus-intro.m4a'],
+  loop:  ['/music/bonus-loop.webm',  '/music/bonus-loop.m4a'],
+  outro: ['/music/bonus-outro.webm', '/music/bonus-outro.m4a'],
+}, {
+  bus: 'music',
+  bpm: 128,
+  beatsPerBar: 4,      // default 4
+  // gridOffset: 0.0,  // default: the intro's length, so beat 1 = first loop sample
+});
+
+const voice = engine.music('bonus').play();
+
+// A stinger that lands on the next downbeat, ducking the music while it rings.
+winButton.onclick = () => {
+  engine.sound('win-sting').play({
+    at: voice.nextBar(),
+    duck: { bus: 'music', amount: 0.5 },
+  });
+};
+
+// Visuals on the beat. Fires ~50 ms early with the exact audio time.
+const off = voice.onBeat((e) => {
+  engine.sound('hat').play({ at: e.time, volume: e.beatInBar === 0 ? 1 : 0.5 });
+  setTimeout(() => pulse(e.beatInBar), (e.time - engine.now) * 1000);
+});
+
+// End on the bar, not at the end of the loop file.
+stopButton.onclick = () => voice.skipToOutro({ at: 'bar' });`;
+
+const pauseResume = `voice.pause();      // remembers the part and the offset
+voice.skipToOutro(); // queued while paused
+voice.resume();     // back in the same part at the same offset, outro still pending
+voice.isPaused;     // false`;
+
+const scheduled = `// Start the music itself on the audio clock, e.g. after a 1-bar count-in.
+const v = engine.music('bonus').play({ at: engine.now + 60 / 128 * 4 });`;
 
 const load = `// engine.loadMusic — three parts; codec ladders allowed per part.
 await engine.loadMusic('boss-theme', {
@@ -69,6 +125,7 @@ await engine.loadMusic('combat', {
   description="Stinger, loop, outro, with skip-to-outro at the natural loop boundary."
   eyebrow="Concept"
 >
+  <p><Since v="1.8" /></p>
   <p>
     The player wins, you stop the combat track, and it cuts off half a bar
     into a phrase. Nobody can say what is wrong, but everyone can hear it.
@@ -114,6 +171,54 @@ await engine.loadMusic('combat', {
     <code>music.hasOutro</code>.
   </p>
   <Snippet code={noOutro} lang="ts" />
+
+  <h2>Pause and resume <Since v="2.0" /></h2>
+  <p>
+    <code>pause()</code> keeps the part and the offset inside it, and
+    <code>resume()</code> starts again from there, intro, loop or outro. A
+    <code>skipToOutro</code> that was waiting for its boundary, or one you
+    call while paused, runs after the resume. The tempo grid shifts by the
+    length of the pause, so beats still line up with the music.
+  </p>
+  <Snippet code={pauseResume} lang="ts" />
+
+  <h2>Tempo grid <Since v="2.0" /></h2>
+  <p>
+    Pass <code>bpm</code> to <code>loadMusic</code> and every voice of that
+    track knows where the beats are. Grid zero defaults to the end of the
+    intro, so beat 1 is the loop's first sample; <code>gridOffset</code>
+    moves it. <code>nextBeat()</code> and <code>nextBar()</code> return audio
+    times you can hand straight to <code>play({'{'} at {'}'})</code>,
+    <code>beatAt()</code> says where a time falls, and
+    <code>skipToOutro({'{'} at: 'bar' {'}'})</code> or <code>'beat'</code> starts the
+    outro on the grid instead of at the end of the loop file. Without
+    <code>bpm</code> these return <code>undefined</code>, and the
+    <code>'bar'</code>/<code>'beat'</code> skips behave like <code>'loop-end'</code>.
+  </p>
+  <p>
+    <code>onBeat(fn)</code> calls <code>fn</code> about 50 ms before each
+    beat with the beat's exact <code>time</code>. Schedule audio on
+    <code>e.time</code> and it lands on the beat; for visuals, wait out the
+    difference. A main-thread stall longer than the lookahead delivers a
+    beat late rather than dropping it.
+  </p>
+  <Snippet code={grid} lang="ts" />
+
+  <h3>Live</h3>
+  <p>
+    The bed here has no tempo of its own, so a tick plays on each
+    <code>onBeat</code> to make the 96 bpm grid audible. The stinger goes
+    out with <code>play({'{'} at: voice.nextBar(), duck {'}'})</code>.
+  </p>
+  <MusicGridDemo client:visible />
+
+  <h2>Scheduled starts <Since v="2.0" /></h2>
+  <p>
+    <code>music.play({'{'} at {'}'})</code> takes an audio-clock time, like
+    <a href="/concepts/sound/"><code>sound.play({'{'} at {'}'})</code></a>. A time
+    in the past means now.
+  </p>
+  <Snippet code={scheduled} lang="ts" />
 
   <h2>Click-free loops</h2>
   <p>

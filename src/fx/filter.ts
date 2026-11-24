@@ -1,3 +1,5 @@
+import { glideTo } from '../mixer/curve';
+import { BypassSwitch, FX_GLIDE_SEC } from './bypass';
 import type { FxInsert } from './types';
 
 export type FilterKind = 'lowpass' | 'highpass' | 'bandpass' | 'notch' | 'peaking' | 'allpass';
@@ -13,17 +15,16 @@ export interface FilterConfig {
 }
 
 /**
- * Biquad filter as a bus FX insert. Bypass is a graph swap, not a parameter
- * trick — when bypassed, input is connected directly to output, leaving the
- * biquad fully detached so its delay-line state can't bleed into the dry
- * signal.
+ * Biquad filter as a bus FX insert. Frequency, Q and gain changes glide over
+ * ~10 ms, and bypass crossfades to the dry signal, so a sweep driven from a
+ * slider or a `Parameter` doesn't zipper or click.
  */
 export class Filter implements FxInsert {
   readonly input: GainNode;
   readonly output: GainNode;
   private filter: BiquadFilterNode;
   private ctx: AudioContext;
-  private _bypassed = false;
+  private bypass: BypassSwitch;
 
   constructor(ctx: AudioContext, config: FilterConfig = {}) {
     this.ctx = ctx;
@@ -34,15 +35,15 @@ export class Filter implements FxInsert {
     this.filter.frequency.value = config.frequency ?? 1000;
     this.filter.Q.value = config.q ?? 1;
     this.filter.gain.value = config.gain ?? 0;
-    this.wire();
+    this.bypass = new BypassSwitch(ctx, this.input, this.filter, this.filter, this.output);
   }
 
   setFrequency(hz: number): void {
-    this.filter.frequency.setValueAtTime(hz, this.ctx.currentTime);
+    glideTo(this.filter.frequency, hz, this.ctx.currentTime, FX_GLIDE_SEC);
   }
 
   setQ(q: number): void {
-    this.filter.Q.setValueAtTime(q, this.ctx.currentTime);
+    glideTo(this.filter.Q, q, this.ctx.currentTime, FX_GLIDE_SEC);
   }
 
   setType(t: FilterKind): void {
@@ -51,41 +52,25 @@ export class Filter implements FxInsert {
 
   /** Set the filter gain in dB. Only affects `peaking` (the one shelf-like mode exposed). */
   setGain(db: number): void {
-    this.filter.gain.setValueAtTime(db, this.ctx.currentTime);
+    glideTo(this.filter.gain, db, this.ctx.currentTime, FX_GLIDE_SEC);
   }
 
   get bypassed(): boolean {
-    return this._bypassed;
+    return this.bypass.bypassed;
   }
 
   set bypassed(v: boolean) {
-    if (this._bypassed === v) return;
-    this._bypassed = v;
-    this.wire();
+    this.bypass.bypassed = v;
   }
 
   dispose(): void {
-    try {
-      this.input.disconnect();
-      this.filter.disconnect();
-      this.output.disconnect();
-    } catch {
-      /* already disconnected */
-    }
-  }
-
-  private wire(): void {
-    try {
-      this.input.disconnect();
-      this.filter.disconnect();
-    } catch {
-      /* fresh */
-    }
-    if (this._bypassed) {
-      this.input.connect(this.output);
-    } else {
-      this.input.connect(this.filter);
-      this.filter.connect(this.output);
+    this.bypass.dispose();
+    for (const n of [this.input, this.filter, this.output]) {
+      try {
+        n.disconnect();
+      } catch {
+        /* already disconnected */
+      }
     }
   }
 }

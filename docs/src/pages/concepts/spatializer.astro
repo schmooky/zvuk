@@ -2,8 +2,30 @@
 import SpatialPanner from '../../components/demos/SpatialPanner.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import SpatialDiagram from '../../components/diagrams/SpatialDiagram.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
+
+const listener = `// A top-down game: the camera is the listener.
+engine.listener.setPosition(player.x, 0, player.y);
+engine.listener.setOrientation([Math.sin(player.angle), 0, -Math.cos(player.angle)]);
+
+// Snap instead of glide on a teleport, then restore.
+engine.listener.setGlide(0);
+engine.listener.setPosition(spawn.x, 0, spawn.y);
+engine.listener.setGlide(0.02);`;
+
+const glide = `const v = engine.sound('drone').play({
+  loop: true,
+  spatializer: {
+    position: [0, 0, -5],
+    glide: 0.05,              // smoother for a slow-moving source
+    panningModel: 'equalpower', // a crowd of 40 positioned voices: skip HRTF
+  },
+});
+
+// Per frame: no zipper noise, the position eases toward each new target.
+v.spatializer?.setPosition(x, 0, z);`;
 
 const pan2d = `engine.sound('footstep').play({
   spatializer: { pan: -0.6 },              // [-1, 1] stereo
@@ -97,15 +119,36 @@ occlusion.set(0.7);          // boss is now mostly muffled
 
   <h2>API surface</h2>
   <Snippet code={`interface SpatialOptions {
-  pan?: number;                       // [-1, 1] — 2D
+  pan?: number;                        // [-1, 1] — 2D
   position?: [number, number, number]; // x, y, z  — 3D
+  refDistance?: number;                // 3D, default 1
+  maxDistance?: number;                // 3D, default 10000
+  rolloffFactor?: number;              // 3D, default 1
+  distanceModel?: 'linear' | 'inverse' | 'exponential';
+  occlusion?: number;                  // 3D, 0..1
+  panningModel?: 'HRTF' | 'equalpower'; // v2, 3D, default 'HRTF'
+  glide?: number;                      // v2, seconds, default 0.02
 }
 
 class Spatializer {
-  setPan(pan: number): void;          // 2D only
-  setPosition(x: number, y: number, z: number): void;  // 3D only
+  setPan(pan: number): void;                           // 2D; glides (v2)
+  setPosition(x: number, y: number, z: number): void;  // 3D; glides (v2)
+  setOcclusion(amount: number): void;                  // 3D; glides (v2)
+  setGlide(seconds: number): void;                     // v2
+  setPanningModel(model: 'HRTF' | 'equalpower'): void; // v2
+  setRefDistance(d: number): void;
+  setMaxDistance(d: number): void;
+  setRolloffFactor(f: number): void;
+  setDistanceModel(m: DistanceModel): void;
   connectInto(dest: AudioNode): AudioNode;
   dispose(): void;
+}
+
+class Listener {                                       // v2: engine.listener
+  setPosition(x: number, y: number, z: number): void;
+  setOrientation(forward: [number, number, number], up?: [number, number, number]): void;
+  setGlide(seconds: number): void;                     // default 0.02
+  readonly position: [number, number, number];
 }`} lang="ts" title="Spatializer + SpatialOptions" />
 
   <h2>Live demo</h2>
@@ -131,7 +174,7 @@ class Spatializer {
   </p>
   <Snippet code={livePerVoice} lang="ts" />
 
-  <h3>3D distance config</h3>
+  <h3>3D distance config <Since v="1.10" /></h3>
   <p>
     Four values, available both as construction options and as live setters.
     <code>refDistance</code> is the radius inside which nothing attenuates.
@@ -143,7 +186,7 @@ class Spatializer {
   </p>
   <Snippet code={distance3D} lang="ts" />
 
-  <h3>Occlusion — "behind a wall"</h3>
+  <h3>Occlusion — "behind a wall" <Since v="1.10" /></h3>
   <p>
     One knob from 0 to 1, driving an internal lowpass whose cutoff sweeps
     logarithmically from 22050 Hz down to about 500 Hz, plus a gain dip
@@ -152,6 +195,31 @@ class Spatializer {
     handle moves the whole room.
   </p>
   <Snippet code={occlusion} lang="ts" />
+
+  <h3>The listener <Since v="2.0" /></h3>
+  <p>
+    Sources were positioned relative to a listener frozen at the origin
+    facing -z, which suits a fixed camera and nothing else.
+    <code>engine.listener</code> moves and turns it. <code>forward</code> is
+    where the nose points and <code>up</code> the top of the head (default
+    +y). Changes glide like the spatializers do, and browsers that only have
+    the deprecated <code>setPosition</code>/<code>setOrientation</code>
+    methods on <code>AudioListener</code> are covered.
+  </p>
+  <Snippet code={listener} lang="ts" />
+
+  <h3>Glide and panning model <Since v="2.0" /></h3>
+  <p>
+    Jumping a panner's position every frame crackles, because each jump is a
+    step in the filter coefficients. In v2 <code>setPan</code>,
+    <code>setPosition</code> and <code>setOcclusion</code> ease toward the
+    new value with a time constant, <code>glide</code>, of 20 ms by default:
+    about 95% of the way there after three of them. Pass 0 for instant
+    jumps. <code>panningModel: 'equalpower'</code> drops HRTF, which sounds
+    worse on headphones and costs far less; use it for speakers or for
+    dozens of positioned voices.
+  </p>
+  <Snippet code={glide} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">
@@ -169,5 +237,6 @@ class Spatializer {
   <ul>
     <li><a href="/concepts/voice/">Voice</a> is what gets spatialized.</li>
     <li><a href="/concepts/bus/">Bus</a> is what a spatializer routes into.</li>
+    <li><a href="/examples/spatializer/">Spatializer example</a> moves a source and the listener.</li>
   </ul>
 </Docs>

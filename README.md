@@ -16,6 +16,19 @@
 
 ---
 
+## New in v2
+
+- **Music on a grid.** Give `loadMusic` a `bpm` and every playing instance knows its beats: `nextBar()`, `nextBeat()`, `onBeat()`, and an outro that waits for the next bar.
+- **Scheduled starts.** `play({ at })` starts any sound on an exact audio-clock time. With the grid, a stinger can land on the downbeat.
+- **Ducking that follows a voice.** `play({ duck: { bus: 'music' } })` pulls the music down from the voice's first sample until it ends.
+- **Per-sound limits.** `limit: { max, cooldown }` caps one sound, or a whole variants bundle, so 40 win lines landing at once don't fire 40 coins.
+- **A master fader.** `engine.master.volume`, `.muted` and `.fadeTo()`.
+- **Pausable music.** `pause()` and `resume()` on music instances.
+- **Smaller additions.** Weighted variants, `engine.listener`, `Parameter.rampTo()`, and snapshots that also restore sends, FX bypass and solo.
+- **Fixes.** About 20 bugs, among them: a rejected voice no longer plays for 8 ms, and the loop crossfade no longer leaves gaps when pitch isn't 1.
+
+Upgrading from 1.x? Read [MIGRATION.md](MIGRATION.md). Most apps need no changes.
+
 ## Install
 
 ```bash
@@ -62,7 +75,9 @@ zvuk is that layer, done once. It gives you the routing primitives a game-audio 
 | Named buses with FX inserts | Compressor (`DynamicsCompressor` + makeup) | Codec ladder, `['x.webm', 'x.m4a']` | Lazy `AudioContext`, no constructor side effects |
 | Master headroom + soft limiter | Filter, `BiquadFilter`, all 6 modes | Audio sprites, one buffer, N regions | iOS Safari unlock + visibility resume |
 | Voice concurrency + stealing | Reverb, convolution + synthetic IR | Variants, `random` / `no-repeat` / `shuffle-bag` | Audio-clock scheduler (`scheduleAt`) |
-| Sidechain ducking (`Ducker`) | Pitch-preserving time-stretch + realtime varispeed | Music stems: intro, loop, outro + `skipToOutro` | Async `cues` async-iterator on every `Voice` |
+| Sidechain ducking (`sidechain` config, `Ducker`, `play({ duck })`) | Pitch-preserving time-stretch + realtime varispeed | Music stems: intro, loop, outro + `skipToOutro` | Async `cues` async-iterator on every `Voice` |
+| Master fader: volume, mute, fade | Click-free FX parameter glides and bypass | Tempo grid: `nextBar`, `onBeat`, outro on the bar | Scheduled starts, `play({ at })` |
+| Per-sound limits + retrigger cooldown | 3D listener + `equalpower` panning | Weighted variants | `engine.suspend()` that survives tab switches |
 | Snapshots, capture & crossfade the mix | Spatializer, 2D pan + 3D HRTF | Stream long media via `MediaElementSource` | `AbortSignal` cancellation everywhere |
 | Aux sends + bus groups | Bring-your-own `FxInsert` contract | Batch `preload` with progress + loudness normalize | "Did you mean…?" hints on bus/sound typos |
 | Parameter macros, bind any value to a 0..1 control | | | Zero deps, provenance-signed npm releases |
@@ -91,10 +106,21 @@ const theme = await engine.loadMusic('level-1', {
   outro: ['/music/outro.webm', '/music/outro.m4a'],
 }, { bus: 'music', loopCrossfade: 0.1 });
 
-theme.play({ fadeIn: 1.2 });            // intro plays, then loops forever
-theme.skipToOutro({ at: 'loop-end' });  // on win/level-end: finish the bar, then resolve
+const voice = theme.play({ fadeIn: 1.2 });  // intro plays, then loops forever
+voice.skipToOutro({ at: 'loop-end' });      // on win/level-end: finish the loop, then resolve
 
 // Need two flat tracks instead? engine.crossfade('a', 'b', { duration: 1.5 }).
+```
+
+### On the beat: stingers and outros that land on the bar
+
+```ts
+const theme = await engine.loadMusic('bonus', { intro, loop, outro }, { bus: 'music', bpm: 124 });
+const voice = theme.play();
+
+engine.sound('big-win').play({ at: voice.nextBar() });  // starts on the next downbeat
+voice.onBeat((beat) => reels.pulse(beat.time));          // ~50 ms early, with the exact time
+voice.skipToOutro({ at: 'bar' });                        // the outro takes over on the next bar
 ```
 
 ### Audio sprites: one buffer, many regions
@@ -109,16 +135,26 @@ await engine.loadSprite('cascade', '/sfx/cascade.webm', {
 engine.sprite('cascade').play('medium', { volume: { jitter: 0.05 } });
 ```
 
-### Sidechain ducking: music breathes under dialogue
+### Ducking: music breathes under dialogue and big wins
 
 ```ts
-import { Ducker } from '@schmooky/zvuk';
-
-// Keyed from the `voice` bus; added to (and therefore ducks) the `music` bus.
-const ducker = new Ducker(engine.context, engine.bus('voice'), {
-  amount: 0.7, attack: 0.08, release: 0.6,
+// Follow a bus: music dips whenever the `voice` bus is loud.
+const engine = createEngine({
+  buses: { music: { sidechain: { from: 'voice', amount: 0.7, release: 0.6 } }, voice: {}, sfx: {} },
 });
-engine.bus('music').addFx(ducker);
+
+// Follow one voice: music dips from the stinger's first sample until it ends.
+engine.sound('big-win').play({ duck: { bus: 'music', amount: 0.6, attack: 0.05 } });
+```
+
+### Limits: one coin per frame, not forty
+
+```ts
+await engine.loadVariants('coin', coinTakes, {
+  bus: 'sfx',
+  weights: [3, 1, 1, 1],                              // the clean take most often
+  limit: { max: 4, steal: 'oldest', cooldown: 0.03 }, // shared by every take
+});
 ```
 
 ### Parameter macros: one knob, many targets
@@ -188,6 +224,7 @@ Every Concept page embeds a live React island running the actual engine. Three b
 ```bash
 npx @schmooky/zvuk transcode raw/*.wav   # ffmpeg ladder → webm/opus + m4a/aac
 npx @schmooky/zvuk gen bank.json         # typed sound-name module from a manifest
+npx @schmooky/zvuk --version
 ```
 
 ## Contributing
@@ -198,6 +235,9 @@ pnpm test            # vitest, happy-dom + Web Audio mock
 pnpm typecheck       # tsc --noEmit across src/ and test/
 pnpm lint            # biome check
 pnpm build           # tsup → dist/index.js + dist/cli.js + dist/index.d.ts
+pnpm size            # size-limit on the built bundle
+pnpm check:package   # publint + are-the-types-wrong on the packed tarball
+pnpm test:conformance  # rendered-audio specs in Chromium, WebKit and Firefox
 pnpm docs:dev        # astro dev at http://localhost:4321
 pnpm bench           # vitest bench/
 ```
@@ -219,15 +259,17 @@ The package's `exports` resolve to `src/index.ts` for workspace consumers; `publ
 Releases run on [Changesets](https://github.com/changesets/changesets):
 
 1. Run `pnpm changeset` and describe your change.
-2. Open a PR; CI gates on lint + typecheck + tests + lib build + docs build.
+2. Open a PR; CI gates on lint + typecheck + tests + lib build + size + package check + docs build, and runs the conformance specs in three browsers.
 3. On merge to `main`, the workflow opens/updates a **Version Packages** PR that bumps the version and regenerates `CHANGELOG.md`.
 4. Merging it publishes to npm **with provenance** via **OIDC trusted publishing** (no `NPM_TOKEN`), and cuts a GitHub Release.
+
+v2 starts in Changesets **pre-release mode** (`.changeset/pre.json`, tag `next`). While that file exists, every release from `main` is a `2.0.0-next.N` on the `next` dist-tag, and `latest` stays on 1.x. Run `pnpm changeset pre exit` and merge the next Version Packages PR to publish `2.0.0` as `latest`.
 
 Pushing any non-`main` branch, or running `release.yml` via `workflow_dispatch`, snapshot-publishes the pending changesets under a branch dist-tag. Install one with `pnpm add @schmooky/zvuk@<branch>`.
 
 ## Credits
 
-Demo audio lives under [`docs/public/audio/`](docs/public/audio/) and backs the interactive demos on the documentation site. None of it ships in the npm package. Sources, licences and the normalisation applied are recorded in [`docs/public/audio/CREDITS.md`](docs/public/audio/CREDITS.md).
+Demo audio lives under [`docs/public/audio/`](https://github.com/schmooky/zvuk/tree/main/docs/public/audio) and backs the interactive demos on the documentation site. None of it ships in the npm package. Sources, licences and the normalisation applied are recorded in [`docs/public/audio/CREDITS.md`](docs/public/audio/CREDITS.md).
 
 ## License
 

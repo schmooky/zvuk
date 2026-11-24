@@ -1,0 +1,44 @@
+---
+/*
+  A spec sheet, not a card grid (pixi-reels' FeatureGrid): hairlines, a mono
+  label, no icons. The copy carries it.
+*/
+const features = [
+  { title: 'Lazy context', body: 'createEngine() is safe before any gesture. The AudioContext is built on first use and resumed by unlock().', href: '/concepts/engine/' },
+  { title: 'Buses and sends', body: 'Named buses with FX inserts, post- or pre-fader sends, solo, and bus groups that move several buses as one.', href: '/concepts/bus/' },
+  { title: 'Sidechain ducking', body: 'A Ducker on the music bus listens to the voice bus and drops the bed while someone speaks.', href: '/fx/ducker/' },
+  { title: 'Snapshots', body: 'Capture the whole mix, crossfade to it, or blend two of them from a Parameter, frame by frame.', href: '/concepts/snapshot/' },
+  { title: 'Music in three parts', body: 'Intro, loop and outro, with the outro landing on a loop boundary instead of wherever the playhead was.', href: '/concepts/music/' },
+  { title: 'Codec ladder', body: 'Ship webm/opus with an m4a fallback. The engine tries what the browser claims it plays and falls through on failure.', href: '/guides/asset-formats/' },
+];
+---
+<section class="py-20 sm:py-24">
+  <div class="container">
+    <div class="max-w-3xl">
+      <p class="eyebrow">In the box</p>
+      <h2 class="display mt-4 text-4xl sm:text-5xl">What the package does.</h2>
+    </div>
+    <ol class="mt-12 grid border-t border-border sm:grid-cols-2 lg:grid-cols-3">
+      {features.map((f) => (
+        <li class="spec border-b border-border py-7">
+          <a href={f.href} class="group block">
+            <h3 class="text-xl font-bold tracking-tight group-hover:text-brand-text">{f.title}</h3>
+            <p class="mt-2 max-w-sm text-[15px] leading-relaxed text-muted-foreground">{f.body}</p>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
+
+<style>
+  /* Hairline between columns: every column but the first, at each breakpoint. */
+  @media (min-width: 640px) {
+    .spec { padding-right: 2rem; }
+    .spec:nth-child(2n) { border-left: 1px solid var(--color-border); padding-left: 2rem; }
+  }
+  @media (min-width: 1024px) {
+    .spec:nth-child(2n) { border-left: 0; padding-left: 0; }
+    .spec:nth-child(3n + 2), .spec:nth-child(3n) { border-left: 1px solid var(--color-border); padding-left: 2rem; }
+  }
+</style>

@@ -1,7 +1,7 @@
 {
   "name": "@schmooky/zvuk",
   "version": "1.14.1",
-  "description": "Audio Engine for the Web — Wwise-grade routing, sprites, sidechain ducking. Tiny, ESM-only, type-safe.",
+  "description": "Audio Engine for the Web \u2014 Wwise-grade routing, sprites, sidechain ducking. Tiny, ESM-only, type-safe.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -11,7 +11,8 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public",
@@ -23,16 +24,19 @@
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js",
         "default": "./dist/index.js"
-      }
+      },
+      "./package.json": "./package.json"
     },
     "bin": {
       "zvuk": "./dist/cli.js"
     }
   },
   "files": [
-    "dist",
+    "dist/*.js",
+    "dist/*.d.ts",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "MIGRATION.md"
   ],
   "sideEffects": false,
   "repository": {
@@ -83,9 +87,11 @@
     "changeset:status": "changeset status",
     "version-packages": "changeset version && pnpm install --lockfile-only",
     "release": "pnpm build && changeset publish",
-    "snapshot": "pnpm build && changeset version --snapshot \"${SNAPSHOT_TAG:-snapshot}\" && changeset publish --tag \"${SNAPSHOT_TAG:-snapshot}\" --no-git-tag"
+    "snapshot": "pnpm build && node scripts/snapshot-pre-guard.mjs && changeset version --snapshot \"${SNAPSHOT_TAG:-snapshot}\" && changeset publish --tag \"${SNAPSHOT_TAG:-snapshot}\" --no-git-tag",
+    "check:package": "pnpm build && node scripts/check-package.mjs"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
     "@biomejs/biome": "^2.3.0",
     "@changesets/changelog-github": "^0.5.0",
     "@changesets/cli": "^2.27.10",
@@ -95,10 +101,14 @@
     "@vitest/coverage-v8": "^2.1.9",
     "happy-dom": "^15.11.6",
     "playwright": "^1.62.1",
+    "publint": "0.3.12",
     "size-limit": "^13.0.3",
     "tsup": "^8.3.5",
     "typescript": "^5.9.0",
     "vite": "^5.4.0",
     "vitest": "^2.1.8"
+  },
+  "bin": {
+    "zvuk": "./dist/cli.js"
   }
 }

@@ -89,7 +89,7 @@ export default function Meter({ read, height = 44, className, label, readout = t
       c2d.clearRect(0, 0, w, h);
 
       const style = getComputedStyle(canvas);
-      const ink = style.getPropertyValue('--meter-color').trim() || '#4f6cf7';
+      const ink = style.getPropertyValue('--meter-color').trim() || '#8a7bff';
       const hot = style.getPropertyValue('--meter-hot').trim() || '#f5b301';
       const over = style.getPropertyValue('--meter-clip').trim() || '#ef4444';
       const dim = style.getPropertyValue('--meter-track').trim() || 'rgba(255,255,255,0.08)';

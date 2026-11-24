@@ -185,14 +185,23 @@ class FakeAudioBufferSourceNode extends FakeAudioNode {
   loop = false;
   playbackRate = new FakeAudioParam(1);
   onended: (() => void) | null = null;
+  loopStart = 0;
+  loopEnd = 0;
   _started = false;
   _stopped = false;
-  start(_when?: number, _offset?: number) {
+  /** Arguments of the start() call, for assertions on scheduling. */
+  _startArgs: { when?: number; offset?: number; duration?: number } | null = null;
+  _stopWhen: number | undefined = undefined;
+  start(when?: number, offset?: number, duration?: number) {
     if (this._started) throw new Error('already started');
     this._started = true;
+    this._startArgs = { when, offset, duration };
   }
-  stop(_when?: number) {
-    if (!this._started || this._stopped) return;
+  stop(when?: number) {
+    if (!this._started) return;
+    // A later stop() reschedules; only the first fires onended.
+    this._stopWhen = when;
+    if (this._stopped) return;
     this._stopped = true;
     queueMicrotask(() => this.onended?.());
   }
@@ -255,6 +264,17 @@ class FakeAudioWorkletNode extends FakeAudioNode {
 class FakeAudioContext {
   state: 'suspended' | 'running' | 'closed' | 'interrupted' = 'suspended';
   destination = new FakeAudioNode();
+  listener = {
+    positionX: new FakeAudioParam(0),
+    positionY: new FakeAudioParam(0),
+    positionZ: new FakeAudioParam(0),
+    forwardX: new FakeAudioParam(0),
+    forwardY: new FakeAudioParam(0),
+    forwardZ: new FakeAudioParam(-1),
+    upX: new FakeAudioParam(0),
+    upY: new FakeAudioParam(1),
+    upZ: new FakeAudioParam(0),
+  };
   sampleRate = 44100;
   audioWorklet = new FakeAudioWorklet();
   // The audio clock only advances while the context is running, and holds its

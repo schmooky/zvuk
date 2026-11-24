@@ -2,6 +2,7 @@
 import SnapshotCrossfade from '../../components/demos/SnapshotCrossfade.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import SnapshotDiagram from '../../components/diagrams/SnapshotDiagram.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -21,6 +22,18 @@ const boss = engine.snapshot('boss', {
 
 const apply = `await menu.apply({ fade: 0.25 });        // crossfade everything in 250ms
 await boss.apply({ fade: 0.8 });`;
+
+const v2State = `const boss = engine.snapshot('boss', {
+  buses: { music: { level: 0.5, muted: false }, sfx: { level: 1, muted: false } },
+  parameters: { intensity: 1 },
+  sends: { music: { reverb: 0.6 } },   // wetter music in the boss room
+  fx: { sfx: [false, true] },          // second insert on sfx bypassed
+  solo: [],                            // nothing soloed
+});
+
+// Bus levels, send amounts and parameters glide over 400 ms;
+// bypass flags and solo switch at the start.
+await boss.apply({ fade: 0.4 });`;
 
 const blend = `const calm   = engine.captureSnapshot('calm');
 // ...switch the mix to its combat shape, then re-capture.
@@ -66,6 +79,14 @@ class Snapshot {
   readonly state: SnapshotState;
   apply(options?: { fade?: number }): Promise<void>;
   blendWith(other: Snapshot, t: number): void;
+}
+
+interface SnapshotState {
+  buses: Record<string, { level: number; muted: boolean }>;
+  parameters: Record<string, number>;
+  sends?: Record<string, Record<string, number>>;   // v2: source → target → amount
+  fx?: Record<string, boolean[]>;                   // v2: bypass flags in chain order
+  solo?: string[];                                  // v2: buses soloed in this snapshot
 }`} lang="ts" title="Snapshot" />
 
   <h2>Live demo</h2>
@@ -83,7 +104,20 @@ class Snapshot {
   <h3>Switch with crossfade</h3>
   <Snippet code={apply} lang="ts" />
 
-  <h3>Blend continuously between two snapshots</h3>
+  <h3>Sends, FX bypass and solo <Since v="2.0" /></h3>
+  <p>
+    A snapshot used to hold bus levels, mutes and parameters only, so a
+    "boss room" preset couldn't make the reverb send wetter or bypass an
+    insert. v2 captures and applies <code>sends</code>, <code>fx</code>
+    bypass flags (by position in each bus's chain) and <code>solo</code>.
+    Sends that don't exist on the live mix are skipped rather than created.
+    With a fade, levels, sends and parameters glide together;
+    <code>blendSnapshots</code> lerps sends too, while bypass and solo, being
+    on or off, follow whichever snapshot is nearer.
+  </p>
+  <Snippet code={v2State} lang="ts" />
+
+  <h3>Blend continuously between two snapshots <Since v="1.12" /></h3>
   <p>
     <code>apply</code> is a one-shot crossfade. When you want a mix that
     follows a knob instead of a switch, capture two snapshots and let a

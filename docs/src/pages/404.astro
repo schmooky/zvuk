@@ -21,10 +21,11 @@ const routes = [
   title={`Page not found · ${SITE.name}`}
   description="That page doesn't exist. Here's the rest of the zvuk documentation."
   og="index"
+  noindex
 >
   <div class="container max-w-3xl py-20">
-    <div class="mb-2 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">404</div>
-    <h1 class="mb-3 text-4xl font-semibold tracking-tight">No page at that address</h1>
+    <p class="eyebrow">404</p>
+    <h1 class="display-3 mt-3 mb-4">No page at that address</h1>
     <p class="mb-10 text-lg text-muted-foreground">
       It may have moved. The documentation reorganised around concepts, guides and
       recipes, so an older link is more likely stale than wrong.

@@ -9,9 +9,10 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      // The CLI shells out and the worklet runs off-thread; neither is
-      // reachable from the happy-dom suite.
-      exclude: ['src/cli/**', 'src/fx/stretch-worklet.ts'],
+      // The CLI entry shells out to ffmpeg and the worklet runs off-thread;
+      // neither is reachable from the happy-dom suite. The CLI's planning
+      // and code generation are covered by test/cli.test.ts.
+      exclude: ['src/cli/index.ts', 'src/fx/stretch-worklet.ts'],
       reporter: ['text', 'html', 'json-summary'],
       // Floor, not a target. Raise it when a pass genuinely moves it.
       thresholds: {

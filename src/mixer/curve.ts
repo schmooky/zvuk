@@ -121,14 +121,14 @@ export function scheduleSegmentEnvelope(
   start: number,
   segmentLen: number,
   crossfadeSec: number,
-  opts: { fadeIn: boolean; fadeOut: boolean },
+  opts: { fadeIn: boolean; fadeOut: boolean; fadeInSec?: number },
 ): void {
   try {
     if (opts.fadeIn) {
       // Equal-power fade-in (sin) so it sums to constant power against the
       // previous segment's cos fade-out — no ~3 dB dip at the loop seam.
       param.setValueAtTime(0, start);
-      param.setValueCurveAtTime(equalPowerCurve(0, 1), start, crossfadeSec);
+      param.setValueCurveAtTime(equalPowerCurve(0, 1), start, opts.fadeInSec ?? crossfadeSec);
     } else {
       param.setValueAtTime(1, start);
     }
@@ -178,5 +178,26 @@ function ease(t: number, curve: FadeCurve, rising = true): number {
     }
     default:
       return t;
+  }
+}
+
+/**
+ * Move an AudioParam toward `to`: an exponential approach with time constant
+ * `tau`, or a jump when `tau` is 0. Repeated calls each frame chain smoothly,
+ * because each new target simply replaces the one before.
+ *
+ * @internal
+ */
+export function glideTo(param: AudioParam, to: number, now: number, tau: number): void {
+  try {
+    param.cancelScheduledValues(now);
+    if (tau <= 0) {
+      param.setValueAtTime(to, now);
+      return;
+    }
+    param.setValueAtTime(param.value, now);
+    param.setTargetAtTime(to, now, tau);
+  } catch {
+    param.value = to;
   }
 }

@@ -30,7 +30,7 @@ export default function DemoShell({ state, onStart, label = 'Unlock & start', er
   const recoverable = state === 'suspended' || state === 'interrupted';
 
   return (
-    <div className="relative">
+    <div className="relative" data-pagefind-ignore="all">
       {error && <div className="mb-2 text-xs text-destructive">{error}</div>}
       <div
         className={`flex flex-col gap-4 ${cold ? 'pointer-events-none select-none opacity-40 blur-[1.5px]' : ''}`}

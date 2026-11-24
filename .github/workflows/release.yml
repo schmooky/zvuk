@@ -91,12 +91,22 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Verify (lint + typecheck + tests + lib build)
+      - name: Verify (lint + typecheck + tests + build + size + package check)
         run: |
           pnpm lint
           pnpm typecheck
           pnpm test
           pnpm build
+          pnpm size
+          pnpm check:package
+
+      # Rendered-audio specs in real browsers. The fast suite runs against a
+      # fake, so a release must not ship on that alone.
+      - name: Install browsers
+        run: pnpm exec playwright install --with-deps chromium webkit firefox
+
+      - name: Conformance
+        run: pnpm test:conformance
 
       - name: Create Release Pull Request or Publish
         uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
@@ -172,13 +182,15 @@ jobs:
             echo "skip=0" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify (lint + typecheck + tests + lib build)
+      - name: Verify (lint + typecheck + tests + build + size + package check)
         if: steps.gate.outputs.skip == '0'
         run: |
           pnpm lint
           pnpm typecheck
           pnpm test
           pnpm build
+          pnpm size
+          pnpm check:package
 
       - name: Derive dist-tag
         if: steps.gate.outputs.skip == '0'

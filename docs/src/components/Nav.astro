@@ -14,31 +14,38 @@ function isActive(prefix: string): boolean {
 }
 const mobileLinks = [...TOP_NAV, ...TOP_NAV_UTILITY];
 ---
-<header class="sticky top-0 z-50 w-full border-b border-border/60 glass">
+<header class="sticky top-0 z-50 w-full border-b border-border glass">
   <div class="container flex h-14 items-center">
-    <div class="mr-6 flex items-center gap-2 shrink-0">
-      <a href="/" class="flex items-center font-mono text-sm font-semibold tracking-tight">
+    <div class="mr-5 flex shrink-0 items-center gap-2">
+      <a href="/" class="flex items-center gap-2 text-[15px] font-bold tracking-tight">
+        {/* The favicon's three bars on a zinc plate, as marrow does with its mark. */}
+        <svg class="size-6 shrink-0" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#18181b" />
+          <g fill="#8a7bff">
+            <rect x="14" y="21" width="8" height="22" rx="4" />
+            <rect x="28" y="12" width="8" height="40" rx="4" />
+            <rect x="42" y="17" width="8" height="30" rx="4" />
+          </g>
+        </svg>
         <span>{SITE.name}</span>
       </a>
       <a
-        href={SITE.npm}
-        target="_blank"
-        rel="noopener"
-        title={`${SITE.npmName} on npm`}
-        class="hidden rounded-full border border-border/70 bg-background/80 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary sm:inline-block"
+        href="/changelog/"
+        title={`${SITE.npmName} v${SITE.version}: changelog`}
+        class="hidden rounded-sm border border-border px-1.5 py-px font-mono text-[10.5px] text-brand-text transition-colors hover:border-foreground/50 sm:inline-block"
       >
         v{SITE.version}
       </a>
     </div>
 
-    <nav class="hidden md:flex items-center gap-0.5 text-sm">
+    <nav aria-label="Docs" class="hidden h-14 items-stretch text-sm lg:flex">
       {TOP_NAV.map(({ href, label }) => (
         <a
           href={href}
+          aria-current={isActive(href) ? 'page' : undefined}
           class:list={[
-            buttonVariants({ variant: 'ghost', size: 'sm' }),
-            'text-muted-foreground',
-            { 'bg-secondary/70 text-foreground': isActive(href) },
+            'relative inline-flex items-center px-2.5 text-muted-foreground transition-colors hover:text-foreground',
+            { 'text-foreground after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary': isActive(href) },
           ]}
         >
           {label}
@@ -48,7 +55,7 @@ const mobileLinks = [...TOP_NAV, ...TOP_NAV_UTILITY];
 
     <div class="ml-auto flex items-center gap-1.5">
       <Search />
-      <div class="hidden md:flex items-center gap-0.5">
+      <div class="hidden xl:flex items-center gap-0.5">
         {TOP_NAV_UTILITY.map(({ href, label }) => (
           <a
             href={href}
@@ -61,6 +68,8 @@ const mobileLinks = [...TOP_NAV, ...TOP_NAV_UTILITY];
             {label}
           </a>
         ))}
+      </div>
+      <div class="hidden md:flex items-center gap-0.5">
         <a
           href={SITE.npm}
           target="_blank"

@@ -1,3 +1,4 @@
+import { BypassSwitch } from './bypass';
 import type { FxInsert } from './types';
 
 export interface CompressorConfig {
@@ -18,9 +19,8 @@ export interface CompressorConfig {
 /**
  * Dynamics compressor as a bus FX insert. Wraps DynamicsCompressorNode and a
  * make-up gain node, and exposes `input`/`output` so the Bus can wire it into
- * its FX chain. Bypass is a graph swap, not a parameter — when bypassed, the
- * input is connected directly to the output (avoids the compressor's
- * non-zero look-ahead latency leaking into the dry signal).
+ * its FX chain. Bypass crossfades to the dry signal over ~10 ms instead of
+ * swapping the graph, which clicked.
  */
 export class Compressor implements FxInsert {
   readonly input: GainNode;
@@ -28,7 +28,7 @@ export class Compressor implements FxInsert {
   private compressor: DynamicsCompressorNode;
   private makeup: GainNode;
   private ctx: AudioContext;
-  private _bypassed = false;
+  private bypass: BypassSwitch;
 
   constructor(ctx: AudioContext, config: CompressorConfig = {}) {
     this.ctx = ctx;
@@ -37,7 +37,8 @@ export class Compressor implements FxInsert {
     this.compressor = ctx.createDynamicsCompressor();
     this.makeup = ctx.createGain();
     this.applyConfig(config);
-    this.wire();
+    this.compressor.connect(this.makeup);
+    this.bypass = new BypassSwitch(ctx, this.input, this.compressor, this.makeup, this.output);
   }
 
   applyConfig(c: CompressorConfig): void {
@@ -58,40 +59,21 @@ export class Compressor implements FxInsert {
   }
 
   get bypassed(): boolean {
-    return this._bypassed;
+    return this.bypass.bypassed;
   }
 
   set bypassed(v: boolean) {
-    if (this._bypassed === v) return;
-    this._bypassed = v;
-    this.wire();
+    this.bypass.bypassed = v;
   }
 
   dispose(): void {
-    try {
-      this.input.disconnect();
-      this.compressor.disconnect();
-      this.makeup.disconnect();
-      this.output.disconnect();
-    } catch {
-      /* already disconnected */
-    }
-  }
-
-  private wire(): void {
-    try {
-      this.input.disconnect();
-      this.compressor.disconnect();
-      this.makeup.disconnect();
-    } catch {
-      /* fresh */
-    }
-    if (this._bypassed) {
-      this.input.connect(this.output);
-    } else {
-      this.input.connect(this.compressor);
-      this.compressor.connect(this.makeup);
-      this.makeup.connect(this.output);
+    this.bypass.dispose();
+    for (const n of [this.input, this.compressor, this.makeup, this.output]) {
+      try {
+        n.disconnect();
+      } catch {
+        /* already disconnected */
+      }
     }
   }
 }

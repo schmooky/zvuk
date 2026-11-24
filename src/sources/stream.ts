@@ -16,18 +16,42 @@ import type { FadeOptions } from '../types';
 export class StreamSound {
   readonly name: string;
   private ctx: AudioContext;
-  private url: string;
+  private urls: string[];
+  private urlIndex = 0;
   private destination: AudioNode;
   private el: HTMLAudioElement | null = null;
   private node: MediaElementAudioSourceNode | null = null;
   private gain: GainNode | null = null;
   private disposed = false;
+  private wantPlaying = false;
+  private resolveEnded: (() => void) | null = null;
+  private _ended: Promise<void> = Promise.resolve();
 
-  constructor(name: string, ctx: AudioContext, url: string, destination: AudioNode) {
+  /**
+   * `urls` is a codec ladder in preference order. When the element reports
+   * a media error on one, the next is tried, and playback resumes if it was
+   * playing.
+   */
+  constructor(name: string, ctx: AudioContext, urls: string | readonly string[], destination: AudioNode) {
     this.name = name;
     this.ctx = ctx;
-    this.url = url;
+    this.urls = typeof urls === 'string' ? [urls] : [...urls];
+    if (this.urls.length === 0) throw new Error(`Stream "${name}" needs at least one URL`);
     this.destination = destination;
+  }
+
+  /** The URL the element is using now. */
+  get url(): string {
+    return this.urls[this.urlIndex]!;
+  }
+
+  /**
+   * Resolves when the current playback ends: the media reached its end
+   * (never, while `loop` is on), `stop()` ran, or the stream was disposed.
+   * Each `play()` from a stopped state starts a new one.
+   */
+  get ended(): Promise<void> {
+    return this._ended;
   }
 
   /** Lazily construct the <audio> element + media-element source on first use. */
@@ -43,6 +67,8 @@ export class StreamSound {
     el.src = this.url;
     el.crossOrigin = 'anonymous';
     el.preload = 'auto';
+    el.addEventListener('ended', () => this.settleEnded());
+    el.addEventListener('error', () => this.handleError());
     const create = (
       this.ctx as unknown as {
         createMediaElementSource?: (e: HTMLMediaElement) => MediaElementAudioSourceNode;
@@ -61,23 +87,41 @@ export class StreamSound {
     this.gain = gain;
   }
 
-  async play(options: { volume?: number; loop?: boolean } = {}): Promise<void> {
+  /**
+   * Start or resume playback. Resolves `true` once the element is playing,
+   * `false` when the browser refused (autoplay policy before a user gesture,
+   * or no playable source). v1 resolved `void` either way, so a blocked play
+   * was indistinguishable from a working one; retry from a gesture handler
+   * on `false`.
+   */
+  async play(options: { volume?: number; loop?: boolean } = {}): Promise<boolean> {
     this.ensure();
-    if (!this.el) return;
+    if (!this.el) return false;
     if (this.gain) this.gain.gain.value = clamp01(options.volume ?? 1);
     this.el.loop = options.loop ?? false;
+    if (!this.resolveEnded) {
+      this._ended = new Promise<void>((r) => {
+        this.resolveEnded = r;
+      });
+    }
+    this.wantPlaying = true;
     try {
       await this.el.play();
+      return true;
     } catch {
-      /* autoplay rejected; caller can retry from a user gesture */
+      this.wantPlaying = false;
+      return false;
     }
   }
 
   pause(): void {
+    this.wantPlaying = false;
     this.el?.pause();
   }
 
   stop(): void {
+    this.wantPlaying = false;
+    this.settleEnded();
     if (!this.el) return;
     this.el.pause();
     try {
@@ -118,8 +162,31 @@ export class StreamSound {
     return waitAudio(this.ctx, opts.duration);
   }
 
+  private settleEnded(): void {
+    const r = this.resolveEnded;
+    this.resolveEnded = null;
+    r?.();
+  }
+
+  /** Move to the next URL of the ladder on a media error. */
+  private handleError(): void {
+    const el = this.el;
+    if (!el || this.disposed) return;
+    if (this.urlIndex >= this.urls.length - 1) {
+      // Out of fallbacks: nothing will play, so nothing will end either.
+      this.wantPlaying = false;
+      this.settleEnded();
+      return;
+    }
+    this.urlIndex++;
+    el.src = this.url;
+    if (this.wantPlaying) void el.play().catch(() => void 0);
+  }
+
   dispose(): void {
     this.disposed = true;
+    this.wantPlaying = false;
+    this.settleEnded();
     try {
       this.node?.disconnect();
       this.gain?.disconnect();

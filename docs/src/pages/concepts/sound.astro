@@ -1,5 +1,6 @@
 ---
 import SoundCard from '../../components/demos/SoundCard.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -43,6 +44,19 @@ await engine.loadSprite('ui', '/sfx/ui-strip.webm', {
 }, { bus: 'sfx' });
 
 engine.sprite('ui').play('click');`;
+
+const at = `// Start on the audio clock instead of "now". engine.now is the timebase.
+const t = engine.now + 0.5;
+engine.sound('reel-stop').play({ at: t });
+engine.sound('reel-stop').play({ at: t + 0.25, pitch: 1.05 });
+engine.sprite('ui').play('success', { at: t + 0.5 });
+engine.variants('coin').play({ at: t + 0.6 });
+
+// On a music grid:
+engine.sound('sting').play({ at: musicVoice.nextBar() });`;
+
+const duck = `// Duck the music bus for as long as this voice plays.
+engine.sound('big-win').play({ duck: { bus: 'music', amount: 0.6, release: 0.5 } });`;
 ---
 <Docs
   title="Sound"
@@ -114,6 +128,33 @@ interface PlayOptions {
     result.
   </p>
   <Snippet code={sprite} lang="ts" />
+
+  <h3>Schedule a start with play(&#123; at &#125;) <Since v="2.0" /></h3>
+  <p>
+    <code>at</code> is an audio-clock time in the <code>engine.now</code>
+    timebase. The start is stamped on the buffer source, so it is sample
+    accurate, unlike <code>scheduleAt</code>, which runs a callback on the
+    main thread. A time in the past, or none, means now. Concurrency and
+    per-sound limits decide at <code>play()</code> time, and a cooldown
+    measures from the scheduled start. Sprites, variants and
+    <a href="/concepts/music/">music</a> take <code>at</code> too.
+  </p>
+  <Snippet code={at} lang="ts" />
+
+  <h3>Duck another bus while it plays <Since v="2.0" /></h3>
+  <p>
+    <code>duck</code> pulls a bus down from the voice's first sample until
+    it ends. The <a href="/fx/ducker/">Ducker page</a> compares it with a
+    level-following sidechain.
+  </p>
+  <Snippet code={duck} lang="ts" />
+
+  <h3>Per-sound limits <Since v="2.0" /></h3>
+  <p>
+    <code>limit: {'{'} max, steal, cooldown {'}'}</code> on the load options, or
+    <code>sound.setLimit()</code> later, caps how many voices of this one
+    sound can play. See <a href="/concepts/concurrency/">Concurrency</a>.
+  </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

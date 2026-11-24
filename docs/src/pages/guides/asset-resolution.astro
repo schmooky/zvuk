@@ -1,10 +1,15 @@
 ---
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
 const apiShape = `import { createEngine, type AssetResolver } from '@schmooky/zvuk';
 
-const resolveAsset: AssetResolver = ({ name, url, signal }) => {
+const resolveAsset: AssetResolver = ({ name, kind, part, url, signal }) => {
+  // name: the public name ('coin', 'bonus-theme'), in v2 for every loader
+  // kind: 'sound' | 'sprite' | 'variants' | 'music'          (v2)
+  // part: variant index, or 'intro' | 'loop' | 'outro'        (v2)
+  //
   // Return one of:
   //   AudioBuffer    — used as-is, no decode
   //   ArrayBuffer    — decoded via the engine's AudioContext
@@ -32,8 +37,9 @@ await Assets.loadBundle('game-audio');   // populates Assets.cache
 // Pixi v8 Assets.cache returns whatever the pipeline produced. For an
 // audio file with no special loader, that's typically an ArrayBuffer or
 // a Blob. Adapt to ArrayBuffer here:
-const resolveAsset: AssetResolver = async ({ name }) => {
-  const asset = Assets.cache.get(name);
+const resolveAsset: AssetResolver = async ({ name, part }) => {
+  // Alias variants and music parts in assetpack as 'roll#0', 'theme#loop'.
+  const asset = Assets.cache.get(part === undefined ? name : name + '#' + part);
   if (!asset) return undefined;                 // miss → URL fetch
 
   if (asset instanceof ArrayBuffer) return asset;
@@ -89,8 +95,13 @@ async function dbPut(name: string, bytes: ArrayBuffer): Promise<void> {
   });
 }
 
-const resolveAsset: AssetResolver = async ({ name, url, signal }) => {
-  const cached = await dbGet(name);
+// Variants and music parts share their public name, so key by part too.
+const keyOf = (name: string, part?: number | string) =>
+  part === undefined ? name : name + '#' + part;
+
+const resolveAsset: AssetResolver = async ({ name, part, url, signal }) => {
+  const key = keyOf(name, part);
+  const cached = await dbGet(key);
   if (cached) return cached;
 
   // Miss — fetch ourselves so we can persist before handing to zvuk.
@@ -99,7 +110,7 @@ const resolveAsset: AssetResolver = async ({ name, url, signal }) => {
   const res = await fetch(single, { signal });
   if (!res.ok) return undefined;          // let zvuk's loader try the ladder
   const bytes = await res.arrayBuffer();
-  await dbPut(name, bytes);
+  await dbPut(key, bytes);
   return bytes;
 };
 
@@ -111,11 +122,13 @@ const inMemoryCache = `import { createEngine, type AssetResolver } from '@schmoo
 // you're hydrating from a service worker / build-time inlined buffer.
 const cache = new Map<string, AudioBuffer>();
 
-export function preload(name: string, buffer: AudioBuffer): void {
-  cache.set(name, buffer);
+// Key by part as well: 'roll#0', 'roll#1', 'theme#loop'.
+export function preload(key: string, buffer: AudioBuffer): void {
+  cache.set(key, buffer);
 }
 
-const resolveAsset: AssetResolver = ({ name }) => cache.get(name);
+const resolveAsset: AssetResolver = ({ name, part }) =>
+  cache.get(part === undefined ? name : name + '#' + part);
 
 const engine = createEngine({ buses: { sfx: {} }, resolveAsset });`;
 
@@ -127,8 +140,9 @@ const manifest = `import { createEngine, type AssetResolver } from '@schmooky/zv
 type Manifest = Record<string, string[]>;
 const manifest: Manifest = await fetch('/audio.manifest.json').then(r => r.json());
 
-const resolveAsset: AssetResolver = ({ name, url }) => {
-  const urls = manifest[name];
+const resolveAsset: AssetResolver = ({ name, part }) => {
+  // e.g. { "coin": [...], "roll#0": [...], "theme#loop": [...] }
+  const urls = manifest[part === undefined ? name : name + '#' + part];
   if (urls && urls.length > 0) {
     // Return the manifest URL list as-is (zvuk runs it through the codec
     // ladder and falls back across entries on its own). Returning the
@@ -166,8 +180,23 @@ await engine.loadSound('coin', '');`;
     them.
   </p>
 
-  <h2>API shape</h2>
+  <h2>API shape <Since v="1.3" /></h2>
   <Snippet code={apiShape} lang="ts" />
+
+  <div class="pitfall">
+    <div class="pitfall-title">Breaking in v2: name is the public name <Since v="2.0" /></div>
+    In 1.x the resolver saw internal keys for anything but a plain sound:
+    <code>__sprite:ui</code>, <code>__variant:roll:2</code>,
+    <code>__music:theme:loop</code>. v2 passes the name you loaded under and
+    says the rest in two new fields, <code>kind</code>
+    (<code>'sound' | 'sprite' | 'variants' | 'music'</code>, exported as
+    <code>AssetKind</code>) and <code>part</code> (the variant index, or
+    <code>'intro' | 'loop' | 'outro'</code>). A resolver that keyed a cache
+    on <code>name</code> now sees every variant of a bundle under one name;
+    key on <code>name</code> plus <code>part</code>, as the recipes below
+    do. <a href="/guides/migrating-to-v2/">Migrating to v2</a> has the
+    before and after.
+  </div>
 
   <p>
     Returning <code>undefined</code> or <code>null</code> falls through to
@@ -213,6 +242,12 @@ await engine.loadSound('coin', '');`;
     terse — they don't need to know the actual file path.
   </p>
   <Snippet code={manifest} lang="ts" />
+  <p>
+    If the manifest is fixed at build time, <a href="/reference/cli/"><code>zvuk gen</code></a>
+    turns it into a typed module with a <code>SoundName</code> union and a
+    <code>loadBank(engine)</code> helper, so the names are checked by the
+    compiler as well.
+  </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

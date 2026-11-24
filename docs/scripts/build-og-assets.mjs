@@ -20,9 +20,9 @@ const OUT = path.join(HERE, '..', 'src', 'assets', 'og-wave.png');
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-const BG = [12, 12, 16];
-const WAVE = [79, 108, 247];
-const WAVE_2 = [34, 211, 238];
+const BG = [9, 9, 11];
+const WAVE = [138, 123, 255];
+const WAVE_2 = [196, 181, 253];
 
 /** Amplitude envelope at normalised position t, from the equal-power pair. */
 function envelope(t) {
@@ -127,8 +127,8 @@ console.log(`[og] wrote ${path.relative(process.cwd(), OUT)} (${fs.statSync(OUT)
 function icon(size) {
   const SS = 4;
   const n = size * SS;
-  const plate = [79, 108, 247];
-  const deep = [46, 60, 168];
+  const plate = [138, 123, 255];
+  const deep = [91, 63, 214];
   const ink = [255, 255, 255];
   const radius = n * 0.22;
   // Bar geometry as fractions of the canvas: x, width, height (centred).

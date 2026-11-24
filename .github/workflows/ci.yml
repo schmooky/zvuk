@@ -57,6 +57,9 @@ jobs:
       - name: Bundle size
         run: pnpm size
 
+      - name: Package check (publint + are-the-types-wrong)
+        run: pnpm check:package
+
       - name: Build docs
         run: pnpm docs:build
 
@@ -78,7 +81,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install --with-deps chromium webkit firefox
 
       - name: Conformance
         run: pnpm test:conformance

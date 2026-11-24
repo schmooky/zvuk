@@ -1,0 +1,152 @@
+---
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Master {
+  volume: number;                       // 0..1, setter ramps over 10 ms
+  muted: boolean;                       // keeps volume; unmute restores it
+  fadeTo(target: number, seconds: number, curve?: FadeCurve): Promise<void>;
+
+  readonly headroom: number;            // dB
+  setHeadroom(db: number): void;        // ramps over 10 ms
+
+  setLimiter(cfg: MasterLimiterConfig | null): void;
+  readonly reduction: number;           // limiter gain reduction, dB (<= 0)
+
+  meter(): AudioLevel;                  // { rms, peak }, linear 0..1
+}
+
+interface MasterConfig {
+  volume?: number;                      // default 1
+  mute?: boolean;                       // default false
+  headroom?: number;                    // dB, default 0
+  limiter?: MasterLimiterConfig;        // off unless present
+}
+
+interface MasterLimiterConfig {
+  threshold?: number;                   // dB, default -1
+  ratio?: number;                       // default 20 (and never lower)
+  attack?: number;                      // s, default 0.001
+  release?: number;                     // s, default 0.05
+}`;
+
+const config = `const engine = createEngine({
+  buses: { music: {}, sfx: {}, voice: {} },
+  master: {
+    volume: 0.9,
+    headroom: -3,
+    limiter: { threshold: -1 },
+  },
+});`;
+
+const settings = `// A settings screen: one slider, one mute toggle.
+volumeSlider.oninput = () => { engine.master.volume = Number(volumeSlider.value); };
+muteToggle.onchange = () => { engine.master.muted = muteToggle.checked; };
+
+// Muting keeps the volume. Unmute comes back to wherever the slider was.
+engine.master.muted = true;
+engine.master.volume = 0.4;   // stored while muted
+engine.master.muted = false;  // ramps to 0.4`;
+
+const fade = `// Fade the whole game out before a route change, then close.
+await engine.master.fadeTo(0, 0.6, 'equal-power');
+await engine.close();`;
+
+const limiter = `// Turn the limiter on for the big-win sequence only.
+engine.master.setLimiter({ threshold: -2, release: 0.1 });
+await playBigWin();
+engine.master.setLimiter(null);
+
+// A clip light for a debug overlay.
+requestAnimationFrame(function draw() {
+  const { peak } = engine.master.meter();
+  clipLed.classList.toggle('on', peak > 0.98 || engine.master.reduction < -3);
+  requestAnimationFrame(draw);
+});`;
+
+const migrate = `// v1
+const { rms, peak } = engine.masterMeter();
+
+// v2
+const { rms, peak } = engine.master.meter();`;
+---
+<Docs
+  title="Master bus"
+  description="The last stage before the speakers. It holds the headroom, the master fader, an optional soft limiter, and a meter on everything the engine plays."
+  eyebrow="Concept"
+>
+  <p>
+    Six buses that each peak at a sensible level can still add up to a clip
+    when they all fire on the same frame, which in a slot game is exactly the
+    big-win frame. And every game has a settings screen with one volume
+    slider and one mute switch that should move everything at once.
+  </p>
+  <p>
+    Every bus output feeds the master. The chain is headroom gain, then the
+    master fader (volume and mute), then the limiter if one is set, then
+    <code>ctx.destination</code>. There is one per engine, reached as
+    <code>engine.master</code> <Since v="2.0" />. Reading it builds the
+    audio graph, so do it after <code>unlock()</code> or accept that the
+    context gets created on that read.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Master" />
+
+  <h2>Configure at creation</h2>
+  <p>
+    <code>volume</code> and <code>mute</code> <Since v="2.0" /> join
+    <code>headroom</code> and <code>limiter</code> on
+    <code>MasterConfig</code>. Volume and headroom are separate stages on
+    purpose. Headroom is a mix decision you set once, volume is the player's.
+  </p>
+  <Snippet code={config} lang="ts" title="createEngine({ master })" />
+
+  <h2>Volume and mute <Since v="2.0" /></h2>
+  <p>
+    Both setters ramp over 10 ms, so a slider dragged quickly never clicks.
+    Mute is a flag on top of volume. The volume is remembered while muted,
+    and a volume set while muted applies when you unmute.
+  </p>
+  <Snippet code={settings} lang="ts" />
+
+  <h3>Fades</h3>
+  <p>
+    <code>fadeTo(target, seconds, curve)</code> resolves when the fade is
+    done on the audio clock. While muted it only stores the target.
+  </p>
+  <Snippet code={fade} lang="ts" />
+
+  <h2>Headroom and limiter</h2>
+  <p>
+    The limiter wraps a <code>DynamicsCompressorNode</code> with a fast
+    attack and a ratio of at least 20. It has no lookahead, so a sharp
+    enough transient still gets past it. Leave a few dB of headroom as well
+    rather than relying on it. <code>setLimiter(null)</code> takes it out of
+    the chain; <code>reduction</code> reads 0 when there isn't one.
+  </p>
+  <Snippet code={limiter} lang="ts" />
+
+  <h2>Metering</h2>
+  <p>
+    <code>engine.master.meter()</code> returns <code>{'{'} rms, peak {'}'}</code>
+    on the master input, the same shape as <code>bus.meter()</code> and
+    <code>voice.level()</code>. The analyser is attached on the first call
+    and costs nothing before it.
+  </p>
+  <div class="note">
+    <div class="note-title">engine.masterMeter() is deprecated in v2</div>
+    It still works and returns the same reading. Switch to
+    <code>engine.master.meter()</code>; the old method goes in a later
+    major. See <a href="/guides/migrating-to-v2/">Migrating to v2</a>.
+  </div>
+  <Snippet code={migrate} lang="ts" />
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/bus/">Bus</a> is the same idea one level down.</li>
+    <li><a href="/fx/compressor/">Compressor</a> for dynamics on a single bus.</li>
+    <li><a href="/concepts/engine/">Engine</a> lists the rest of <code>EngineConfig</code>.</li>
+  </ul>
+</Docs>

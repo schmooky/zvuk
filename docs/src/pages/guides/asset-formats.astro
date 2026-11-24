@@ -82,6 +82,13 @@ if (canPlay('audio/webm; codecs="opus"')) {
 
   <h2>Bulk transcode script</h2>
   <Snippet code={bulk} lang="bash" />
+  <p>
+    The package ships the same loop as a command:
+    <code>npx zvuk transcode "raw/*.wav" --out public/audio</code> writes a
+    <code>.webm</code> and an <code>.m4a</code> per input. It uses one bitrate
+    for both formats and doesn't downmix, so keep the script above if you
+    want the mono SFX settings. Flags are on the <a href="/reference/cli/">CLI page</a>.
+  </p>
 
   <h2>What about MP3?</h2>
   <p>

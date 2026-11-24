@@ -1,5 +1,6 @@
 ---
 import CompressorPlayground from '../../components/demos/CompressorPlayground.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -7,7 +8,7 @@ const surface = `class Compressor implements FxInsert {
   readonly input: GainNode;
   readonly output: GainNode;
 
-  bypassed: boolean;                  // graph-swap, not a parameter
+  bypassed: boolean;                  // v2: ~10 ms crossfade to dry, no click
 
   applyConfig(c: CompressorConfig): void;
   get reduction(): number;            // live gain reduction (negative dB)
@@ -45,7 +46,7 @@ const meter = `setInterval(() => {
 ---
 <Docs
   title="Compressor"
-  description="Dynamic range compression as a bus FX insert. Wraps DynamicsCompressorNode and makeup gain. Bypass is a graph swap, so it has no parameter latency."
+  description="Dynamic range compression as a bus FX insert. Wraps DynamicsCompressorNode and makeup gain, with a bypass that crossfades instead of clicking."
   eyebrow="FX"
 >
 
@@ -64,6 +65,11 @@ const meter = `setInterval(() => {
     It is limiter-<em>like</em> and not a brick wall. With a finite attack and
     no lookahead, transients still get through, so it is not a guarantee
     against clipping.
+  </p>
+
+  <p>
+    Bypass <Since v="2.0" /> crossfades to the dry signal over about 10 ms.
+    In 1.x it rewired the graph, which clicked on anything sustained.
   </p>
 
   <h2>API surface</h2>

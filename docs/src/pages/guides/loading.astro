@@ -1,5 +1,6 @@
 ---
 import VariantSpam from '../../components/demos/VariantSpam.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -78,6 +79,53 @@ try {
 // On route change:
 ac.abort();`;
 
+const bytes = `// One big file: a smooth bar from byte progress.
+await engine.loadSound('theme', ['/music/theme.webm', '/music/theme.m4a'], {
+  bus: 'music',
+  onProgress: (loaded, total) => {
+    bar.value = total ? loaded / total : 0; // total is null without Content-Length
+  },
+});
+
+// A batch with a few large files: per-item bytes alongside per-item completion.
+const seen = new Map<string, number>();
+await engine.preload(manifest, {
+  onProgress: ({ completed, total }) => { label.textContent = completed + ' / ' + total; },
+  onBytes: ({ name, loadedBytes }) => {
+    seen.set(name, loadedBytes);
+    bytesLabel.textContent = ([...seen.values()].reduce((a, b) => a + b, 0) / 1e6).toFixed(1) + ' MB';
+  },
+});`;
+
+const kinds = `await engine.preload([
+  { name: 'coin', url: ['/sfx/coin.webm', '/sfx/coin.m4a'], options: { bus: 'sfx' } },
+  {
+    kind: 'sprite',
+    name: 'ui',
+    url: ['/sfx/ui.webm', '/sfx/ui.m4a'],
+    regions: { click: { start: 0, duration: 0.05 }, open: { start: 0.1, duration: 0.4 } },
+    options: { bus: 'ui' },
+  },
+  {
+    kind: 'variants',
+    name: 'roll',
+    urls: [['/sfx/roll-1.webm', '/sfx/roll-1.m4a'], ['/sfx/roll-2.webm', '/sfx/roll-2.m4a']],
+    options: { bus: 'sfx', strategy: 'shuffle-bag', weights: [2, 1] },
+  },
+  {
+    kind: 'music',
+    name: 'bonus',
+    parts: { intro: '/music/bonus-intro.webm', loop: '/music/bonus-loop.webm' },
+    options: { bus: 'music', bpm: 128 },
+  },
+], { concurrency: 4, onProgress });`;
+
+const weights = `// The plain take three times as often as each rare one; weight 0 never plays.
+await engine.loadVariants('coin', takes, { bus: 'sfx', weights: [3, 1, 1, 0] });
+
+// Retune later (null resets to equal weights).
+engine.variants('coin').setWeights([1, 1, 1, 1]);`;
+
 const stream = `// Long media — use loadStream so a 4-minute mix doesn't decode into RAM.
 const intro = engine.loadStream('intro', '/music/intro.m4a', { bus: 'music' });
 await intro.play({ loop: true, volume: 0.6 });
@@ -154,7 +202,7 @@ await loadBank(engine);`;
   <Snippet code={progress} lang="ts" />
 
   <h2>
-    First-class preloader: <code>engine.preload</code>
+    First-class preloader: <code>engine.preload</code> <Since v="1.6" />
   </h2>
   <p>
     For a loading screen with a fixed manifest, <code>engine.preload</code>
@@ -164,6 +212,28 @@ await loadBank(engine);`;
     <code>loadSound</code> shape one for one.
   </p>
   <Snippet code={preload} lang="ts" />
+
+  <h2>Byte progress <Since v="2.0" /></h2>
+  <p>
+    Item counts make a bar that jumps when one file is ten times the size of
+    the others. <code>LoadSoundOptions.onProgress(loadedBytes, totalBytes)</code>
+    reports bytes as chunks arrive, and <code>PreloadOptions.onBytes</code>
+    does the same per item in a batch. Neither fires for cache hits or for a
+    buffer a <code>resolveAsset</code> hook hands back, and when two loads
+    share one download only the first gets bytes.
+  </p>
+  <Snippet code={bytes} lang="ts" />
+
+  <h2>Preload any kind <Since v="2.0" /></h2>
+  <p>
+    A preload item without <code>kind</code> is a sound, as before. With
+    <code>kind: 'sprite'</code>, <code>'variants'</code> or
+    <code>'music'</code> it takes that loader's arguments
+    (<code>PreloadSpriteItem</code>, <code>PreloadVariantsItem</code>,
+    <code>PreloadMusicItem</code>), so one loading screen covers a whole
+    scene.
+  </p>
+  <Snippet code={kinds} lang="ts" />
 
   <h2>Cancelling a preload</h2>
   <p>
@@ -197,7 +267,7 @@ await loadBank(engine);`;
   </p>
   <Snippet code={sprite} lang="ts" />
 
-  <h2>Variants: randomise stacked SFX</h2>
+  <h2>Variants: randomise stacked SFX <Since v="1.11" /></h2>
   <p>
     Slot games play coin/win/reel-stop variants on every interaction. A
     pure random picker can play the same one twice in a row, which sounds
@@ -219,7 +289,24 @@ await loadBank(engine);`;
   </p>
   <VariantSpam client:visible />
 
-  <h2>Unloading sounds</h2>
+  <h3>Weighted takes <Since v="2.0" /></h3>
+  <p>
+    <code>weights</code> on <code>loadVariants</code> (or
+    <code>variants.setWeights()</code>) makes some takes commoner than
+    others. Missing entries count as 1 and a weight of 0 never plays, unless
+    every weight is 0. <code>'no-repeat'</code> still never repeats, and
+    <code>'shuffle-bag'</code> puts <code>round(weight)</code> copies of each
+    take in the bag. Since v2 <code>'no-repeat'</code> can also pick the
+    first take on the first play, which 1.x never did.
+  </p>
+  <Snippet code={weights} lang="ts" />
+
+  <h2>Unloading sounds <Since v="1.11" /></h2>
+  <p>
+    In v2, <code>engine.unload(name)</code> <Since v="2.0" /> does this for
+    any kind (sound, sprite, variants, music, stream); see
+    <a href="/concepts/engine/">Engine</a>.
+  </p>
   <p>
     <code>removeSound(name)</code> drops the registry entry. The buffer
     stays in the internal LRU cache so a re-load is free. Use
@@ -234,16 +321,19 @@ await loadBank(engine);`;
 
   <h2>Typed banks via <code>npx zvuk gen</code></h2>
   <p>
-    Keep your sound names in a manifest, run the CLI, get a typed loader back.
+    Keep your sound names in a manifest, run the <a href="/reference/cli/">CLI</a>, get a typed loader back.
     <code>engine.sound("coin")</code> autocompletes against the literal union.
   </p>
   <Snippet code={banks} lang="ts" />
 
-  <h2>Cache & memory</h2>
+  <h2>Cache & memory <Since v="1.14" /></h2>
   <p>
     Decoded buffers are cached by URL inside the engine. Loading the same URL
-    twice is free; loading 130+ unique URLs evicts the least-recently-used
-    entries (configurable via the internal Decoder limit).
+    twice is free, and two loads of it in flight at once share one fetch and
+    one decode. The cache is an LRU budgeted in bytes and in entries,
+    64 MiB and 128 by default, set with
+    <code>createEngine({'{'} cache: {'{'} maxBytes, maxEntries {'}'} {'}'})</code>.
+    See <a href="/concepts/engine/">Engine</a> for the arithmetic.
   </p>
 
   <h2>Pitfalls</h2>

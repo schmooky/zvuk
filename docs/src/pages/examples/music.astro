@@ -1,0 +1,132 @@
+---
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const html = `<!doctype html>
+<meta charset="utf-8" />
+<title>zvuk · music</title>
+<button id="start">Start</button>
+<button id="win" disabled>Win: outro on the bar</button>
+<button id="stop" disabled>Stop now</button>
+<button id="pause" disabled>Pause</button>
+<button id="sting" disabled>Stinger on next bar</button>
+<p id="part">idle</p>
+<script type="module" src="./main.ts"></script>`;
+
+const main = `import { createEngine, type MusicVoice } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { music: { level: 0.8 }, sfx: {} } });
+const $ = (id: string) => document.getElementById(id) as HTMLButtonElement;
+
+let voice: MusicVoice | null = null;
+
+$('start').onclick = async () => {
+  await engine.unlock();
+  const music = engine.hasMusic('bonus')
+    ? engine.music('bonus')
+    : await engine.loadMusic(
+        'bonus',
+        {
+          intro: ['/music/bonus-intro.webm', '/music/bonus-intro.m4a'],
+          loop: ['/music/bonus-loop.webm', '/music/bonus-loop.m4a'],
+          outro: ['/music/bonus-outro.webm', '/music/bonus-outro.m4a'],
+        },
+        { bus: 'music', loopCrossfade: 0.02, bpm: 128, beatsPerBar: 4 },
+      );
+  if (!engine.hasSound('sting')) {
+    await engine.loadSound('sting', ['/sfx/sting.webm', '/sfx/sting.m4a'], { bus: 'sfx' });
+  }
+
+  voice?.stop({ fade: 0.2 });
+  voice = music.play({ fadeIn: 0.05 });
+  for (const id of ['win', 'stop', 'pause', 'sting']) $(id).disabled = false;
+
+  // currentPart walks intro → loop → outro → ended on the audio clock.
+  const tick = () => {
+    $('part').textContent = voice?.currentPart ?? 'idle';
+    if (voice && voice.currentPart !== 'ended') requestAnimationFrame(tick);
+  };
+  tick();
+
+  await voice.ended;
+  for (const id of ['win', 'stop', 'pause', 'sting']) $(id).disabled = true;
+};
+
+// v2: end on the next bar of the 128 bpm grid, not at the end of the loop file.
+$('win').onclick = () => voice?.skipToOutro({ at: 'bar' });
+
+// v2: pause keeps the part and offset; resume lands in the same place.
+$('pause').onclick = () => {
+  if (!voice) return;
+  if (voice.isPaused) voice.resume();
+  else voice.pause();
+  $('pause').textContent = voice.isPaused ? 'Resume' : 'Pause';
+};
+
+// v2: a stinger on the next downbeat, ducking the music while it rings.
+$('sting').onclick = () => {
+  const at = voice?.nextBar();
+  if (at !== undefined) engine.sound('sting').play({ at, duck: { bus: 'music', amount: 0.5 } });
+};
+
+// Cut to the outro immediately, with a short equal-power fade.
+$('stop').onclick = () => voice?.skipToOutro({ at: 'now' });`;
+---
+<Docs
+  title="Music: intro, loop, outro"
+  description="A three-part track where the stinger plays once, the loop runs until told otherwise, and the outro lands on a loop boundary. Two files to copy."
+  eyebrow="Example"
+>
+  <p>
+    The bonus round starts with a stinger, sits in a loop for as long as the
+    player keeps winning, and has to end on the beat when they stop. Starting
+    the outro wherever the playhead happens to be sounds like a mistake.
+  </p>
+  <p>
+    <code>engine.loadMusic</code> <Since v="1.8" /> fetches the three parts in
+    parallel and returns a <code>Music</code>. Each <code>play()</code>
+    returns a <code>MusicVoice</code> whose <code>skipToOutro()</code>
+    either waits for the next loop boundary or cuts over now. Drop your own
+    files at the paths below; any part except <code>loop</code> is optional.
+  </p>
+  <p>
+    With <code>bpm</code> on the load <Since v="2.0" />, the voice knows
+    where the bars are: <code>skipToOutro({'{'} at: 'bar' {'}'})</code> ends on
+    the grid, and <code>nextBar()</code> gives an audio time for
+    <code>play({'{'} at {'}'})</code>. <code>pause()</code> and <code>resume()</code>
+    <Since v="2.0" /> keep the part and offset. The
+    <a href="/concepts/music/">Music</a> page has the same thing running live.
+  </p>
+
+  <h2>index.html</h2>
+  <Snippet code={html} lang="html" title="index.html" />
+
+  <h2>main.ts</h2>
+  <Snippet code={main} lang="ts" title="main.ts" />
+
+  <h2>Notes</h2>
+  <ul>
+    <li>
+      <code>loopCrossfade</code> hides a click at the loop seam when the file
+      wasn't cut on a zero crossing. 20 ms is enough for most material; leave
+      it at 0 for a sample-exact loop.
+    </li>
+    <li>
+      <code>voice.stop()</code> skips the outro entirely. Call
+      <code>skipToOutro()</code> when you want the tail.
+    </li>
+    <li>
+      <code>music.voices()</code> and <code>music.stopAll()</code> reach every
+      voice a <code>Music</code> has spawned, which helps when a scene change
+      has lost track of them.
+    </li>
+  </ul>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/music/">Music</a> concept page.</li>
+    <li><a href="/examples/stream/">StreamSound</a> for tracks too long to decode.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

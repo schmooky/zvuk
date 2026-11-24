@@ -1,4 +1,4 @@
-import { type Engine, StretchProcessor } from '@schmooky/zvuk';
+import { type Engine, StretchProcessor, pickSourceOrder } from '@schmooky/zvuk';
 import { useRef, useState } from 'react';
 import DemoShell from './DemoShell';
 import { SAMPLES, decodeFileToSound, useDemoEngine } from './useDemoEngine';
@@ -16,6 +16,25 @@ import { Slider } from '@/components/ui/slider';
  * Both are useful for different jobs. The demo lets you A/B them on the same
  * source so you can hear the difference.
  */
+/**
+ * Walk the codec ladder (webm/opus first, m4a/aac for Safari) the same way
+ * `engine.loadSound` does, but keep the decoded buffer: the StretchProcessor
+ * needs raw samples, and a Sound doesn't hand its buffer out.
+ */
+async function decodeFirst(e: Engine, urls: readonly string[]): Promise<AudioBuffer> {
+  let last: unknown;
+  for (const url of pickSourceOrder(urls)) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await e.context.decodeAudioData(await res.arrayBuffer());
+    } catch (err) {
+      last = err;
+    }
+  }
+  throw last instanceof Error ? last : new Error('No playable source');
+}
+
 export default function PitchStretch() {
   const { engine, state, error, setError, unlock } = useDemoEngine({ buses: { sfx: {} } });
   const sourceBufferRef = useRef<AudioBuffer | null>(null);
@@ -34,9 +53,10 @@ export default function PitchStretch() {
     if (file) {
       sourceBufferRef.current = await decodeFileToSound(e, 'orig', file, 'sfx');
     } else {
-      await e.loadSound('orig', [...SAMPLES.chime], { bus: 'sfx' });
-      const res = await fetch('/audio/card-shuffle.webm');
-      sourceBufferRef.current = await e.context.decodeAudioData(await res.arrayBuffer());
+      const buffer = await decodeFirst(e, SAMPLES.bells1);
+      sourceBufferRef.current = buffer;
+      if (e.hasSound('orig')) e.removeSound('orig');
+      e.createSound('orig', buffer, { bus: 'sfx' });
     }
   }
 

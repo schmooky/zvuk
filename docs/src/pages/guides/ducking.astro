@@ -1,4 +1,6 @@
 ---
+import DuckerDemo from '../../components/demos/DuckerDemo.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -30,11 +32,29 @@ ducker.setThreshold(0.02); // more sensitive — duck even on quiet whispers`;
     gain recovers over <code>release</code> seconds.
   </p>
 
+  <h2>Hear it</h2>
+  <p>
+    Press Talk and watch the music meter dip under the voice meter. The
+    <a href="/fx/ducker/">Ducker reference</a> lists every option.
+  </p>
+  <DuckerDemo client:visible />
+
   <h2>Wiring</h2>
   <Snippet code={construct} lang="ts" />
 
   <h2>Live tuning</h2>
   <Snippet code={live} lang="ts" />
+
+  <h2>Two more ways in v2 <Since v="2.0" /></h2>
+  <p>
+    The same rule can be declared on the bus,
+    <code>music: {'{'} sidechain: {'{'} from: 'voice', amount: 0.6, threshold: 0.05 {'}'} {'}'}</code>,
+    and the engine inserts the Ducker for you. And when the thing that
+    should duck the music is a sound you are about to play, skip the level
+    detection: <code>sound.play({'{'} duck: {'{'} bus: 'music' {'}'} {'}'})</code> ducks from
+    the voice's first sample to its last. The
+    <a href="/fx/ducker/">Ducker page</a> has a table for choosing.
+  </p>
 
   <h2>Why not just use DynamicsCompressorNode?</h2>
   <p>

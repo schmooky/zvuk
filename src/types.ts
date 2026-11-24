@@ -18,11 +18,44 @@ export interface AudioLevel {
   peak: number;
 }
 
+/**
+ * What to do when a voice limit is full:
+ *
+ * - `'oldest'` (default) — stop the voice that started first.
+ * - `'lowest-priority'` — stop the lowest-priority voice. When the new voice
+ *   ranks lower than every playing one, the new voice is rejected instead.
+ * - `'quietest'` — stop the voice with the lowest level.
+ * - `'none'` — reject the new voice.
+ *
+ * A rejected voice never starts: `voice.rejected` is true, it emits only the
+ * `'ended'` cue, and its `ended` promise is already resolved.
+ */
+export type StealStrategy = 'oldest' | 'lowest-priority' | 'quietest' | 'none';
+
 export interface ConcurrencyConfig {
   /** Max simultaneous voices on this bus. */
   max: number;
   /** Voice-stealing strategy when max is reached. Default: 'oldest'. */
-  steal?: 'oldest' | 'lowest-priority' | 'quietest' | 'none';
+  steal?: StealStrategy;
+}
+
+/**
+ * Per-sound playback limit. Set it on `loadSound`, `loadSprite` or
+ * `loadVariants` options, or later with `sound.setLimit()`. A variants
+ * bundle shares one limit across all of its variants, so "at most 3 coins"
+ * means 3 in total, not 3 of each.
+ */
+export interface SoundLimit {
+  /** Max simultaneous voices of this sound. Default: unlimited. */
+  max?: number;
+  /** What to do when `max` is reached. Default `'oldest'`. */
+  steal?: StealStrategy;
+  /**
+   * Minimum seconds between two starts of this sound. A play inside the
+   * window is rejected. Use it to stop a coin from machine-gunning when 40
+   * win lines land on the same frame. Default 0.
+   */
+  cooldown?: number;
 }
 
 export interface SidechainConfig {
@@ -34,12 +67,21 @@ export interface SidechainConfig {
   attack?: number;
   /** Release in seconds. */
   release?: number;
+  /** Level on the `from` bus (linear RMS) above which ducking starts. Default 0.05. */
+  threshold?: number;
 }
 
 export interface BusConfig {
   level?: number;
   mute?: boolean;
   concurrency?: ConcurrencyConfig;
+  /**
+   * Duck this bus while another bus is loud. The engine inserts a `Ducker`
+   * at the end of this bus's FX chain when the graph is built. It follows
+   * the `from` bus's level on the main thread, which suits dialogue over
+   * music. For ducking that starts on the exact sample a sound starts, use
+   * `play({ duck })` instead.
+   */
   sidechain?: SidechainConfig;
 }
 
@@ -68,6 +110,10 @@ export interface MasterLimiterConfig {
 }
 
 export interface MasterConfig {
+  /** Master volume (0..1). Default 1. Separate from headroom. */
+  volume?: number;
+  /** Start with the master muted. Default false. */
+  mute?: boolean;
   /** Headroom in dB applied to the master gain (negative). Default: 0. */
   headroom?: number;
   /** Optional fast-attack soft limiter on the master output (best-effort peak control). */
@@ -85,10 +131,25 @@ export interface MasterConfig {
  */
 export type ResolvedAsset = AudioBuffer | ArrayBuffer | string;
 
+/** Which loader asked the resolver. */
+export type AssetKind = 'sound' | 'sprite' | 'variants' | 'music';
+
 export interface ResolveAssetContext {
-  /** The name passed to `engine.loadSound(name, ...)`. */
+  /**
+   * The public name the asset was loaded under: the name passed to
+   * `loadSound`, `loadSprite`, `loadVariants` or `loadMusic`. In v1 sprites,
+   * variants and music parts arrived here under internal keys such as
+   * `__sprite:x`; v2 passes the public name and says which part in `part`.
+   */
   readonly name: string;
-  /** The URL or URL list passed to `engine.loadSound(name, urls)`. */
+  /** Which loader the request came from. */
+  readonly kind: AssetKind;
+  /**
+   * Which part of a multi-part asset: the variant index for `'variants'`,
+   * `'intro' | 'loop' | 'outro'` for `'music'`. Undefined for sounds and sprites.
+   */
+  readonly part?: number | 'intro' | 'loop' | 'outro';
+  /** The URL or URL list passed to the loader for this part. */
   readonly url: string | readonly string[];
   /** Forwarded from `LoadSoundOptions.signal`. */
   readonly signal?: AbortSignal;
@@ -306,9 +367,48 @@ export interface SpatialOptions {
    * 3D only; ignored when `pan` is used.
    */
   occlusion?: number;
+  /**
+   * 3D panning algorithm. `'HRTF'` (default) sounds best on headphones and
+   * costs the most; `'equalpower'` is cheap and fine for speakers or for
+   * dozens of simultaneous positioned voices. 3D only.
+   */
+  panningModel?: PanningModelType;
+  /**
+   * Time constant (seconds) for live `setPan` / `setPosition` /
+   * `setOcclusion` changes: about 95 % of the way after three of them.
+   * Moving a source by jumping its position every frame crackles. Default
+   * 0.02. Pass 0 for instant jumps.
+   */
+  glide?: number;
+}
+
+/**
+ * Duck another bus for as long as this voice plays. The attack is stamped on
+ * the audio clock at the voice's start time, so it lands on the voice's first
+ * sample, scheduled starts included. The release starts when the voice ends.
+ * Overlapping ducks on one bus don't stack: the deepest one wins, and the
+ * bus only comes back up when the last of them has ended.
+ */
+export interface DuckOptions {
+  /** The bus to duck. */
+  bus: string;
+  /** How far to pull the bus down (0..1). 0.5 is about -6 dB. Default 0.5. */
+  amount?: number;
+  /** Attack in seconds. Default 0.05. */
+  attack?: number;
+  /** Release in seconds. Default 0.3. */
+  release?: number;
 }
 
 export interface PlayOptions {
+  /**
+   * Audio-clock time (seconds, the `engine.now` timebase) to start at. Past
+   * or omitted means now. Schedule against a music grid with
+   * `musicVoice.nextBar()` for a stinger that lands on the downbeat.
+   */
+  at?: number;
+  /** Duck another bus while this voice plays. */
+  duck?: DuckOptions;
   /** Initial volume (0..1). Default 1. */
   volume?: number | VoiceJitter;
   /**
@@ -368,6 +468,15 @@ export interface LoadSoundOptions {
   /** AbortSignal for the fetch. */
   signal?: AbortSignal;
   /**
+   * Byte-level download progress, called as chunks arrive. `totalBytes` is
+   * null when the server sends no Content-Length. Not called for cache hits
+   * or for buffers a `resolveAsset` hook returns directly. When two loads
+   * share one download, only the first gets progress.
+   */
+  onProgress?: (loadedBytes: number, totalBytes: number | null) => void;
+  /** Per-sound concurrency limit and retrigger cooldown. */
+  limit?: SoundLimit;
+  /**
    * Run RMS-based loudness normalization on the decoded buffer so it sits at
    * the same RMS level as other normalized sounds. (Full-band RMS, not
    * perceptual/LUFS.) Pass `true` for defaults or an options object to tune
@@ -390,7 +499,20 @@ export interface MusicParts {
   outro?: string | readonly string[];
 }
 
-export interface MusicLoadOptions extends LoadSoundOptions {
+export interface MusicLoadOptions extends Omit<LoadSoundOptions, 'limit'> {
+  /**
+   * Tempo in beats per minute. Turns on the musical grid: `nextBeat()`,
+   * `nextBar()`, `onBeat()` and `skipToOutro({ at: 'bar' | 'beat' })` on
+   * every `MusicVoice`.
+   */
+  bpm?: number;
+  /** Beats per bar. Default 4. */
+  beatsPerBar?: number;
+  /**
+   * Seconds from the start of playback to the grid's first downbeat.
+   * Default: the intro's length, so beat 1 is the loop's first sample.
+   */
+  gridOffset?: number;
   /**
    * Equal-power crossfade (seconds) at the loop boundary. Mirrors
    * `PlayOptions.loopCrossfade`. Masks the click that would otherwise
@@ -400,6 +522,8 @@ export interface MusicLoadOptions extends LoadSoundOptions {
 }
 
 export interface MusicPlayOptions {
+  /** Audio-clock time to start at. Past or omitted means now. */
+  at?: number;
   /** Initial volume (0..1). Default 1. */
   volume?: number;
   /**
@@ -416,23 +540,63 @@ export interface SkipToOutroOptions {
    * - `'now'` — fade out whatever's playing right now (~50 ms equal-power)
    *   and start the outro immediately. Right call for "user pressed Stop"
    *   where waiting feels unresponsive.
+   * - `'bar'` / `'beat'` — start the outro on the next bar or beat of the
+   *   musical grid. Needs `bpm` on `loadMusic`; without it this falls back
+   *   to `'loop-end'`.
    */
-  at?: 'loop-end' | 'now';
+  at?: 'loop-end' | 'now' | 'bar' | 'beat';
 }
 
 export type MusicState = 'intro' | 'loop' | 'outro' | 'ended';
 
 /**
- * One entry in a `engine.preload(...)` batch. Mirrors `engine.loadSound`'s
- * signature so callers can hand the same data to either path.
+ * One entry in a `engine.preload(...)` batch. Without `kind` it mirrors
+ * `engine.loadSound`'s signature, so callers can hand the same data to
+ * either path. With `kind` it loads a sprite, a variants bundle or music.
  */
-export interface PreloadItem {
+export type PreloadItem = PreloadSoundItem | PreloadSpriteItem | PreloadVariantsItem | PreloadMusicItem;
+
+export interface PreloadSoundItem {
+  kind?: 'sound';
   /** Sound name, registered on `engine.sound(name)` after preload completes. */
   name: string;
   /** URL or codec ladder, the same shape as `engine.loadSound`. */
   url: string | readonly string[];
   /** Per-item options (bus, normalize, etc.). Forwarded to `loadSound`. */
   options?: LoadSoundOptions;
+}
+
+export interface PreloadSpriteItem {
+  kind: 'sprite';
+  name: string;
+  url: string | readonly string[];
+  regions: Record<string, { start: number; duration: number; loop?: boolean }>;
+  options?: LoadSoundOptions;
+}
+
+export interface PreloadVariantsItem {
+  kind: 'variants';
+  name: string;
+  urls: readonly (string | readonly string[])[];
+  options?: LoadSoundOptions & {
+    strategy?: 'random' | 'no-repeat' | 'shuffle-bag';
+    weights?: readonly number[];
+  };
+}
+
+export interface PreloadMusicItem {
+  kind: 'music';
+  name: string;
+  parts: MusicParts;
+  options?: MusicLoadOptions;
+}
+
+/** Byte progress of one preload item. */
+export interface PreloadBytesEvent {
+  readonly name: string;
+  readonly loadedBytes: number;
+  /** Null when the server sent no Content-Length. */
+  readonly totalBytes: number | null;
 }
 
 export interface PreloadProgressEvent {
@@ -467,4 +631,10 @@ export interface PreloadOptions {
    * is a fraction in [0..1].
    */
   onProgress?: (event: PreloadProgressEvent) => void;
+  /**
+   * Byte-level progress per item, as chunks arrive. Use it for a smooth bar
+   * when a batch holds a few large files. Items served from the cache or a
+   * `resolveAsset` buffer report nothing here.
+   */
+  onBytes?: (event: PreloadBytesEvent) => void;
 }

@@ -33,6 +33,18 @@ export class SoundNotFoundError extends ZvukError {
   }
 }
 
+export class SpriteRegionNotFoundError extends ZvukError {
+  readonly sprite: string;
+  readonly region: string;
+  constructor(sprite: string, region: string, regions: readonly string[]) {
+    const list = regions.length > 0 ? ` Regions: ${regions.map((r) => `"${r}"`).join(', ')}.` : '';
+    super(`Sprite "${sprite}" has no region "${region}".${list}`);
+    this.name = 'SpriteRegionNotFoundError';
+    this.sprite = sprite;
+    this.region = region;
+  }
+}
+
 function describe(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }

@@ -1,5 +1,6 @@
 ---
 import VoiceJitter from '../../components/demos/VoiceJitter.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -8,7 +9,9 @@ const surface = `class Voice {
   readonly priority: number;
   readonly bus: string | undefined;
   readonly sourceName: string | undefined; // name of the Sound that spawned it
-  readonly startedAt: number;              // engine.now at spawn
+  readonly startedAt: number;              // audio time it starts (the at time, if scheduled)
+  readonly rejected: boolean;              // v2: refused by a limit, never sounded
+  readonly isDone: boolean;                // v2: ended, or rejected
   readonly playbackRate: number;           // current rate
   readonly isPaused: boolean;
   readonly spatializer: Spatializer | undefined;
@@ -20,7 +23,7 @@ const surface = `class Voice {
   resume(): void;                          // resumes from captured offset
   setPlaybackRate(rate: number, opts?: { duration?: number; curve?: FadeCurve }): void;
   stop(opts?: { fade?: number }): void;     // ~8 ms click-free fade by default
-  cues(): AsyncIterableIterator<'started' | 'paused' | 'resumed' | 'ended'>;
+  cues(): AsyncIterableIterator<VoiceCue>;  // 'started' | 'paused' | 'resumed' | 'ended'
   level(): { rms: number; peak: number };   // live amplitude readout (lazy analyser tap)
 }`;
 
@@ -123,10 +126,21 @@ requestAnimationFrame(function tick() {
 
   <h2>Recipes</h2>
 
+  <h3>Rejected and finished voices <Since v="2.0" /></h3>
+  <p>
+    <code>play()</code> always returns a <code>Voice</code>, even when a bus
+    or per-sound limit refuses it. Such a voice has
+    <code>rejected === true</code>, never sounds, emits only the
+    <code>'ended'</code> cue and has <code>ended</code> already resolved.
+    <code>isDone</code> reads true for it and for any voice that has
+    finished. <code>VoiceCue</code> is exported as a type. Details on the
+    <a href="/concepts/concurrency/">Concurrency</a> page.
+  </p>
+
   <h3>Random pitch + volume jitter</h3>
   <Snippet code={jitter} lang="ts" />
 
-  <h3>Fade-in on start</h3>
+  <h3>Fade-in on start <Since v="1.11" /></h3>
   <p>
     <code>play({'{'} fadeIn {'}'})</code> is the mirror of the click-free stop fade.
     The voice ramps from <code>0</code> up to <code>volume</code> across the
@@ -150,7 +164,7 @@ requestAnimationFrame(function tick() {
   </p>
   <Snippet code={pauseResume} lang="ts" />
 
-  <h3>Loop crossfade (off by default)</h3>
+  <h3>Loop crossfade (off by default) <Since v="1.5" /></h3>
   <p>
     AudioBufferSourceNode's native loop is a hard cut from
     <code>loopEnd</code> back to <code>loopStart</code>. When those points
@@ -171,7 +185,7 @@ requestAnimationFrame(function tick() {
   </p>
   <Snippet code={liveRate} lang="ts" />
 
-  <h3>Per-voice level readout</h3>
+  <h3>Per-voice level readout <Since v="1.7" /></h3>
   <p>
     <code>voice.level()</code> returns <code>{ '{ rms, peak }' }</code> as
     linear values in <code>[0..1]</code>. The first call lazily attaches an

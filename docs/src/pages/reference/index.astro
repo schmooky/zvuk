@@ -1,0 +1,26 @@
+---
+import CardGrid from '../../components/CardGrid.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const cards = [
+  { href: '/api/', title: 'API (TypeDoc)', body: 'Every exported class, function and type, generated from src/index.ts on each build.' },
+  { href: '/reference/cli/', title: 'CLI', body: 'zvuk transcode for the webm + m4a ladder, zvuk gen for a typed sound manifest.' },
+  { href: '/reference/loudness-codecs/', title: 'Loudness & codec helpers', body: 'applyLoudnessNormalization, mimeForUrl, pickSourceOrder and friends.' },
+  { href: '/guides/errors/', title: 'Errors', body: 'The error classes and which calls throw them.' },
+  { href: '/changelog/', title: 'Changelog', body: 'Every release, generated from CHANGELOG.md.' },
+  { href: '/guides/migrating-to-v2/', title: 'Migrating to v2', body: 'Breaking changes in 2.0.0 and what to do about each.' },
+  { href: '/llms.txt', title: 'llms.txt', body: 'The site index for agents; llms-full.txt is the whole corpus in one file.' },
+];
+---
+<Docs
+  title="Reference"
+  description="Lookup material. The generated API, the command line, the standalone helpers and the error classes."
+  eyebrow="Reference"
+>
+  <p>
+    The concept pages explain the model and the guides walk through tasks.
+    These pages are for when you already know the name of the thing and want
+    its exact shape.
+  </p>
+  <CardGrid cards={cards} />
+</Docs>

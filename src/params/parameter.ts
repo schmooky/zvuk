@@ -17,6 +17,7 @@ export class Parameter {
   readonly name: string;
   private _value: number;
   private subs = new Set<Subscriber>();
+  private glide: { cancel: () => void; resolve: () => void } | null = null;
 
   constructor(name: string, initial: number) {
     this.name = name;
@@ -27,7 +28,68 @@ export class Parameter {
     return this._value;
   }
 
+  /** Set the value now. Cancels a running `rampTo` glide. */
   set(v: number): void {
+    this.cancelGlide();
+    this.write(v);
+  }
+
+  /** True while a `rampTo` glide is running. */
+  get gliding(): boolean {
+    return this.glide != null;
+  }
+
+  /**
+   * Glide to `target` over `seconds`, calling subscribers on every frame
+   * along the way. Resolves when the glide lands, or when `set()` or
+   * another `rampTo()` interrupts it. An RTPC-style "intensity" knob moved
+   * with `rampTo` drives everything bound to it smoothly, without each
+   * binding scheduling its own fade.
+   *
+   * Frames come from `requestAnimationFrame`, falling back to 16 ms timers
+   * where there is none (a hidden tab, a worker, SSR). The glide runs on
+   * wall time, so a hidden tab still lands on time, just in coarser steps.
+   */
+  rampTo(target: number, seconds: number, curve: ParameterCurve = 'linear'): Promise<void> {
+    this.cancelGlide();
+    const duration = Math.max(0, seconds);
+    if (duration === 0 || target === this._value) {
+      this.write(target);
+      return Promise.resolve();
+    }
+    const from = this._value;
+    const rising = target >= from;
+    const t0 = nowMs();
+    return new Promise<void>((resolve) => {
+      let handle: { cancel: () => void } = { cancel: () => {} };
+      const step = (): void => {
+        const t = Math.min(1, (nowMs() - t0) / (duration * 1000));
+        const eased = ease(t, curve, rising);
+        this.write(from + (target - from) * eased);
+        if (t >= 1) {
+          this.glide = null;
+          resolve();
+          return;
+        }
+        handle = nextFrame(step);
+      };
+      this.glide = {
+        cancel: () => handle.cancel(),
+        resolve,
+      };
+      handle = nextFrame(step);
+    });
+  }
+
+  private cancelGlide(): void {
+    const g = this.glide;
+    if (!g) return;
+    this.glide = null;
+    g.cancel();
+    g.resolve();
+  }
+
+  private write(v: number): void {
     if (v === this._value) return;
     this._value = v;
     for (const s of this.subs) s(v);
@@ -58,6 +120,20 @@ export class Parameter {
       setter(from + (to - from) * eased);
     });
   }
+}
+
+function nowMs(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function nextFrame(fn: () => void): { cancel: () => void } {
+  const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  if (!hidden && typeof requestAnimationFrame === 'function') {
+    const id = requestAnimationFrame(() => fn());
+    return { cancel: () => cancelAnimationFrame(id) };
+  }
+  const id = setTimeout(fn, 16);
+  return { cancel: () => clearTimeout(id) };
 }
 
 function ease(t: number, curve: ParameterCurve, rising = true): number {

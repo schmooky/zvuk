@@ -31,24 +31,25 @@ const pages = Object.fromEntries(
 );
 
 const PLATE: Record<CardKind, [number, number, number][]> = {
+  // Zinc-950 plates with the one violet hue, matching the site chrome.
   home: [
-    [12, 12, 16],
-    [12, 12, 16],
+    [9, 9, 11],
+    [9, 9, 11],
   ],
   docs: [
-    [12, 12, 16],
-    [30, 35, 64],
+    [9, 9, 11],
+    [28, 24, 52],
   ],
   api: [
-    [9, 9, 12],
-    [12, 26, 34],
+    [9, 9, 11],
+    [24, 24, 27],
   ],
 };
 
 const RULE: Record<CardKind, [number, number, number]> = {
-  home: [79, 108, 247],
-  docs: [79, 108, 247],
-  api: [34, 211, 238],
+  home: [138, 123, 255],
+  docs: [138, 123, 255],
+  api: [196, 181, 253],
 };
 
 export const { getStaticPaths, GET } = OGImageRoute({
@@ -77,7 +78,7 @@ export const { getStaticPaths, GET } = OGImageRoute({
           lineHeight: 1.05,
         },
         description: {
-          color: kind === 'api' ? [186, 230, 253] : [200, 200, 220],
+          color: kind === 'api' ? [221, 214, 254] : [212, 212, 216],
           size: 26,
           lineHeight: 1.45,
         },

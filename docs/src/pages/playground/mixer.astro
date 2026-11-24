@@ -14,11 +14,12 @@ const title = `Mixer Dashboard · ${SITE.name}`;
     <meta name="robots" content="noindex" />
     <script is:inline>
       (() => {
+        let dark = true;
         try {
           const t = localStorage.getItem('theme');
-          if (t === 'light') document.documentElement.classList.remove('dark');
-          else document.documentElement.classList.add('dark');
+          dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
         } catch (_) {}
+        document.documentElement.classList.toggle('dark', dark);
       })();
     </script>
   </head>

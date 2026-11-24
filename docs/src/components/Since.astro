@@ -1,0 +1,20 @@
+---
+/**
+ * Version marker for a feature: "Since v1.8", or "New in v2" for anything
+ * that lands with 2.0.0. Links to that release on the changelog page.
+ *
+ *   <h2>Loop crossfade <Since v="1.5" /></h2>
+ *   <Since v="2.0" />            → New in v2
+ *
+ * `v` is "major.minor"; the changelog anchors on the full x.y.0 version.
+ */
+interface Props {
+  v: string;
+}
+const { v } = Astro.props as Props;
+const [major = '0', minor = '0'] = v.replace(/^v/, '').split('.');
+const isNewMajor = minor === '0' && Number(major) >= 2;
+const text = isNewMajor ? `New in v${major}` : `Since v${major}.${minor}`;
+const href = `/changelog/#v${major}.${minor}.0`;
+---
+<a href={href} class:list={['since', { 'since-new': isNewMajor }]} title={`Added in ${major}.${minor}.0`} data-pagefind-ignore>{text}</a>
