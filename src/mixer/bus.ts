@@ -1,8 +1,11 @@
 import type { FxInsert } from '../fx/types';
 import { waitAudio } from '../runtime/wait';
 import type { Voice } from '../sources/voice';
-import type { AudioLevel, BusConfig, ConcurrencyConfig, FadeCurve, SendOptions } from '../types';
+import type { AudioLevel, BusConfig, ConcurrencyConfig, DuckOptions, FadeCurve, SendOptions } from '../types';
 import { applyRamp } from './curve';
+import { planSteal, type StealPlan, type VoiceCandidate } from './steal';
+
+const ADMIT: StealPlan = { reject: false, victim: null };
 
 /**
  * One configured send from a source bus to a target bus. Returned by
@@ -69,7 +72,7 @@ export class Send {
 export class Bus {
   readonly name: string;
   readonly input: GainNode;
-  /** Sub-bus the FX chain splices into: input → fxInput → (fx…) → output. */
+  /** Sub-bus the FX chain splices into: input → fxInput → (fx…) → duck → output. */
   readonly fxInput: GainNode;
   /** Output node — connect to master.input or another bus.input for sends. */
   readonly output: GainNode;
@@ -84,6 +87,11 @@ export class Bus {
   private _voices = new Set<Voice>();
   private _fxChain: FxInsert[] = [];
   private _sends: Send[] = [];
+  // Voice-driven ducking. A gain stage after the FX chain, so the fader
+  // (`output.gain`) stays the user's and a duck never fights a fade.
+  private readonly duckNode: GainNode;
+  private ducks = new Map<number, { depth: number; start: number; attack: number }>();
+  private duckSeq = 0;
   // Lazy meter tap. Connected as a passive sibling of bus.output → master.input
   // so the audio path is unchanged.
   private _meterAnalyser: AnalyserNode | null = null;
@@ -105,12 +113,14 @@ export class Bus {
 
     this.input = ctx.createGain();
     this.fxInput = ctx.createGain();
+    this.duckNode = ctx.createGain();
     this.output = ctx.createGain();
 
-    // input -> fxInput -> output
-    // FX inserts will splice into the (fxInput -> output) hop later.
+    // input -> fxInput -> duck -> output
+    // FX inserts splice into the (fxInput -> duck) hop.
     this.input.connect(this.fxInput);
-    this.fxInput.connect(this.output);
+    this.fxInput.connect(this.duckNode);
+    this.duckNode.connect(this.output);
 
     this.output.gain.value = this._muted ? 0 : this._level;
   }
@@ -168,31 +178,77 @@ export class Bus {
   }
 
   /**
-   * Called by Engine right before adding a new Voice. Returns a Voice that
-   * was stolen to make room (so the engine can release it from its tracking),
-   * or null if no steal was needed (or the new voice itself was rejected,
-   * in which case onReject is invoked instead).
+   * Decide whether a voice that doesn't exist yet may play on this bus, and
+   * which voice it displaces. Pure: stops nothing. The caller stops the
+   * victim and only then starts the new voice, so a rejected voice never
+   * makes a sound.
+   *
+   * @internal
    */
-  applyConcurrencyOnSpawn(newVoice: Voice, onReject: () => void): Voice | null {
+  planConcurrency(candidate: VoiceCandidate): StealPlan {
     const c = this._concurrency;
-    if (!c) return null;
-    // The new voice is already tracked at this point; only steal once we
-    // *exceed* max, not when we hit it exactly.
-    if (this._voices.size <= c.max) return null;
+    if (!c) return ADMIT;
+    return planSteal(this._voices, this._voices.size, c.max, c.steal ?? 'oldest', candidate);
+  }
 
-    const strategy = c.steal ?? 'oldest';
-    if (strategy === 'none') {
-      onReject();
-      return null;
-    }
+  /**
+   * Pull this bus down by `amount` from audio time `at` until the returned
+   * release function is called. Overlapping ducks take the deepest; the bus
+   * comes back up when the last one releases. Used by `play({ duck })`.
+   *
+   * @returns a release function. Idempotent.
+   */
+  duck(opts: Omit<DuckOptions, 'bus'>, at: number = this.ctx.currentTime): () => void {
+    const id = ++this.duckSeq;
+    const depth = 1 - clamp01(opts.amount ?? 0.5);
+    const attack = Math.max(0, opts.attack ?? 0.05);
+    const release = Math.max(0, opts.release ?? 0.3);
+    this.ducks.set(id, { depth, start: Math.max(at, this.ctx.currentTime), attack });
+    this.scheduleDucks(attack);
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.ducks.delete(id);
+      this.scheduleDucks(release);
+    };
+  }
 
-    const victim = pickVictim(this._voices, strategy, newVoice);
-    if (!victim) {
-      onReject();
-      return null;
+  /** Current duck gain (1 = not ducked). */
+  get duckLevel(): number {
+    return this.duckNode.gain.value;
+  }
+
+  private scheduleDucks(rampSec: number): void {
+    const now = this.ctx.currentTime;
+    const param = this.duckNode.gain;
+    let depth = 1;
+    const future: { depth: number; start: number; attack: number }[] = [];
+    for (const d of this.ducks.values()) {
+      if (d.start <= now) depth = Math.min(depth, d.depth);
+      else future.push(d);
     }
-    victim.stop();
-    return victim;
+    applyRamp(param, now, depth, rampSec, 'linear');
+    // Ducks that haven't started yet: stamp each attack at its own start.
+    // The ramp above cancelled anything from `now` on, so re-lay them.
+    future.sort((a, b) => a.start - b.start);
+    let t = now + rampSec;
+    for (const d of future) {
+      if (d.depth >= depth) continue;
+      depth = d.depth;
+      const start = Math.max(d.start, t);
+      try {
+        param.setValueAtTime(param.value, start);
+      } catch {
+        /* inside a ramp window */
+      }
+      try {
+        param.linearRampToValueAtTime(depth, start + d.attack);
+      } catch {
+        param.value = depth;
+      }
+      t = start + d.attack;
+    }
   }
 
   /** Engine-only: register an active voice. */
@@ -211,10 +267,21 @@ export class Bus {
     this.rewireFxChain();
   }
 
+  /**
+   * Take an insert out of the chain. The insert is disconnected but not
+   * disposed, so it can be added to another bus. Before v2 its output stayed
+   * connected to this bus, so a reverb tail kept sounding and re-adding the
+   * insert elsewhere routed it into both buses.
+   */
   removeFx(fx: FxInsert): void {
     const idx = this._fxChain.indexOf(fx);
     if (idx === -1) return;
     this._fxChain.splice(idx, 1);
+    try {
+      fx.output.disconnect();
+    } catch {
+      /* not connected */
+    }
     this.rewireFxChain();
   }
 
@@ -324,18 +391,21 @@ export class Bus {
   }
 
   private rewireFxChain(): void {
-    try {
-      this.fxInput.disconnect();
-      for (const fx of this._fxChain) fx.output.disconnect();
-    } catch {
-      /* fresh */
+    // One try per node: a single throw used to skip every disconnect after
+    // it and leave stale edges in the chain.
+    for (const node of [this.fxInput, ...this._fxChain.map((fx) => fx.output)]) {
+      try {
+        node.disconnect();
+      } catch {
+        /* fresh */
+      }
     }
     let head: AudioNode = this.fxInput;
     for (const fx of this._fxChain) {
       head.connect(fx.input);
       head = fx.output;
     }
-    head.connect(this.output);
+    head.connect(this.duckNode);
   }
 
   private rampOutput(to: number, duration: number): void {
@@ -358,9 +428,11 @@ export class Bus {
     this._sends = [];
     for (const fx of this._fxChain) fx.dispose();
     this._fxChain = [];
+    this.ducks.clear();
     try {
       this.input.disconnect();
       this.fxInput.disconnect();
+      this.duckNode.disconnect();
       this.output.disconnect();
       this._meterAnalyser?.disconnect();
     } catch {
@@ -374,41 +446,4 @@ export class Bus {
 function clamp01(v: number): number {
   if (Number.isNaN(v)) return 0;
   return Math.min(1, Math.max(0, v));
-}
-
-function pickVictim(
-  voices: ReadonlySet<Voice>,
-  strategy: NonNullable<ConcurrencyConfig['steal']>,
-  newVoice: Voice,
-): Voice | null {
-  // Snapshot the level once per candidate up-front for 'quietest' so the
-  // comparison doesn't re-poll for every pair.
-  const rmsCache: Map<Voice, number> | null = strategy === 'quietest' ? new Map<Voice, number>() : null;
-  if (rmsCache) for (const v of voices) if (v !== newVoice) rmsCache.set(v, v.levelHint());
-
-  let victim: Voice | null = null;
-  for (const v of voices) {
-    if (v === newVoice) continue;
-    if (!victim) {
-      victim = v;
-      continue;
-    }
-    switch (strategy) {
-      case 'oldest':
-        if (v.startedAt < victim.startedAt) victim = v;
-        break;
-      case 'lowest-priority':
-        if (v.priority < victim.priority) victim = v;
-        break;
-      case 'quietest': {
-        const a = rmsCache?.get(v) ?? 0;
-        const b = rmsCache?.get(victim) ?? 0;
-        if (a < b) victim = v;
-        break;
-      }
-      default:
-        break;
-    }
-  }
-  return victim;
 }

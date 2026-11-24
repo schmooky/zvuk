@@ -5,18 +5,20 @@ import {
   type PreloadFailure,
   SoundNotFoundError,
 } from '../errors';
+import { Ducker } from '../fx/ducker';
 import { Parameter } from '../params/parameter';
-import { pickSource, pickSourceOrder } from '../runtime/codecs';
+import { pickSourceOrder } from '../runtime/codecs';
 import { AudioContextHost, type EngineState } from '../runtime/context';
 import { type DecodeOptions, Decoder } from '../runtime/decode';
 import { applyLoudnessNormalization } from '../runtime/loudness';
 import { Scheduler } from '../runtime/scheduler';
 import { Music } from '../sources/music';
-import { Sound } from '../sources/sound';
+import { Sound, VoiceLimit } from '../sources/sound';
 import { Sprite, type SpriteMap } from '../sources/sprite';
 import { StreamSound } from '../sources/stream';
 import { Variants, type VariantsOptions } from '../sources/variants';
 import type { Voice } from '../sources/voice';
+import { Listener } from '../spatial/listener';
 import { Spatializer } from '../spatial/spatializer';
 import type {
   AudioLevel,
@@ -26,6 +28,8 @@ import type {
   MusicParts,
   PreloadItem,
   PreloadOptions,
+  ResolveAssetContext,
+  SoundLimit,
   SpatialOptions,
 } from '../types';
 import { Bus } from './bus';
@@ -46,7 +50,25 @@ export interface Engine<TBusName extends string = string> {
   readonly context: AudioContext;
 
   unlock(): Promise<void>;
+  /**
+   * Suspend audio on the app's behalf: a pause menu, an ad break. Unlike the
+   * automatic suspend on tab hide, this one sticks — returning to the tab
+   * doesn't resume it. `resume()` (or `unlock()`) does.
+   */
+  suspend(): Promise<void>;
+  /** Undo `suspend()`. Same as `unlock()`. */
+  resume(): Promise<void>;
   close(): Promise<void>;
+
+  /**
+   * The master stage: `volume`, `muted`, `fadeTo()`, `headroom`,
+   * `setLimiter()`, `reduction` and `meter()`. Builds the audio graph on
+   * first read.
+   */
+  readonly master: Master;
+
+  /** The 3D listener: `setPosition()`, `setOrientation()`. */
+  readonly listener: Listener;
 
   /**
    * Load and decode an audio asset.
@@ -87,6 +109,14 @@ export interface Engine<TBusName extends string = string> {
     urls: readonly (string | readonly string[])[],
     options?: LoadSoundOptions & VariantsOptions,
   ): Promise<Variants>;
+  /**
+   * Remove an asset of any kind — sound, sprite, variants, music or stream —
+   * registered under `name`, and evict its decoded buffers from the cache
+   * unless `{ evictBuffer: false }`. Voices of sounds, sprites and variants
+   * keep playing until they end; music instances and streams are stopped,
+   * since a loop never ends on its own. No-op for an unknown name.
+   */
+  unload(name: string, options?: { evictBuffer?: boolean }): void;
   /** Look up a previously loaded variants bundle. Throws SoundNotFoundError on miss. */
   variants(name: string): Variants;
   /** True if `name` was loaded as a variants bundle. */
@@ -108,7 +138,7 @@ export interface Engine<TBusName extends string = string> {
    */
   preload(items: readonly PreloadItem[], options?: PreloadOptions): Promise<void>;
   /** Register a Sound from an AudioBuffer you constructed yourself (procedural, custom-decoded, time-stretched). */
-  createSound(name: string, buffer: AudioBuffer, options?: { bus?: string }): Sound;
+  createSound(name: string, buffer: AudioBuffer, options?: { bus?: string; limit?: SoundLimit }): Sound;
   /** Drop a sound from the registry. Active voices keep playing until they end naturally. */
   removeSound(name: string): void;
   /**
@@ -182,6 +212,8 @@ export interface Engine<TBusName extends string = string> {
    * Live amplitude readout on the master input. Same `{ rms, peak }`
    * shape as `bus.meter()` and `voice.level()`, just at the top of the
    * chain. First call lazily attaches a passive AnalyserNode tap.
+   *
+   * @deprecated Use `engine.master.meter()`.
    */
   masterMeter(): AudioLevel;
 
@@ -273,7 +305,8 @@ class EngineImpl implements Engine {
   private host: AudioContextHost;
   private decoder: Decoder;
   private scheduler: Scheduler | null = null;
-  private master: Master | null = null;
+  private _master: Master | null = null;
+  private _listener: Listener | null = null;
   private buses = new Map<string, Bus>();
   private busOrder: string[] = [];
   private sounds = new Map<string, Sound>();
@@ -319,8 +352,27 @@ class EngineImpl implements Engine {
     return this.host.touch();
   }
 
+  get master(): Master {
+    this.ensureGraph();
+    return this._master!;
+  }
+
+  get listener(): Listener {
+    if (!this._listener) this._listener = new Listener(this.host.touch());
+    return this._listener;
+  }
+
   async unlock(): Promise<void> {
     await this.host.unlock();
+    this.ensureGraph();
+  }
+
+  suspend(): Promise<void> {
+    return this.host.suspend();
+  }
+
+  async resume(): Promise<void> {
+    await this.host.resume();
     this.ensureGraph();
   }
 
@@ -337,8 +389,9 @@ class EngineImpl implements Engine {
       bus.dispose();
     }
     this.buses.clear();
-    this.master?.dispose();
-    this.master = null;
+    this._master?.dispose();
+    this._master = null;
+    this._listener = null;
     this.sounds.clear();
     this.internalSounds.clear();
     this.sprites.clear();
@@ -360,45 +413,35 @@ class EngineImpl implements Engine {
     url: string | readonly string[],
     options: LoadSoundOptions = {},
   ): Promise<Sound> {
-    return this.loadSoundAs(name, name, url, options, false);
+    const buffer = await this.loadBuffer({ name, kind: 'sound', url }, options);
+    this.soundUrls.set(name, toList(url));
+    return this.registerSound(name, name, buffer, { bus: options.bus, limit: makeLimit(options) }, false);
   }
 
-  /**
-   * Shared loader. `key` is the registry key; `publicName` is what spawned
-   * voices report as `sourceName`. They differ for sprites and variant
-   * bundles, whose parts are registered under internal keys.
-   */
-  private async loadSoundAs(
-    key: string,
-    publicName: string,
-    url: string | readonly string[],
-    options: LoadSoundOptions,
-    internal: boolean,
-  ): Promise<Sound> {
+  /** Resolve, fetch, decode and optionally normalize one buffer. */
+  private async loadBuffer(
+    asset: Omit<ResolveAssetContext, 'signal'>,
+    options: Omit<LoadSoundOptions, 'limit'>,
+  ): Promise<AudioBuffer> {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
-
-    const decodeOpts: DecodeOptions = { signal: options.signal };
-    let buffer = await this.resolveBuffer(key, url, decodeOpts);
-
+    const decodeOpts: DecodeOptions = { signal: options.signal, onProgress: options.onProgress };
+    let buffer = await this.resolveBuffer(asset, decodeOpts);
     if (options.normalize) {
       buffer = applyLoudnessNormalization(buffer, options.normalize, this.host.touch());
     }
-
-    // Record the URL set so `unloadSound` can evict the cache entry later.
-    this.soundUrls.set(key, typeof url === 'string' ? [url] : [...url]);
-    return this.registerSound(key, publicName, buffer, { bus: options.bus }, internal);
+    return buffer;
   }
 
   private async resolveBuffer(
-    name: string,
-    url: string | readonly string[],
+    asset: Omit<ResolveAssetContext, 'signal'>,
     decodeOpts: DecodeOptions,
   ): Promise<AudioBuffer> {
+    const { url } = asset;
     const resolver = this.config.resolveAsset;
     if (resolver) {
-      const resolved = await resolver({ name, url, signal: decodeOpts.signal });
+      const resolved = await resolver({ ...asset, signal: decodeOpts.signal });
       if (resolved != null) {
         if (resolved instanceof AudioBuffer) return resolved;
         if (resolved instanceof ArrayBuffer) {
@@ -424,6 +467,7 @@ class EngineImpl implements Engine {
     const concurrency = Math.max(1, options.concurrency ?? DEFAULT_LOAD_CONCURRENCY);
     const onProgress = options.onProgress;
     const batchSignal = options.signal;
+    const onBytes = options.onBytes;
     const total = items.length;
     let completed = 0;
     const failures: PreloadFailure[] = [];
@@ -441,10 +485,17 @@ class EngineImpl implements Engine {
               throw batchSignal.reason ?? new DOMException('preload aborted', 'AbortError');
             }
             const item = items[idx]!;
-            const itemSignal = combineSignals(batchSignal, item.options?.signal);
-            const opts: LoadSoundOptions = { ...(item.options ?? {}), signal: itemSignal };
+            const combined = combineSignals(batchSignal, item.options?.signal);
+            const own = item.options?.onProgress;
+            const onProgressBytes =
+              onBytes || own
+                ? (loadedBytes: number, totalBytes: number | null) => {
+                    own?.(loadedBytes, totalBytes);
+                    onBytes?.({ name: item.name, loadedBytes, totalBytes });
+                  }
+                : undefined;
             try {
-              await this.loadSound(item.name, item.url, opts);
+              await this.loadPreloadItem(item, combined.signal, onProgressBytes);
               completed++;
               onProgress?.({ name: item.name, status: 'loaded', completed, total });
             } catch (e) {
@@ -452,6 +503,8 @@ class EngineImpl implements Engine {
               completed++;
               failures.push({ name: item.name, cause: e });
               onProgress?.({ name: item.name, status: 'failed', error: e, completed, total });
+            } finally {
+              combined.dispose();
             }
           }
         })(),
@@ -465,14 +518,47 @@ class EngineImpl implements Engine {
     if (failures.length > 0) throw new PreloadError(failures);
   }
 
+  private loadPreloadItem(
+    item: PreloadItem,
+    signal: AbortSignal | undefined,
+    onProgress: LoadSoundOptions['onProgress'],
+  ): Promise<unknown> {
+    switch (item.kind) {
+      case 'sprite':
+        return this.loadSprite(item.name, item.url, item.regions, { ...item.options, signal, onProgress });
+      case 'variants':
+        return this.loadVariants(item.name, item.urls, { ...item.options, signal, onProgress });
+      case 'music':
+        return this.loadMusic(item.name, item.parts, { ...item.options, signal, onProgress });
+      default:
+        return this.loadSound(item.name, item.url, { ...item.options, signal, onProgress });
+    }
+  }
+
   async loadSprite(
     name: string,
     url: string | readonly string[],
     regions: SpriteMap,
     options: LoadSoundOptions = {},
   ): Promise<Sprite> {
-    const sound = await this.loadSoundAs(`__sprite:${name}`, name, url, options, true);
-    const sprite = new Sprite(name, sound, regions);
+    const buffer = await this.loadBuffer({ name, kind: 'sprite', url }, options);
+    const key = `__sprite:${name}`;
+    const sound = this.registerSound(
+      key,
+      name,
+      buffer,
+      { bus: options.bus, limit: makeLimit(options) },
+      true,
+    );
+    // Validates the regions against the buffer; a bad map leaves nothing behind.
+    let sprite: Sprite;
+    try {
+      sprite = new Sprite(name, sound, regions);
+    } catch (e) {
+      this.internalSounds.delete(key);
+      throw e;
+    }
+    this.soundUrls.set(key, toList(url));
     this.sprites.set(name, sprite);
     return sprite;
   }
@@ -495,16 +581,33 @@ class EngineImpl implements Engine {
     if (urls.length === 0) {
       throw new Error(`engine.loadVariants("${name}") requires at least one URL set`);
     }
-    const { strategy, ...loadOpts } = options;
+    const { strategy, weights, limit: _limit, ...loadOpts } = options;
     // Sequential awaits meant 8 variants cost 8 round trips. Same
     // concurrency cap as preload so a big variant bundle doesn't starve the
     // rest of the page's fetches.
-    const sounds = await mapConcurrent(urls, DEFAULT_LOAD_CONCURRENCY, (u, i) =>
-      this.loadSoundAs(`__variant:${name}:${i}`, name, u, loadOpts, true),
+    const buffers = await mapConcurrent(urls, DEFAULT_LOAD_CONCURRENCY, (u, i) =>
+      this.loadBuffer({ name, kind: 'variants', part: i, url: u }, loadOpts),
     );
-    const v = new Variants(name, sounds, { strategy });
+    // A reload with fewer takes must not leave the old tail registered.
+    const previous = this.variantsByName.get(name);
+    if (previous) this.dropVariantParts(name, previous.count);
+    // One limit for the whole bundle: "3 coins at once" means 3 in total.
+    const limit = makeLimit(options) ?? new VoiceLimit();
+    const sounds = buffers.map((buffer, i) => {
+      const key = `__variant:${name}:${i}`;
+      this.soundUrls.set(key, toList(urls[i]!));
+      return this.registerSound(key, name, buffer, { bus: options.bus, limit }, true);
+    });
+    const v = new Variants(name, sounds, { strategy, weights });
     this.variantsByName.set(name, v);
     return v;
+  }
+
+  private dropVariantParts(name: string, count: number): void {
+    for (let i = 0; i < count; i++) {
+      this.internalSounds.delete(`__variant:${name}:${i}`);
+      this.soundUrls.delete(`__variant:${name}:${i}`);
+    }
   }
 
   variants(name: string): Variants {
@@ -522,17 +625,15 @@ class EngineImpl implements Engine {
     this.host.touch();
     this.ensureGraph();
 
-    const decodeOpts: DecodeOptions = { signal: options.signal };
+    const decodeOpts: DecodeOptions = { signal: options.signal, onProgress: options.onProgress };
+    const part = (p: 'intro' | 'loop' | 'outro', url: string | readonly string[]) =>
+      this.resolveBuffer({ name, kind: 'music', part: p, url }, decodeOpts);
     // Three independent fetches. Sequential awaits made a three-part track
     // cost three round trips before a single note could play.
     const [loopBuf, introBuf, outroBuf] = await Promise.all([
-      this.resolveBuffer(`__music:${name}:loop`, parts.loop, decodeOpts),
-      parts.intro
-        ? this.resolveBuffer(`__music:${name}:intro`, parts.intro, decodeOpts)
-        : Promise.resolve(undefined),
-      parts.outro
-        ? this.resolveBuffer(`__music:${name}:outro`, parts.outro, decodeOpts)
-        : Promise.resolve(undefined),
+      part('loop', parts.loop),
+      parts.intro ? part('intro', parts.intro) : Promise.resolve(undefined),
+      parts.outro ? part('outro', parts.outro) : Promise.resolve(undefined),
     ]);
 
     const ctx = this.host.touch();
@@ -560,8 +661,19 @@ class EngineImpl implements Engine {
       destination: bus.input,
       loopCrossfade: options.loopCrossfade ?? 0,
       defaultStopFade: this.config.voice?.stopFade,
+      grid:
+        options.bpm != null && options.bpm > 0
+          ? { bpm: options.bpm, beatsPerBar: options.beatsPerBar, offset: options.gridOffset }
+          : undefined,
     });
+    // Reloading a name used to orphan the old asset's live instances: still
+    // playing, no longer reachable to stop.
+    this.musics.get(name)?.stopAll();
     this.musics.set(name, music);
+    this.soundUrls.set(
+      `__music:${name}`,
+      [parts.intro, parts.loop, parts.outro].flatMap((u) => (u ? toList(u) : [])),
+    );
     return music;
   }
 
@@ -579,11 +691,14 @@ class EngineImpl implements Engine {
     if (this.host.state === 'closed') throw new EngineClosedError();
     this.host.touch();
     this.ensureGraph();
-    const resolvedUrl = typeof url === 'string' ? url : pickSource(url);
+    const urls = typeof url === 'string' ? [url] : pickSourceOrder(url);
     const bus = options.bus ?? this.busOrder[0]!;
     const busObj = this.buses.get(bus);
     if (!busObj) throw new BusNotFoundError(bus, suggest(bus, [...this.buses.keys()]));
-    const stream = new StreamSound(name, this.host.touch(), resolvedUrl, busObj.input);
+    const stream = new StreamSound(name, this.host.touch(), urls, busObj.input);
+    // A reload used to leave the old <audio> element wired to the bus and
+    // playing, with no handle left to stop it.
+    this.streams.get(name)?.dispose();
     this.streams.set(name, stream);
     return stream;
   }
@@ -626,15 +741,19 @@ class EngineImpl implements Engine {
     return newVoice;
   }
 
-  createSound(name: string, buffer: AudioBuffer, options: { bus?: string } = {}): Sound {
-    return this.registerSound(name, name, buffer, options, false);
+  createSound(
+    name: string,
+    buffer: AudioBuffer,
+    options: { bus?: string; limit?: LoadSoundOptions['limit'] } = {},
+  ): Sound {
+    return this.registerSound(name, name, buffer, { bus: options.bus, limit: makeLimit(options) }, false);
   }
 
   private registerSound(
     name: string,
     publicName: string,
     buffer: AudioBuffer,
-    options: { bus?: string },
+    options: { bus?: string; limit?: VoiceLimit },
     internal: boolean,
   ): Sound {
     if (this.host.state === 'closed') throw new EngineClosedError();
@@ -668,25 +787,10 @@ class EngineImpl implements Engine {
         this.voices.get(busName)?.delete(v);
         this.buses.get(busName)?.releaseVoice(v);
       },
-      applyConcurrency: (v, busName) => {
-        const bus = this.buses.get(busName);
-        if (!bus) return true;
-        let rejected = false;
-        const stolen = bus.applyConcurrencyOnSpawn(v, () => {
-          rejected = true;
-        });
-        if (stolen) {
-          // Synchronously deregister the victim — its onended fires in a microtask
-          // and concurrency assertions need to be true the instant play() returns.
-          this.voices.get(busName)?.delete(stolen);
-          bus.releaseVoice(stolen);
-        }
-        if (rejected) {
-          this.voices.get(busName)?.delete(v);
-          bus.releaseVoice(v);
-        }
-        return !rejected;
-      },
+      planBus: (busName, candidate) =>
+        this.buses.get(busName)?.planConcurrency(candidate) ?? { reject: false, victim: null },
+      resolveBus: (busName) => this.bus(busName),
+      limit: options.limit,
     });
 
     // Sprite buffers and variant parts stay out of the public registry —
@@ -698,6 +802,40 @@ class EngineImpl implements Engine {
 
   removeSound(name: string): void {
     this.sounds.delete(name);
+  }
+
+  unload(name: string, options: { evictBuffer?: boolean } = {}): void {
+    const evict = options.evictBuffer ?? true;
+    const keys: string[] = [];
+    if (this.sounds.delete(name)) keys.push(name);
+    if (this.sprites.delete(name)) {
+      this.internalSounds.delete(`__sprite:${name}`);
+      keys.push(`__sprite:${name}`);
+    }
+    const v = this.variantsByName.get(name);
+    if (v) {
+      this.variantsByName.delete(name);
+      for (let i = 0; i < v.count; i++) {
+        this.internalSounds.delete(`__variant:${name}:${i}`);
+        keys.push(`__variant:${name}:${i}`);
+      }
+    }
+    const m = this.musics.get(name);
+    if (m) {
+      m.stopAll();
+      this.musics.delete(name);
+      keys.push(`__music:${name}`);
+    }
+    const st = this.streams.get(name);
+    if (st) {
+      st.dispose();
+      this.streams.delete(name);
+    }
+    for (const key of keys) {
+      const urls = this.soundUrls.get(key);
+      if (evict && urls) for (const u of urls) this.decoder.evict(u);
+      this.soundUrls.delete(key);
+    }
   }
 
   unloadSound(name: string, options: { evictBuffer?: boolean } = {}): void {
@@ -743,8 +881,7 @@ class EngineImpl implements Engine {
   }
 
   masterMeter(): AudioLevel {
-    this.ensureGraph();
-    return this.master!.meter();
+    return this.master.meter();
   }
 
   scheduleAt(audioTime: number, fn: () => void): () => void {
@@ -773,11 +910,22 @@ class EngineImpl implements Engine {
   }
 
   captureSnapshot(name: string): Snapshot {
+    this.ensureGraph();
     const buses: Record<string, { level: number; muted: boolean }> = {};
-    for (const [n, b] of this.buses) buses[n] = { level: b.level, muted: b.muted };
+    const sends: Record<string, Record<string, number>> = {};
+    const fx: Record<string, boolean[]> = {};
+    const solo: string[] = [];
+    for (const [n, b] of this.buses) {
+      buses[n] = { level: b.level, muted: b.muted };
+      const s = b.sends();
+      if (s.length > 0) sends[n] = Object.fromEntries(s.map((x) => [x.target.name, x.amount]));
+      const chain = b.fx();
+      if (chain.length > 0) fx[n] = chain.map((f) => f.bypassed);
+      if (b.soloed) solo.push(n);
+    }
     const parameters: Record<string, number> = {};
     for (const [n, p] of this.parameters) parameters[n] = p.value;
-    return this.snapshot(name, { buses, parameters });
+    return this.snapshot(name, { buses, parameters, sends, fx, solo });
   }
 
   snapshot(name: string, state: SnapshotState): Snapshot {
@@ -786,6 +934,7 @@ class EngineImpl implements Engine {
       state,
       (busName) => this.buses.get(busName),
       (paramName) => this.parameters.get(paramName),
+      () => this.buses.values(),
     );
   }
 
@@ -798,18 +947,43 @@ class EngineImpl implements Engine {
    * from any path that touches the context (unlock, loadSound, bus, ...).
    */
   private ensureGraph(): void {
-    if (this.master) return;
+    if (this._master) return;
     const ctx = this.host.touch();
-    this.master = new Master(ctx, this.config.master);
+    const master = new Master(ctx, this.config.master);
+    this._master = master;
     this.scheduler = new Scheduler(this.host, this.config.tickSource);
 
     for (const name of this.busOrder) {
       const cfg = this.config.buses?.[name] ?? {};
       const bus = new Bus(ctx, name, cfg);
-      bus.output.connect(this.master.input);
+      bus.output.connect(master.input);
       bus.notifySoloChange = (b, soloed) => this.handleSoloChange(b, soloed);
       this.buses.set(name, bus);
       if (!this.voices.has(name)) this.voices.set(name, new Set());
+    }
+
+    // `sidechain` was declared on BusConfig since v1 and read by nothing.
+    for (const name of this.busOrder) {
+      const sc = this.config.buses?.[name]?.sidechain;
+      if (!sc) continue;
+      const source = this.buses.get(sc.from);
+      if (!source || sc.from === name) {
+        throw new BusNotFoundError(
+          sc.from,
+          suggest(
+            sc.from,
+            [...this.buses.keys()].filter((b) => b !== name),
+          ),
+        );
+      }
+      this.buses.get(name)!.addFx(
+        new Ducker(ctx, source, {
+          amount: sc.amount,
+          attack: sc.attack,
+          release: sc.release,
+          threshold: sc.threshold,
+        }),
+      );
     }
   }
 
@@ -895,11 +1069,15 @@ function suggest(missing: string, candidates: readonly string[]): string | null 
  * Returns the lone signal if only one is given (no allocation), or undefined
  * if neither is given.
  */
-function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
-  if (!a) return b;
-  if (!b) return a;
-  if (a.aborted) return a;
-  if (b.aborted) return b;
+function combineSignals(
+  a?: AbortSignal,
+  b?: AbortSignal,
+): { signal: AbortSignal | undefined; dispose: () => void } {
+  const none = (): void => {};
+  if (!a) return { signal: b, dispose: none };
+  if (!b) return { signal: a, dispose: none };
+  if (a.aborted) return { signal: a, dispose: none };
+  if (b.aborted) return { signal: b, dispose: none };
   const ac = new AbortController();
   // Remove BOTH listeners as soon as either fires, so a long-lived source
   // signal (e.g. a batch-wide signal reused across every preload item) doesn't
@@ -918,7 +1096,17 @@ function combineSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefin
   };
   a.addEventListener('abort', onAbortA);
   b.addEventListener('abort', onAbortB);
-  return ac.signal;
+  // Nothing aborting is the common case. The preload worker calls dispose
+  // when its item settles, or a batch signal kept one listener per item.
+  return { signal: ac.signal, dispose: cleanup };
+}
+
+function toList(url: string | readonly string[]): string[] {
+  return typeof url === 'string' ? [url] : [...url];
+}
+
+function makeLimit(options: { limit?: LoadSoundOptions['limit'] }): VoiceLimit | undefined {
+  return options.limit ? new VoiceLimit(options.limit) : undefined;
 }
 
 function levenshtein(a: string, b: string): number {

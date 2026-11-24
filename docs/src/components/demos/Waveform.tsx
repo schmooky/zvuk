@@ -168,7 +168,7 @@ export default function Waveform({
         return;
       }
       c2d.clearRect(0, 0, canvas.width, canvas.height);
-      const stroke = color ?? (getComputedStyle(canvas).getPropertyValue('--wave-color').trim() || '#4f6cf7');
+      const stroke = color ?? (getComputedStyle(canvas).getPropertyValue('--wave-color').trim() || '#8a7bff');
 
       if (variant === 'wave') {
         analysers[0]!.getFloatTimeDomainData(timeBufs[0] as Float32Array<ArrayBuffer>);
@@ -281,7 +281,7 @@ export default function Waveform({
       )}
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height, display: 'block', '--wave-color': 'hsl(var(--primary))' } as React.CSSProperties}
+        style={{ width: '100%', height, display: 'block', '--wave-color': 'var(--primary)' } as React.CSSProperties}
         className="rounded-md border border-border/60 bg-background/40"
       />
     </div>

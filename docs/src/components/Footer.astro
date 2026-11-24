@@ -1,42 +1,71 @@
 ---
 import { SITE } from '../lib/seo';
+
+/** Four-column footer in the pixi-reels shape: the name and a line, then three link columns. */
+const cols = [
+  {
+    title: 'Docs',
+    items: [
+      { href: '/docs/quickstart/', label: 'Quickstart' },
+      { href: '/concepts/', label: 'Concepts' },
+      { href: '/fx/', label: 'FX' },
+      { href: '/guides/', label: 'Guides' },
+      { href: '/recipes/', label: 'Recipes' },
+    ],
+  },
+  {
+    title: 'Reference',
+    items: [
+      { href: '/api/', label: 'API' },
+      { href: '/reference/cli/', label: 'CLI' },
+      { href: '/guides/errors/', label: 'Errors' },
+      { href: '/changelog/', label: 'Changelog' },
+      { href: '/llms.txt', label: 'llms.txt' },
+    ],
+  },
+  {
+    title: 'Project',
+    items: [
+      { href: '/roadmap/', label: 'Roadmap' },
+      { href: '/examples/', label: 'Examples' },
+      { href: SITE.github, label: 'GitHub', external: true },
+      { href: SITE.npm, label: 'npm', external: true },
+    ],
+  },
+];
 ---
-<footer class="mt-24 border-t border-border/60">
-  <div class="container grid gap-10 py-10 md:grid-cols-3">
-    <div>
-      <div class="flex items-center font-mono text-sm font-semibold">
-        {SITE.name}
+<footer class="mt-20 border-t border-border">
+  <div class="container py-12">
+    <div class="grid grid-cols-2 gap-10 md:grid-cols-4">
+      <div class="col-span-2 md:col-span-1">
+        <div class="text-lg font-bold tracking-tight">{SITE.name}</div>
+        <p class="mt-3 max-w-xs text-sm text-muted-foreground">
+          An audio engine for the web: buses, ducking, snapshots and a codec ladder, on Web Audio.
+        </p>
+        <p class="mt-3 font-mono text-[11px] text-brand-text">{SITE.npmName}@{SITE.version}</p>
       </div>
-      <p class="mt-3 text-sm text-muted-foreground max-w-sm">{SITE.description}</p>
+      {cols.map((col) => (
+        <div class="flex flex-col gap-2">
+          <div class="mb-1 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">{col.title}</div>
+          {col.items.map((item) => (
+            <a
+              href={item.href}
+              class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              {...('external' in item && item.external ? { target: '_blank', rel: 'noopener' } : {})}
+            >
+              {item.label}
+            </a>
+          ))}
+        </div>
+      ))}
     </div>
-    <div>
-      <div class="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">Docs</div>
-      <ul class="space-y-1.5 text-sm">
-        <li><a href="/docs/quickstart/" class="text-muted-foreground hover:text-foreground">Quickstart</a></li>
-        <li><a href="/concepts/" class="text-muted-foreground hover:text-foreground">Concepts</a></li>
-        <li><a href="/fx/" class="text-muted-foreground hover:text-foreground">FX</a></li>
-        <li><a href="/recipes/" class="text-muted-foreground hover:text-foreground">Recipes</a></li>
-      </ul>
+    <div class="mt-10 flex flex-col justify-between gap-2 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
+      <span>
+        MIT licensed. Demo SFX from{' '}
+        <a href="https://kenney.nl/assets/digital-audio" target="_blank" rel="noopener" class="underline underline-offset-2 hover:text-foreground">Kenney's Digital Audio pack</a>
+        {' '}(CC0).
+      </span>
+      <span>Built with Astro, React and shadcn/ui on the Web Audio API.</span>
     </div>
-    <div>
-      <div class="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">Project</div>
-      <ul class="space-y-1.5 text-sm">
-        <li><a href="/roadmap/" class="text-muted-foreground hover:text-foreground">Roadmap</a></li>
-        <li><a href="/changelog/" class="text-muted-foreground hover:text-foreground">Changelog</a></li>
-        <li><a href="/llms.txt" class="text-muted-foreground hover:text-foreground">llms.txt</a></li>
-        <li><a href={SITE.github} class="text-muted-foreground hover:text-foreground" target="_blank" rel="noopener">GitHub</a></li>
-        <li><a href={SITE.npm} class="text-muted-foreground hover:text-foreground" target="_blank" rel="noopener">{SITE.npmName} on npm</a></li>
-      </ul>
-    </div>
-  </div>
-  <div class="container border-t border-border/40 py-6 text-xs text-muted-foreground/70 flex flex-col md:flex-row justify-between gap-2">
-    <div>
-      MIT licensed · Built on the Web Audio API · Demo SFX from{' '}
-      <a href="https://kenney.nl/assets/digital-audio" target="_blank" rel="noopener" class="hover:text-foreground">
-        Kenney's Digital Audio pack
-      </a>{' '}
-      (CC0)
-    </div>
-    <div class="font-mono">© zvuk contributors</div>
   </div>
 </footer>

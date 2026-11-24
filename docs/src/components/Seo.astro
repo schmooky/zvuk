@@ -19,9 +19,32 @@ interface Props {
   faq?: FaqEntry[];
   /** ISO date this page's content last changed. Defaults to the build date. */
   modified?: string;
+  type?: 'website' | 'article';
+  /** `article:section`, e.g. "Concepts". */
+  section?: string;
+  noindex?: boolean;
 }
 
-const { title, description, canonical, pathname, image, faq, modified } = Astro.props as Props;
+const {
+  title,
+  description,
+  canonical,
+  pathname,
+  image,
+  faq,
+  modified,
+  type = 'website',
+  section,
+  noindex = false,
+} = Astro.props as Props;
+
+// Result pages and link cards show about 160 characters and cut a longer
+// description wherever they like; cut it here instead, at a word (pixi-reels).
+const metaDescription =
+  description.length <= 160
+    ? description
+    : `${description.slice(0, 158).replace(/\s+\S*$/, '').replace(/[,;:.]$/, '')}…`;
+const imageAlt = `${title}. ${SITE.name}, the audio engine for the web.`;
 const isHome = pathname === '/' || pathname === '';
 
 const SECTION_NAMES: Record<string, string> = {
@@ -29,6 +52,7 @@ const SECTION_NAMES: Record<string, string> = {
   concepts: 'Concepts',
   guides: 'Guides',
   recipes: 'Recipes',
+  reference: 'Reference',
   examples: 'Examples',
   fx: 'FX',
   api: 'API',
@@ -116,4 +140,35 @@ const graph = [
 
 const ld = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
 ---
-<script type="application/ld+json" set:html={ld} is:inline />
+<meta name="description" content={metaDescription} />
+<meta name="author" content={SITE.author} />
+{!noindex && <link rel="canonical" href={canonical} />}
+{noindex
+  ? <meta name="robots" content="noindex, nofollow" />
+  : <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />}
+
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={SITE.name} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={metaDescription} />
+{!noindex && <meta property="og:url" content={canonical} />}
+<meta property="og:locale" content="en_US" />
+<meta property="og:image" content={image} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={imageAlt} />
+{type === 'article' && modified && <meta property="article:modified_time" content={modified} />}
+{type === 'article' && section && <meta property="article:section" content={section} />}
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={metaDescription} />
+<meta name="twitter:image" content={image} />
+<meta name="twitter:image:alt" content={imageAlt} />
+
+<link rel="sitemap" href="/sitemap-index.xml" />
+<link rel="alternate" type="text/plain" href="/llms.txt" title="LLM-readable site index" />
+<link rel="alternate" type="text/plain" href="/llms-full.txt" title="LLM-readable full docs" />
+
+{!noindex && <script type="application/ld+json" set:html={ld} is:inline />}

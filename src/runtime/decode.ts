@@ -109,7 +109,15 @@ export class Decoder {
     entry.waiters++;
     const release = () => {
       entry.waiters--;
-      if (entry.waiters <= 0) entry.controller.abort();
+      if (entry.waiters <= 0) {
+        entry.controller.abort();
+        // Leave the map now, not in the fetch's `.finally` a turn later. In
+        // that window a fresh load of the same URL joined the doomed fetch
+        // and failed with an AbortError it never asked for.
+        for (const [url, e] of this.inflight) {
+          if (e === entry) this.inflight.delete(url);
+        }
+      }
     };
 
     if (!signal) return entry.promise.finally(() => entry.waiters--);

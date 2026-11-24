@@ -4,6 +4,7 @@ import MixerDashboard from '../../components/demos/MixerDashboard.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import SignalFlowDiagram from '../../components/diagrams/SignalFlowDiagram.astro';
 import StateMachineDiagram from '../../components/diagrams/StateMachineDiagram.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -19,7 +20,7 @@ const engine = createEngine({
 });`;
 
 const lifecycle = `await engine.unlock();          // call from a user gesture
-engine.state;                    // 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed'
+engine.state;                    // 'cold' | 'unlocking' | 'live' | 'suspended' | 'interrupted' | 'closed'
 
 await engine.loadSound('coin', '/sfx/coin.webm', { bus: 'sfx' });
 engine.sound('coin').play();
@@ -34,6 +35,26 @@ const observe = `const off = engine.onStateChange((s) => {
 const schedule = `const beat = engine.now + 0.25;          // 250 ms ahead in audio time
 engine.scheduleAt(beat, () => engine.sound('downbeat').play());`;
 
+const pauseMenu = `pauseButton.onclick = async () => {
+  await engine.suspend();   // the audio clock stops; scheduled work waits
+  showPauseMenu();
+};
+
+resumeButton.onclick = async () => {
+  hidePauseMenu();
+  await engine.resume();
+};`;
+
+const unload = `// Leaving the bonus round: drop everything it loaded, whatever kind it was.
+for (const name of ['bonus-theme', 'bonus-sprite', 'bonus-coins', 'bonus-rain']) {
+  engine.unload(name);                       // evicts the decoded buffer too
+}
+engine.unload('ui-click', { evictBuffer: false }); // keep the buffer cached
+
+// Reloading a name replaces the asset. Old music voices stop, an old stream
+// is disposed; voices of an old sound play out.
+await engine.loadMusic('theme', { loop: ['/music/theme-v2.webm', '/music/theme-v2.m4a'] });`;
+
 const teardown = `// React example
 useEffect(() => () => { void engine.close(); }, []);
 
@@ -43,12 +64,42 @@ onBeforeUnmount(() => { void engine.close(); });
 // Plain SPA
 router.beforeEach(async () => { await engine.close(); });`;
 
+const config = `interface EngineConfig {
+  buses?: Record<string, BusConfig>;
+  master?: { volume?: number; mute?: boolean; headroom?: number; limiter?: MasterLimiterConfig };
+  voice?: VoiceDefaults;
+
+  latencyHint?: 'interactive' | 'balanced' | 'playback' | number;
+  cache?: { maxBytes?: number; maxEntries?: number };   // 64 MiB, 128 entries
+  tickSource?: TickSource;                               // e.g. Pixi app.ticker
+  resolveAsset?: AssetResolver;                          // adopt buffers you already have
+  autoPauseOnHidden?: boolean;                           // default true
+}`;
+
+const latency = `// A music player: longer buffers, less CPU, nobody is waiting on a tap.
+const player = createEngine({ buses: { music: {} }, latencyHint: 'playback' });
+
+// A game: the default, written out.
+const game = createEngine({ buses: { sfx: {} }, latencyHint: 'interactive' });`;
+
+const cache = `const engine = createEngine({
+  buses: { sfx: {}, music: {} },
+  // Decoded PCM is 4 bytes per sample per channel, so 32 MiB holds about
+  // 85 seconds of 48 kHz stereo. The LRU evicts on whichever limit hits first.
+  cache: { maxBytes: 32 * 1024 * 1024, maxEntries: 64 },
+});`;
+
 const surface = `interface Engine {
-  readonly state: 'cold' | 'unlocking' | 'live' | 'interrupted' | 'closed';
+  readonly state: 'cold' | 'unlocking' | 'live' | 'suspended' | 'interrupted' | 'closed';
   readonly now: number;
   readonly context: AudioContext;
 
+  readonly master: Master;               // v2
+  readonly listener: Listener;           // v2
+
   unlock(): Promise<void>;
+  suspend(): Promise<void>;              // v2: a pause the tab return won't undo
+  resume(): Promise<void>;               // v2
   close(): Promise<void>;
 
   loadSound(name: string, url: string | readonly string[], options?: LoadSoundOptions): Promise<Sound>;
@@ -57,6 +108,7 @@ const surface = `interface Engine {
   hasSound(name: string): boolean;
   hasSprite(name: string): boolean;
   hasStream(name: string): boolean;
+  unload(name: string, opts?: { evictBuffer?: boolean }): void;   // v2: any kind
 
   sound(name: string): Sound;            // throws SoundNotFoundError ("did you mean…")
   sprite(name: string): Sprite;
@@ -70,6 +122,7 @@ const surface = `interface Engine {
   captureSnapshot(name: string): Snapshot;
 
   activeVoices(): readonly Voice[];
+  masterMeter(): AudioLevel;             // deprecated in v2: engine.master.meter()
   onStateChange(fn: (s: EngineState) => void): () => void;
 }`;
 
@@ -158,6 +211,44 @@ try {
   <h2>API surface</h2>
   <Snippet code={surface} lang="ts" title="The Engine interface" />
 
+  <h2>Configuration</h2>
+  <p>
+    Everything <code>createEngine()</code> accepts. Only <code>buses</code>
+    is something you will set on every project; the rest have defaults that
+    suit a game in a foreground tab.
+  </p>
+  <Snippet code={config} lang="ts" title="EngineConfig" />
+
+  <h3>latencyHint <Since v="1.11" /></h3>
+  <p>
+    Passed straight to <code>AudioContextOptions.latencyHint</code>.
+    <code>'interactive'</code> is the browser default and the right call
+    when a tap has to sound immediately. <code>'playback'</code> trades
+    latency for larger buffers and less CPU, which suits a music player or a
+    podcast tool. A number asks for that many seconds, and browsers treat it
+    as a request rather than a promise. The hint only matters before the
+    context exists, so it has to go in the config, not on a running engine.
+  </p>
+  <Snippet code={latency} lang="ts" />
+
+  <h3>Decoded-buffer cache <Since v="1.14" /></h3>
+  <p>
+    Every decoded buffer goes into an LRU cache keyed by URL, so a second
+    <code>loadSound</code> of the same file costs nothing and two concurrent
+    loads share one fetch. The budget is in bytes because an entry count says
+    nothing about memory. One minute of stereo at 48 kHz decodes to about
+    23 MB. The defaults are 64 MiB and 128 entries, and both limits apply.
+    <code>engine.unloadSound(name)</code> evicts one entry on purpose.
+  </p>
+  <Snippet code={cache} lang="ts" />
+  <p>
+    <code>tickSource</code> and <code>autoPauseOnHidden</code> are covered in
+    <a href="/guides/runtime-timing/">Runtime timing</a>;
+    <code>resolveAsset</code> in <a href="/guides/asset-resolution/">Asset resolution</a>;
+    <code>master</code> on the <a href="/concepts/master/">Master bus</a> page,
+    which is also where <code>engine.master</code> <Since v="2.0" /> lives.
+  </p>
+
   <h2>Live demo</h2>
   <p>
     The dashboard below runs three buses, six samples in
@@ -222,6 +313,32 @@ try {
   </p>
   <Snippet code={didYouMean} lang="ts" />
 
+  <h3>Pause menu: suspend and resume <Since v="2.0" /></h3>
+  <p>
+    <code>autoPauseOnHidden</code> suspends the context when the tab is
+    hidden and resumes it when the tab comes back. That second half is
+    wrong for a pause menu. Switch tabs while paused and the game starts
+    making noise behind the menu. <code>engine.suspend()</code> is a
+    suspend the app owns. Tab return leaves it alone; only
+    <code>resume()</code> (or <code>unlock()</code>) ends it. The engine
+    reports <code>'suspended'</code> meanwhile, and because the audio clock
+    stops, voices, fades and <code>scheduleAt</code> callbacks pick up where
+    they were.
+  </p>
+  <Snippet code={pauseMenu} lang="ts" />
+
+  <h3>Unload anything, reload safely <Since v="2.0" /></h3>
+  <p>
+    <code>engine.unload(name)</code> takes a sound, sprite, variants bundle,
+    music or stream. Music and streams under that name are stopped; voices
+    of sounds, sprites and variants play out. <code>evictBuffer</code>
+    (default <code>true</code>) also drops the decoded buffers from the
+    cache. Loading a name that already exists replaces it with the same
+    stop rules, where 1.x left the old stream wired to its bus with no
+    handle to stop it.
+  </p>
+  <Snippet code={unload} lang="ts" />
+
   <h3>Tear down on route change</h3>
   <Snippet code={teardown} lang="ts" />
 
@@ -246,5 +363,6 @@ try {
     <li><a href="/concepts/mixer/">Mixer</a> is the bus graph rooted at the engine.</li>
     <li><a href="/concepts/bus/">Bus</a> covers routing, level, mute and fade.</li>
     <li><a href="/concepts/voice/">Voice</a> is what <code>play()</code> returns.</li>
+    <li><a href="/guides/errors/">Errors</a> lists what each engine call throws.</li>
   </ul>
 </Docs>

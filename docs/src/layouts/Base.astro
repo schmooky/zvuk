@@ -17,13 +17,27 @@ interface Props {
   faq?: FaqEntry[];
   /** ISO date this page's content last changed. */
   modified?: string;
+  /** `article` for documentation pages, `website` for the landing and indexes. */
+  type?: 'website' | 'article';
+  /** Section name for `article:section`. */
+  section?: string;
+  /**
+   * Mark <main> as the Pagefind body. The docs layout turns this off and
+   * marks its <article> instead, so the sidebar is never indexed.
+   */
+  searchBody?: boolean;
+  noindex?: boolean;
 }
 const {
-  title = `${SITE.name} — ${SITE.tagline}`,
+  title = `${SITE.name}: ${SITE.tagline}`,
   description = SITE.description,
   og,
   faq,
   modified,
+  type = 'website',
+  section,
+  searchBody = true,
+  noindex = false,
 } = Astro.props as Props;
 const canonical = new URL(Astro.url.pathname, SITE.url).toString();
 // Slugs are the full route path, so /api/Voice/ and /concepts/voice/ get
@@ -40,34 +54,31 @@ const markdownHref = new URL(
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {/* No-FOUC theme bootstrap: dark by default, honour the saved choice before first paint. */}
+    {/* No-FOUC theme bootstrap, as on the sibling sites: the saved choice,
+        else the OS preference, applied before first paint. */}
     <script is:inline>
       (() => {
+        let dark = true;
         try {
           const t = localStorage.getItem('theme');
-          if (t === 'light') document.documentElement.classList.remove('dark');
-          else document.documentElement.classList.add('dark');
+          dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
         } catch (_) {}
+        document.documentElement.classList.toggle('dark', dark);
       })();
     </script>
     <title>{title}</title>
-    <meta name="description" content={description} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:site_name" content={SITE.name} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={ogImage} />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content={ogImage} />
-    <link rel="canonical" href={canonical} />
     {/* A Markdown copy of this page, for anything that would otherwise strip
         the HTML to read it. /llms.txt indexes the site; /llms-full.txt is the
         whole corpus in one file. */}
-    <link rel="alternate" type="text/markdown" href={markdownHref} />
+    {!noindex && <link rel="alternate" type="text/markdown" href={markdownHref} title="This page as Markdown" />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#4f6cf7" />
+    {/* The primary violet in each scheme: oklch(0.54 0.21 286) light,
+        oklch(0.66 0.19 285) dark (global.css --primary). */}
+    <meta name="theme-color" content="#6b4ee0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#8a7bff" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
     <Seo
       title={title}
       description={description}
@@ -76,6 +87,9 @@ const markdownHref = new URL(
       image={ogImage}
       faq={faq}
       modified={modified}
+      type={type}
+      section={section}
+      noindex={noindex}
     />
     {/* Both faces are used above the fold; preloading beats waiting for the
         CSS to be parsed before the font request even starts. */}
@@ -83,8 +97,13 @@ const markdownHref = new URL(
     <link rel="preload" href={monoLatin} as="font" type="font/woff2" crossorigin />
   </head>
   <body>
+    <a href="#content" class="skip-link">Skip to content</a>
     <Nav />
-    <main><slot /></main>
+    {searchBody ? (
+      <main id="content" data-pagefind-body><slot /></main>
+    ) : (
+      <main id="content"><slot /></main>
+    )}
     <Footer />
   </body>
 </html>

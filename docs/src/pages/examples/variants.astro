@@ -1,0 +1,88 @@
+---
+import VariantSpam from '../../components/demos/VariantSpam.tsx';
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const html = `<!doctype html>
+<meta charset="utf-8" />
+<title>zvuk · variants</title>
+<button id="roll">Roll</button>
+<select id="strategy">
+  <option>no-repeat</option>
+  <option>shuffle-bag</option>
+  <option>random</option>
+</select>
+<p id="last"></p>
+<script type="module" src="./main.ts"></script>`;
+
+const main = `import { createEngine, type VariantStrategy } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { sfx: {} } });
+const TAKES = [1, 2, 3, 4].map((n) => [\`/sfx/dice-roll-\${n}.webm\`, \`/sfx/dice-roll-\${n}.m4a\`]);
+
+const strategy = document.getElementById('strategy') as HTMLSelectElement;
+const last = document.getElementById('last')!;
+
+async function load(s: VariantStrategy) {
+  // Reloading the name replaces the bundle.
+  await engine.loadVariants('roll', TAKES, {
+    bus: 'sfx',
+    strategy: s,
+    weights: [3, 1, 1, 1],          // v2: take 1 three times as likely
+    limit: { max: 2, cooldown: 0.06 }, // v2: shared by all four takes
+  });
+}
+
+strategy.onchange = () => load(strategy.value as VariantStrategy);
+
+document.getElementById('roll')!.onclick = async () => {
+  await engine.unlock();
+  if (!engine.hasVariants('roll')) await load(strategy.value as VariantStrategy);
+
+  const roll = engine.variants('roll');
+  roll.play({ volume: { jitter: 0.05 }, pitch: { jitter: 0.03 } });
+  last.textContent = \`take \${roll.lastPick + 1} of \${TAKES.length}\`;
+};`;
+---
+<Docs
+  title="Variants"
+  description="Several takes of the same sound and a picker that keeps them from repeating. Two files to copy, and the same thing live."
+  eyebrow="Example"
+>
+  <p>
+    The same dice roll on every click starts to sound like a machine by the
+    fourth one. Recording four takes fixes that, until a random picker plays
+    take 2 three times in a row, which happens more often than intuition says.
+  </p>
+  <p>
+    <code>engine.loadVariants</code> <Since v="1.11" /> loads every take and
+    returns a <code>Variants</code> bundle. <code>'no-repeat'</code> (the
+    default) never plays the same take twice running;
+    <code>'shuffle-bag'</code> plays all of them once before any repeats;
+    <code>'random'</code> is the plain draw.
+    <code>lastPick</code> <Since v="1.14" /> says which one fired.
+  </p>
+  <p>
+    <code>weights</code> <Since v="2.0" /> make some takes commoner than
+    others, and <code>limit</code> <Since v="2.0" /> caps the bundle as a
+    whole: <code>max: 2</code> means two rolls at once in total, not two of
+    each take.
+  </p>
+
+  <h2>Live</h2>
+  <VariantSpam client:visible />
+
+  <h2>index.html</h2>
+  <Snippet code={html} lang="html" title="index.html" />
+
+  <h2>main.ts</h2>
+  <Snippet code={main} lang="ts" title="main.ts" />
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/guides/loading/">Loading sounds</a> covers <code>loadVariants</code> next to the other loaders.</li>
+    <li><a href="/examples/sprite/">Sprite</a> when the takes share one file.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

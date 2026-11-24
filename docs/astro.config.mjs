@@ -36,6 +36,7 @@ const PRIORITY = [
   [/^\/guides\//, 0.8],
   [/^\/recipes\//, 0.7],
   [/^\/fx\//, 0.7],
+  [/^\/reference\//, 0.6],
   [/^\/examples\//, 0.6],
   [/^\/api\//, 0.5],
   [/^\/changelog\//, 0.4],

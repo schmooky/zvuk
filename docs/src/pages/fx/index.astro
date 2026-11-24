@@ -1,18 +1,20 @@
 ---
+import Since from '../../components/Since.astro';
+import CardGrid from '../../components/CardGrid.astro';
 import Docs from '../../layouts/Docs.astro';
 
-const fx = [
+const fx: { slug: string; label: string; blurb: string; href?: string }[] = [
   { slug: 'compressor', label: 'Compressor', blurb: 'Tame transients. Glue voices on a bus. Live gain-reduction meter.' },
   { slug: 'pitch',      label: 'Pitch & time-stretch', blurb: 'Cheap rate change vs. pitch-preserving granular stretch.' },
   { slug: 'reverb',     label: 'Reverb', blurb: 'Convolution with synthetic IR or your own impulse response.' },
   { slug: 'filter',     label: 'Filter', blurb: 'Biquad — lowpass, highpass, bandpass, notch, peaking, allpass.' },
-  { slug: 'ducker',     label: 'Ducker', blurb: 'Sidechain compression: drop one bus when another speaks.', href: '/guides/ducking/' },
+  { slug: 'ducker',     label: 'Ducker', blurb: 'Sidechain compression: drop one bus when another speaks.' },
 ];
 ---
 <Docs
   title="FX"
   description="Real DSP, real graphs. Inserts on any bus or composed standalone."
-  eyebrow="Reference"
+  eyebrow="FX"
 >
   <p>
     Every effect here is a small class implementing the same
@@ -22,17 +24,14 @@ const fx = [
     splices it into its chain between input and output, in the order you
     added it.
   </p>
+  <p>
+    In v2 <Since v="2.0" /> the inserts stopped clicking. Filter and reverb
+    parameter changes glide over about 10 ms, and filter and compressor
+    bypass crossfade to the dry signal instead of rewiring the graph.
+    <code>bus.removeFx(fx)</code> now disconnects the insert without
+    disposing it, so it can be added to another bus; in 1.x its output
+    stayed wired to the old bus.
+  </p>
 
-  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
-    {fx.map(({ slug, label, blurb, href }) => (
-      <a
-        href={href ?? `/fx/${slug}/`}
-        class="rounded-xl border border-border bg-card/40 p-4 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]"
-      >
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">{href ?? `/fx/${slug}/`}</div>
-        <div class="mt-1 font-semibold">{label}</div>
-        <div class="mt-1 text-sm text-muted-foreground">{blurb}</div>
-      </a>
-    ))}
-  </div>
+  <CardGrid cards={fx.map((c) => ({ href: c.href ?? `/fx/${c.slug}/`, title: c.label, body: c.blurb }))} />
 </Docs>

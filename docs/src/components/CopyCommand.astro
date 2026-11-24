@@ -1,0 +1,53 @@
+---
+/*
+  Install-command pill with copy-to-clipboard, ported from pixi-reels (the
+  marrow site has the same pill): a $ prompt, mono text, and a copy button
+  that flips to a check on success. One tiny inline script wires every
+  instance; no framework island.
+*/
+interface Props {
+  command: string;
+  class?: string;
+}
+const { command, class: className = '' } = Astro.props as Props;
+---
+<div class:list={['copy-cmd', className]}>
+  <span class="select-none text-muted-foreground" aria-hidden="true">$</span>
+  <code>{command}</code>
+  <button
+    type="button"
+    class="copy-cmd-btn ml-1 inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+    data-command={command}
+    aria-label="Copy command"
+  >
+    <svg class="icon-copy size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+    <svg class="icon-check hidden size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  </button>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.copy-cmd-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.command ?? '');
+      } catch {
+        return;
+      }
+      const copy = btn.querySelector('.icon-copy');
+      const check = btn.querySelector('.icon-check');
+      copy?.classList.add('hidden');
+      check?.classList.remove('hidden');
+      btn.setAttribute('aria-label', 'Copied');
+      setTimeout(() => {
+        copy?.classList.remove('hidden');
+        check?.classList.add('hidden');
+        btn.setAttribute('aria-label', 'Copy command');
+      }, 1600);
+    });
+  });
+</script>

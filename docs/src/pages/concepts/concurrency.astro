@@ -2,6 +2,7 @@
 import VoiceLimit from '../../components/demos/VoiceLimit.tsx';
 import ConcurrencyDiagram from '../../components/diagrams/ConcurrencyDiagram.astro';
 import Frame from '../../components/diagrams/Frame.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -19,6 +20,28 @@ engine.sound('player-hit').play({ priority: 10 });
 
 // Footstep — cheap, expendable.
 engine.sound('footstep').play({ priority: 0 });`;
+
+const rejected = `const v = engine.sound('footstep').play({ priority: 0 });
+if (v.rejected) {
+  // The bus (or the sound's own limit) said no. Nothing sounded,
+  // v.ended is already resolved, v.isDone is true, every method is a no-op.
+}`;
+
+const perSound = `// At most three coins at once, and never two within 50 ms of each other:
+// 40 win lines landing on one frame make one coin, not a machine gun.
+await engine.loadSound('coin', ['/sfx/coin.webm', '/sfx/coin.m4a'], {
+  bus: 'sfx',
+  limit: { max: 3, steal: 'oldest', cooldown: 0.05 },
+});
+
+// A variants bundle shares one limit: max 2 means two rolls in total.
+await engine.loadVariants('roll', takes, { bus: 'sfx', limit: { max: 2 } });
+
+// Change it later. null removes it.
+engine.sound('coin').setLimit({ max: 5, cooldown: 0.03 });
+engine.sprite('ui').setLimit({ max: 4 });
+engine.variants('roll').setLimit(null);
+engine.sound('coin').soundLimit; // { max: 5, cooldown: 0.03 }`;
 ---
 <Docs
   title="Concurrency"
@@ -34,8 +57,8 @@ engine.sound('footstep').play({ priority: 0 });`;
     Concurrency is a per-bus cap on how many voices may sound at once,
     together with a rule for what happens when a new voice arrives at a full
     bus. That rule is the <em>steal strategy</em>. It picks an existing voice
-    to end so the new one can play, and it runs synchronously, before
-    <code>play()</code> returns.
+    to end so the new one can play, or refuses the new one, and since v2 it
+    decides before the new voice starts.
   </p>
 
   <h2>How many voices can play at once?</h2>
@@ -53,10 +76,39 @@ engine.sound('footstep').play({ priority: 0 });`;
   <h2>Strategies</h2>
   <ul>
     <li><strong>oldest</strong> kills the voice that started first. This is the default, and the right call for SFX rain.</li>
-    <li><strong>lowest-priority</strong> kills the voice with the smallest <code>priority</code>. Use it when you have a hierarchy: a hero attack outranks a footstep, which outranks an ambience tick.</li>
+    <li><strong>lowest-priority</strong> kills the voice with the smallest <code>priority</code>. Use it when you have a hierarchy: a hero attack outranks a footstep, which outranks an ambience tick. Since v2, a newcomer that ranks below every playing voice is rejected instead of stealing; ties go to the newcomer, and among equal victims the oldest goes. <Since v="2.0" /></li>
     <li><strong>quietest</strong> kills the least audible voice. It ranks candidates by an existing meter tap where one exists and by the voice's own gain otherwise, so it costs nothing per candidate.</li>
     <li><strong>none</strong> rejects the new voice. The returned <a href="/api/Voice/"><code>Voice</code></a> is already ended.</li>
   </ul>
+  <p>
+    The four names make up the <code>StealStrategy</code> type <Since v="2.0" />,
+    shared by bus concurrency and per-sound limits.
+  </p>
+
+  <h2>Rejected voices never start <Since v="2.0" /></h2>
+  <p>
+    In 1.x the limit was enforced after the new voice had already started,
+    so a rejected voice played for the length of its stop fade and emitted a
+    <code>'started'</code> cue before it was taken back. Now the bus and the
+    sound's own limit are both planned first, and only then does anything
+    stop or start. A refused <code>play()</code> still returns a
+    <code>Voice</code>, with <code>rejected === true</code>. It never makes
+    a sound, emits only <code>'ended'</code>, and <code>isDone</code> is
+    already true.
+  </p>
+  <Snippet code={rejected} lang="ts" />
+
+  <h2>Per-sound limits <Since v="2.0" /></h2>
+  <p>
+    A bus cap protects the mix; it doesn't stop one sound from taking every
+    slot. <code>limit: {'{'} max, steal, cooldown {'}'}</code> on
+    <code>loadSound</code>, <code>loadSprite</code>,
+    <code>loadVariants</code> and <code>createSound</code> caps a single
+    asset. <code>cooldown</code> is the minimum time between two starts of
+    it; a play inside the window is rejected. Both limits apply, and the
+    sound's is checked first.
+  </p>
+  <Snippet code={perSound} lang="ts" />
 
   <h2>API</h2>
   <Snippet code={declare} lang="ts" title="At construction" />

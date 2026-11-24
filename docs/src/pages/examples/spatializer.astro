@@ -1,0 +1,107 @@
+---
+import SpatialPanner from '../../components/demos/SpatialPanner.tsx';
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const html = `<!doctype html>
+<meta charset="utf-8" />
+<title>zvuk · spatializer</title>
+<style>#field { width: 100%; height: 320px; background: var(--color-muted); border: 1px solid var(--color-border); border-radius: 8px; }</style>
+<canvas id="field"></canvas>
+<label><input id="wall" type="checkbox" /> behind a wall</label>
+<script type="module" src="./main.ts"></script>`;
+
+const main = `import { createEngine, type Voice } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { sfx: {} } });
+let facing = 0; // radians; arrow keys turn the listener
+const field = document.getElementById('field') as HTMLCanvasElement;
+const wall = document.getElementById('wall') as HTMLInputElement;
+
+let fire: Voice | null = null;
+
+field.onpointerdown = async () => {
+  if (fire) return;
+  await engine.unlock();
+  await engine.loadSound('fire', ['/audio/fire.webm', '/audio/fire.m4a'], { bus: 'sfx' });
+  fire = engine.sound('fire').play({
+    loop: true,
+    loopCrossfade: 0.4,
+    spatializer: {
+      position: [0, 0, -5],       // listener at the origin, facing -z
+      refDistance: 2,             // full volume within 2 units
+      maxDistance: 50,
+      rolloffFactor: 1.2,
+      distanceModel: 'inverse',
+      glide: 0.03,                // v2: ease toward each new position, no crackle
+      panningModel: 'HRTF',       // v2: 'equalpower' for many voices / speakers
+    },
+  });
+};
+
+// Pointer → world: x across the canvas, z into the screen.
+field.onpointermove = (e) => {
+  const r = field.getBoundingClientRect();
+  const x = ((e.clientX - r.left) / r.width - 0.5) * 20;   // -10..10
+  const z = -((e.clientY - r.top) / r.height) * 20;        // 0..-20
+  fire?.spatializer?.setPosition(x, 0, z);
+};
+
+// v2: turn the listener instead of moving the world.
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') facing -= 0.2;
+  else if (e.key === 'ArrowRight') facing += 0.2;
+  else return;
+  engine.listener.setOrientation([Math.sin(facing), 0, -Math.cos(facing)]);
+});
+
+// 0 = clear line of sight, 1 = heavily muffled.
+wall.onchange = () => fire?.spatializer?.setOcclusion(wall.checked ? 0.8 : 0);`;
+---
+<Docs
+  title="Spatializer"
+  description="A looping source moved around the listener in 3D, with distance rolloff and an occlusion knob. Two files to copy, and a stereo version live."
+  eyebrow="Example"
+>
+  <p>
+    A campfire the player walks past should get louder, move from one ear to
+    the other, and go dull when a wall is in the way. Panning a gain node by
+    hand gets the first two wrong in different ways on headphones.
+  </p>
+  <p>
+    Pass <code>spatializer</code> to <code>play()</code> and the voice gets a
+    <code>Spatializer</code> of its own: a <code>StereoPannerNode</code> for
+    <code>pan</code>, or a <code>PannerNode</code> (HRTF) for
+    <code>position</code>. The distance settings and
+    <code>setOcclusion()</code> <Since v="1.10" /> are 3D only.
+  </p>
+  <p>
+    <code>engine.listener</code> <Since v="2.0" /> turns the ears with the
+    arrow keys, and position updates glide <Since v="2.0" /> so moving the
+    pointer quickly doesn't crackle.
+  </p>
+
+  <h2>Live (stereo pan)</h2>
+  <SpatialPanner client:visible />
+
+  <h2>index.html</h2>
+  <Snippet code={html} lang="html" title="index.html" />
+
+  <h2>main.ts</h2>
+  <Snippet code={main} lang="ts" title="main.ts" />
+
+  <h2>Notes</h2>
+  <ul>
+    <li><code>pan</code> and <code>position</code> are mutually exclusive. Pick 2D or 3D per voice.</li>
+    <li>Occlusion drives a lowpass whose cutoff falls as the amount rises, plus a small gain drop. At 0 it is transparent.</li>
+    <li>Each 3D voice costs a <code>PannerNode</code>, a filter and a gain. Cap the bus with a concurrency limit if dozens can play at once.</li>
+  </ul>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/spatializer/">Spatializer</a> concept page.</li>
+    <li><a href="/concepts/concurrency/">Concurrency</a> for voice limits.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

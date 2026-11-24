@@ -22,6 +22,6 @@ const { code, lang = 'ts', hideBadge = false, title } = Astro.props as Props;
     )}
   </header>
   <div class="overflow-x-auto px-1 py-1 text-[13px] leading-6 [&_pre]:!bg-transparent [&_pre]:!m-0 [&_pre]:!p-3">
-    <Code code={code} lang={lang} theme="github-dark" />
+    <Code code={code} lang={lang} themes={{ light: 'github-light', dark: 'github-dark' }} />
   </div>
 </figure>

@@ -1,0 +1,164 @@
+---
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `// Loudness
+interface LoudnessOptions {
+  targetRms?: number;    // linear 0..1, default 0.1 (about -20 dBFS)
+  peakCeiling?: number;  // linear, default 0.99
+}
+type NormalizeFlag = boolean | LoudnessOptions;
+
+function applyLoudnessNormalization(
+  buffer: AudioBuffer,
+  flag: NormalizeFlag,
+  ctx?: BaseAudioContext,
+): AudioBuffer;
+
+function computeNormalizationGain(
+  buffer: AudioBuffer,
+  opts: Required<LoudnessOptions>,
+): number;
+
+// Codecs
+type AudioMimeType =
+  | 'audio/webm; codecs="opus"' | 'audio/ogg; codecs="opus"' | 'audio/ogg; codecs="vorbis"'
+  | 'audio/mp4; codecs="mp4a.40.2"' | 'audio/mpeg' | 'audio/wav' | 'audio/flac';
+
+function mimeForUrl(url: string): AudioMimeType | null;
+function canPlay(mime: AudioMimeType): boolean;
+function pickSource(urls: readonly string[]): string;
+function pickSourceOrder(urls: readonly string[]): readonly string[];`;
+
+const viaLoad = `// The usual way: let the engine do it at decode time.
+await engine.loadSound('coin', ['/sfx/coin.webm', '/sfx/coin.m4a'], {
+  bus: 'sfx',
+  normalize: true,                          // defaults
+});
+await engine.loadSound('vo-intro', '/vo/intro.webm', {
+  bus: 'voice',
+  normalize: { targetRms: 0.14 },           // dialogue a little hotter
+});`;
+
+const direct = `import { applyLoudnessNormalization, computeNormalizationGain } from '@schmooky/zvuk';
+
+// A buffer you decoded or synthesised yourself.
+const buf = await engine.context.decodeAudioData(bytes);
+
+// Returns a new, scaled buffer (the input is left alone when ctx is given).
+const leveled = applyLoudnessNormalization(buf, { targetRms: 0.1 }, engine.context);
+engine.createSound('custom', leveled, { bus: 'sfx' });
+
+// Or only measure: what gain would it apply?
+const gain = computeNormalizationGain(buf, { targetRms: 0.1, peakCeiling: 0.99 });
+console.log(\`\${(20 * Math.log10(gain)).toFixed(1)} dB\`);`;
+
+const codecs = `import { mimeForUrl, canPlay, pickSource, pickSourceOrder } from '@schmooky/zvuk';
+
+mimeForUrl('/sfx/coin.webm');          // 'audio/webm; codecs="opus"'
+mimeForUrl('/sfx/coin.m4a?v=3');       // 'audio/mp4; codecs="mp4a.40.2"'
+mimeForUrl('/sfx/coin');               // null
+
+canPlay('audio/webm; codecs="opus"');  // false on iOS 16 Safari, true almost everywhere else
+
+// On an old Safari: m4a moves to the front, webm stays as a later attempt.
+pickSourceOrder(['/sfx/coin.webm', '/sfx/coin.m4a']);
+// → ['/sfx/coin.m4a', '/sfx/coin.webm']
+
+pickSource(['/sfx/coin.webm', '/sfx/coin.m4a']);  // just the first of that order`;
+
+const ownFetch = `// Your own loader, same ladder the engine walks.
+async function fetchFirst(urls: readonly string[]): Promise<ArrayBuffer> {
+  let last: unknown;
+  for (const url of pickSourceOrder(urls)) {
+    try {
+      const res = await fetch(url);
+      if (res.ok) return await res.arrayBuffer();
+      last = new Error(\`\${res.status} \${url}\`);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}`;
+---
+<Docs
+  title="Loudness & codec helpers"
+  description="The standalone functions behind the normalize option and the codec ladder, exported for code that decodes or fetches audio outside engine.loadSound."
+  eyebrow="Reference"
+>
+  <p>
+    Most projects never call these directly. <code>loadSound</code> runs
+    the codec ladder and, with <code>normalize</code>, the loudness pass. They
+    are exported because a project that decodes its own buffers (a custom
+    asset pipeline, a recorder, procedural audio) needs the same two steps.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Exports" />
+
+  <h2>Loudness normalization</h2>
+  <p>
+    A raw sound set routinely spans 20 dB or more between the quietest pickup
+    and the loudest stinger, and a bus fader can't fix a spread that wide.
+    Normalization scales each buffer once, at decode time, so they start
+    level and the mix does the rest.
+  </p>
+  <p>
+    The measure is full-band RMS across all channels, scaled to
+    <code>targetRms</code>, then pulled back if the resulting peak would cross
+    <code>peakCeiling</code>. It is not perceptual loudness. There is no
+    K-weighting and no LUFS gating, so a bright clip and a bassy clip at equal
+    RMS will still sound different. Silence (RMS under 1e-6) is left alone,
+    and so is any buffer whose gain would come out within 0.1% of unity.
+  </p>
+  <Snippet code={viaLoad} lang="ts" />
+
+  <h3>Calling it yourself</h3>
+  <p>
+    <code>applyLoudnessNormalization</code> returns the input untouched when
+    the flag is <code>false</code>. Pass a context and it writes into a fresh
+    buffer, so a buffer someone else still holds (a <code>resolveAsset</code>
+    cache entry, say) never changes under them. Without a context it scales
+    in place. <code>computeNormalizationGain</code> only measures; its options
+    are required, so pass both fields.
+  </p>
+  <Snippet code={direct} lang="ts" />
+
+  <div class="pitfall">
+    <div class="pitfall-title">Normalize once, at load.</div>
+    The pass touches every sample, which is linear in the length of the clip
+    and runs on the main thread. Fine for SFX at load time; not something to
+    run per play.
+  </div>
+
+  <h2>Codec helpers</h2>
+  <p>
+    The ladder is a list of URLs for the same sound in different encodings,
+    usually <code>.webm</code> (Opus) then <code>.m4a</code> (AAC) for Safari
+    before iOS 17. <code>mimeForUrl</code> maps a file extension to a MIME
+    type, ignoring any query string or hash. <code>canPlay</code> asks an
+    <code>&lt;audio&gt;</code> element's <code>canPlayType</code> and accepts
+    both <code>"probably"</code> and <code>"maybe"</code>; with no DOM (SSR) it
+    answers <code>true</code>.
+  </p>
+  <p>
+    <code>pickSourceOrder</code> keeps every URL and only reorders. The ones
+    the browser claims it can play come first, in your order, and the rest after. It
+    doesn't filter, because <code>canPlayType</code> is a hint and some
+    browsers under-report. The engine walks that order and falls through on
+    a fetch or decode failure, which is where
+    <a href="/guides/errors/"><code>AggregateDecodeError</code></a> comes from.
+    <code>pickSource</code> returns just the first entry and throws on an
+    empty list.
+  </p>
+  <Snippet code={codecs} lang="ts" />
+  <Snippet code={ownFetch} lang="ts" title="Walking the ladder yourself" />
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/guides/asset-formats/">Asset formats</a> on why Opus first and AAC second.</li>
+    <li><a href="/reference/cli/">CLI</a>, whose <code>zvuk transcode</code> produces both files.</li>
+    <li><a href="/guides/loading/">Loading sounds</a> for <code>normalize</code> alongside the other load options.</li>
+  </ul>
+</Docs>

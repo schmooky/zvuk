@@ -1,3 +1,5 @@
+import { glideTo } from '../mixer/curve';
+import { FX_GLIDE_SEC } from './bypass';
 import type { FxInsert } from './types';
 
 export interface ReverbConfig {
@@ -60,9 +62,13 @@ export class Reverb implements FxInsert {
     const m = Math.max(0, Math.min(1, mix));
     this._wet = m;
     if (this._bypassed) return; // remembered; applied when un-bypassed
+    this.glideMix(1 - m, m);
+  }
+
+  private glideMix(dry: number, wet: number): void {
     const t = this.ctx.currentTime;
-    this.dry.gain.setValueAtTime(1 - m, t);
-    this.wet.gain.setValueAtTime(m, t);
+    glideTo(this.dry.gain, dry, t, FX_GLIDE_SEC);
+    glideTo(this.wet.gain, wet, t, FX_GLIDE_SEC);
   }
 
   setImpulse(buffer: AudioBuffer): void {
@@ -76,16 +82,10 @@ export class Reverb implements FxInsert {
   set bypassed(v: boolean) {
     if (this._bypassed === v) return;
     this._bypassed = v;
-    const t = this.ctx.currentTime;
-    if (v) {
-      // Transparent bypass: pass dry at unity, silence the wet path.
-      this.dry.gain.setValueAtTime(1, t);
-      this.wet.gain.setValueAtTime(0, t);
-    } else {
-      // Restore the configured/last-set mix (not a hardcoded default).
-      this.dry.gain.setValueAtTime(1 - this._wet, t);
-      this.wet.gain.setValueAtTime(this._wet, t);
-    }
+    // Transparent bypass passes dry at unity and silences the wet path;
+    // un-bypass restores the last-set mix. Both glide, so neither clicks.
+    if (v) this.glideMix(1, 0);
+    else this.glideMix(1 - this._wet, this._wet);
   }
 
   dispose(): void {

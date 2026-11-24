@@ -9,8 +9,8 @@
  * 27-page docs site stays small for readers who never use search.
  */
 ---
-<div id="search-root" class="hidden fixed inset-0 z-[100] flex items-start justify-center bg-background/80 backdrop-blur-sm pt-24">
-  <div class="w-full max-w-xl rounded-xl border border-border bg-card shadow-lg">
+<div id="search-root" class="hidden fixed inset-0 z-[100] flex items-start justify-center bg-background/80 px-4 pt-20 backdrop-blur-sm md:pt-24" role="dialog" aria-modal="true" aria-label="Search">
+  <div class="w-full max-w-xl rounded-lg border border-border bg-card shadow-lg">
     <div class="flex items-center gap-2 border-b border-border px-4 py-2">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input
@@ -19,20 +19,23 @@
         placeholder="Search docs…"
         class="w-full bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none"
         autocomplete="off"
+        aria-label="Search the docs"
       />
       <kbd class="ml-auto rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">esc</kbd>
     </div>
-    <ol id="search-results" class="max-h-[60vh] overflow-y-auto px-2 py-2 text-sm"></ol>
+    <ol id="search-results" class="max-h-[60vh] overflow-y-auto px-2 py-2 text-sm" aria-live="polite"></ol>
   </div>
 </div>
+{/* An icon on phones, a labelled pill from md up (the sibling sites' pill). */}
 <button
   id="search-trigger"
-  class="hidden md:inline-flex h-8 items-center gap-2 rounded-md border border-border bg-transparent px-3 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/50"
+  class="inline-flex size-9 items-center justify-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground md:h-8 md:w-auto md:border md:border-border md:px-3 md:text-sm"
   type="button"
+  aria-label="Search the docs"
 >
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-  Search
-  <kbd class="ml-1 rounded border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+  <span class="hidden md:inline">Search</span>
+  <kbd class="ml-1 hidden rounded-sm border border-border bg-secondary/60 px-1.5 py-0.5 font-mono text-[10px] md:inline">⌘K</kbd>
 </button>
 
 <!--
@@ -57,7 +60,10 @@
         await pagefind.options({ baseUrl: '/' });
         return pagefind;
       } catch (e) {
-        console.warn('Pagefind index not built — run `pnpm build` in docs/ first.');
+        console.warn('Pagefind index not built. Run `pnpm build` in docs/ first.');
+        if (results) {
+          results.innerHTML = '<li class="px-3 py-2 text-xs text-muted-foreground">Search index unavailable in dev. Run a production build to enable search.</li>';
+        }
         return null;
       }
     }
@@ -73,6 +79,10 @@
     }
 
     trigger && trigger.addEventListener('click', function () {
+      void ensure().then(open);
+    });
+    // The mobile menu (MobileNav.tsx) opens search through this event.
+    window.addEventListener('zvuk:search', function () {
       void ensure().then(open);
     });
 
@@ -101,13 +111,66 @@
       if (!pf || id !== last) return;
       var search = await pf.search(q);
       if (id !== last) return;
-      var data = await Promise.all(search.results.slice(0, 10).map(function (r) { return r.data(); }));
+      var data = await rerank(search.results, 10, q);
       if (!results) return;
-      results.innerHTML = data.map(function (d) {
-        var title = escapeHtml((d.meta && d.meta.title) || d.url);
-        return '<li class="rounded-md hover:bg-secondary/40"><a href="' + d.url + '" class="block px-3 py-2"><div class="text-sm font-semibold">' + title + '</div><div class="text-xs text-muted-foreground line-clamp-2">' + d.excerpt + '</div></a></li>';
-      }).join('');
+      if (!data.length) {
+        results.innerHTML = '<li class="px-3 py-2 text-xs text-muted-foreground">No pages match.</li>';
+        return;
+      }
+      results.innerHTML = data.map(renderHit).join('');
     });
+
+    // Rerank from pixi-reels: the generated API pages are short and
+    // repetitive, so Pagefind scores them above the page that explains the
+    // thing. Scale by section, unless the query IS the symbol name.
+    var SECTION_FACTOR = { API: 0.3, Changelog: 0.5 };
+    async function rerank(all, n, q) {
+      var pool = await Promise.all(all.slice(0, 40).map(function (r) {
+        return r.data().then(function (d) { return { score: r.score, d: d }; });
+      }));
+      var exact = q.toLowerCase().replace(/\s+/g, '');
+      pool.forEach(function (h) {
+        var section = sectionOf(h.d.url);
+        var title = String((h.d.meta && h.d.meta.title) || '').toLowerCase().split(' ')[0];
+        var f = SECTION_FACTOR[section];
+        if (f && !(section === 'API' && title === exact)) h.score *= f;
+      });
+      pool.sort(function (a, b) { return b.score - a.score; });
+      return pool.slice(0, n).map(function (h) { return h.d; });
+    }
+
+    // Hit layout from pixi-reels: the section in the brand hue, the title,
+    // and the heading inside the page when the hit is in a sub-section.
+    function renderHit(d) {
+      var title = (d.meta && d.meta.title) || d.url;
+      title = String(title).replace(/ · zvuk$/, '');
+      var section = sectionOf(d.url);
+      var url = d.url;
+      var heading = '';
+      var excerpt = d.excerpt;
+      var sub = (d.sub_results || []).filter(function (s) { return s.url.indexOf('#') >= 0; })[0];
+      if (sub && sub.title !== title) {
+        url = sub.url;
+        heading = sub.title;
+        excerpt = sub.excerpt || excerpt;
+      }
+      return (
+        '<li class="border-b border-border/60 last:border-b-0 hover:bg-secondary/40"><a href="' + escapeHtml(url) + '" class="block px-3 py-2">' +
+        '<div class="flex items-baseline gap-2">' +
+        (section ? '<span class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">' + escapeHtml(section) + '</span>' : '') +
+        '<span class="truncate text-sm font-semibold">' + escapeHtml(title) + '</span>' +
+        (heading ? '<span class="truncate text-xs text-muted-foreground">' + escapeHtml(heading) + '</span>' : '') +
+        '</div>' +
+        '<div class="mt-0.5 text-xs text-muted-foreground line-clamp-2">' + excerpt + '</div>' +
+        '</a></li>'
+      );
+    }
+
+    var SECTIONS = { docs: 'Docs', concepts: 'Concepts', fx: 'FX', guides: 'Guides', recipes: 'Recipes', examples: 'Examples', api: 'API', reference: 'Reference', changelog: 'Changelog' };
+    function sectionOf(url) {
+      var seg = String(url).replace(/^\/+/, '').split('/')[0];
+      return SECTIONS[seg] || '';
+    }
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"]/g, function (c) {

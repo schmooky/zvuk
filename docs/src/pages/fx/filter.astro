@@ -1,5 +1,6 @@
 ---
 import FilterSweep from '../../components/demos/FilterSweep.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -11,7 +12,7 @@ const surface = `class Filter implements FxInsert {
   setType(t: FilterKind): void;
   setFrequency(hz: number): void;
   setQ(q: number): void;
-  setGain(db: number): void;   // peaking gain, live
+  setGain(db: number): void;   // peaking gain, live (since 1.13)
   dispose(): void;
 }
 
@@ -59,6 +60,13 @@ muffle.set(1);   // fully underwater`;
     type, a frequency and a Q. Drive any of them from a
     <a href="/concepts/parameter/">Parameter</a> when you want the transition
     rather than the state.
+  </p>
+
+  <p>
+    Since v2 <Since v="2.0" /> frequency, Q and gain changes glide over about
+    10 ms and bypass crossfades to the dry signal, so a sweep from a slider
+    or a <code>Parameter</code> doesn't zipper and toggling bypass doesn't
+    click.
   </p>
 
   <h2>API surface</h2>

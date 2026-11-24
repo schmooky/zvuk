@@ -1,63 +1,86 @@
 ---
+import FeatureGrid from '../components/FeatureGrid.astro';
 import Hero from '../components/Hero.astro';
 import Base from '../layouts/Base.astro';
 import MixerDashboard from '../components/demos/MixerDashboard.tsx';
+import { V2_HEADLINE } from '../content/v2';
+
+const paths = [
+  { label: 'Start here', title: 'Quickstart', body: 'pnpm add, createEngine, one gesture, one sound.', href: '/docs/quickstart/' },
+  { label: 'Concepts', title: 'The engine', body: 'State machine, lifecycle, unlock, and what close() tears down.', href: '/concepts/engine/' },
+  { label: 'Recipes', title: 'Click, hear, copy', body: 'Slot reel, ducking, snapshots and more, each with its source.', href: '/recipes/' },
+];
 ---
 <Base
   title="zvuk: Audio Engine for the Web"
-  description="A Wwise-grade audio engine for the web. Named mixer buses with FX inserts, sidechain ducking, mix snapshots, audio sprites, and a codec ladder that survives Safari. ESM-only, type-safe, 17 kB min+gzip."
+  description="A Wwise-grade audio engine for the web. Mixer buses with FX inserts, ducking, mix snapshots, sprites, music on a beat grid and a codec ladder that survives Safari. ESM-only, typed, about 22 kB gzipped."
 >
   <Hero />
 
-  <section class="container py-16">
-    <div class="mx-auto max-w-3xl">
-      <h2 class="text-3xl font-semibold tracking-tight mb-4">A real engine, not a wrapper.</h2>
-      <p class="text-lg text-muted-foreground mb-4">
-        zvuk gives you the vocabulary game-audio engineers expect: <strong class="text-foreground">Engine</strong>,
-        <strong class="text-foreground">Mixer</strong>, <strong class="text-foreground">Bus</strong>,
-        <strong class="text-foreground">Send</strong>, <strong class="text-foreground">Sound</strong>,
-        <strong class="text-foreground">Voice</strong>, <strong class="text-foreground">Snapshot</strong>,
-        <strong class="text-foreground">Parameter</strong>. Routing is declarative.
-        Lifecycle is explicit. The <code class="text-primary font-mono">AudioContext</code>
-        is constructed lazily, so calling <code class="text-primary font-mono">createEngine()</code>
-        before any user gesture is safe.
-      </p>
-      <p class="text-lg text-muted-foreground">
-        Built for any application where audio matters. Games, interactive learning,
-        ambient web experiences, kiosks, music apps. If you've ever fought autoplay
-        on iOS or watched a clip cut itself off mid-playback, zvuk is the layer that
-        handles those problems for you.
-      </p>
+  <section class="border-b border-border py-20 sm:py-24">
+    <div class="container grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
+      <div class="max-w-xl">
+        <p class="eyebrow">Try it</p>
+        <h2 class="display mt-4 text-4xl sm:text-5xl">A mixer, running the engine.</h2>
+        <p class="lead mt-5">
+          Three buses, six samples and a live meter per bus. Every fader here is
+          a write to <code class="font-mono text-[0.9em] text-foreground">bus.level</code>, which ramps over 10 ms so it never clicks; the meters read
+          <code class="font-mono text-[0.9em] text-foreground">bus.meter()</code>. Tap a pad to unlock audio.
+        </p>
+        <p class="mt-4 text-[15px] leading-relaxed text-muted-foreground">
+          zvuk names things the way game-audio people do: Engine, Mixer, Bus, Send,
+          Sound, Voice, Snapshot, Parameter. If you have fought autoplay on iOS or
+          watched a clip cut itself off mid-play, this is the layer that deals with it.
+        </p>
+      </div>
+      <div class="min-w-0">
+        <MixerDashboard client:visible />
+      </div>
     </div>
   </section>
 
-  <section class="container py-8">
-    <div class="mx-auto max-w-4xl">
-      <h2 class="text-3xl font-semibold tracking-tight mb-2">Try it.</h2>
-      <p class="text-muted-foreground mb-6">
-        A live mixer running the actual engine. Real samples, real Web Audio. iOS-safe.
-      </p>
-      <MixerDashboard client:visible />
+  <section class="border-b border-border py-20 sm:py-24" id="whats-new">
+    <div class="container">
+      <div class="flex flex-wrap items-end justify-between gap-6">
+        <div class="max-w-3xl">
+          <p class="eyebrow">New in v2</p>
+          <h2 class="display mt-4 text-4xl sm:text-5xl">What's new in 2.0.</h2>
+          <p class="lead mt-5">
+            The six that change how a game sounds. The full list is in the
+            <a href="/changelog/" class="font-medium text-foreground underline underline-offset-4">changelog</a>,
+            and the migration guide covers what breaks.
+          </p>
+        </div>
+        <a href="/guides/migrating-to-v2/" class="inline-flex h-11 items-center rounded-md border border-border px-5 text-sm font-semibold transition-colors hover:border-foreground/60 hover:bg-secondary/60">
+          Migration guide
+        </a>
+      </div>
+      <div class="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {V2_HEADLINE.map((item) => (
+          <a href={item.href} class="card-link">
+            <strong>{item.title}</strong>
+            <span>{item.body}</span>
+          </a>
+        ))}
+      </div>
     </div>
   </section>
 
-  <section class="container py-16">
-    <div class="mx-auto max-w-4xl grid gap-6 md:grid-cols-3">
-      <a href="/docs/quickstart/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
-        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Start here</div>
-        <div class="font-semibold mb-1 group-hover:text-primary">Quickstart</div>
-        <div class="text-sm text-muted-foreground">pnpm add @schmooky/zvuk. Two function calls. Sound out of the speakers.</div>
-      </a>
-      <a href="/concepts/engine/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
-        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Concepts</div>
-        <div class="font-semibold mb-1 group-hover:text-primary">The Engine</div>
-        <div class="text-sm text-muted-foreground">State machine, lifecycle, unlock. The Big One.</div>
-      </a>
-      <a href="/recipes/" class="group rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-primary/[0.04]">
-        <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Recipes</div>
-        <div class="font-semibold mb-1 group-hover:text-primary">Click → hear → copy</div>
-        <div class="text-sm text-muted-foreground">Six live, copy-pasteable patterns. Slot reel, ducking, snapshots, more.</div>
-      </a>
+  <FeatureGrid />
+
+  <section class="border-t border-border py-20 sm:py-24">
+    <div class="container">
+      <p class="eyebrow">Start</p>
+      <h2 class="display mt-4 text-4xl sm:text-5xl">Pick a way in.</h2>
+      <div class="mt-10 grid gap-3 md:grid-cols-3">
+        {paths.map((p) => (
+          <a href={p.href} class="card-link">
+            <span class="card-label">{p.label}</span>
+            <strong class="mt-1.5">{p.title}</strong>
+            <span>{p.body}</span>
+          </a>
+        ))}
+      </div>
     </div>
   </section>
 </Base>

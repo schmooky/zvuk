@@ -1,4 +1,5 @@
 ---
+import CardGrid from '../../components/CardGrid.astro';
 import Docs from '../../layouts/Docs.astro';
 
 interface Example {
@@ -10,6 +11,15 @@ interface Example {
   /** The vanilla source on GitHub — always present. */
   source: string;
 }
+
+/** Copy-paste pages on this site: an index.html + main.ts pair each. */
+const standalone = [
+  { href: '/examples/music/', title: 'Music: intro, loop, outro', body: 'loadMusic, skipToOutro on the bar or right now, currentPart as it changes.' },
+  { href: '/examples/sprite/', title: 'Sprite', body: 'A UI sound set cut from one file, with one looping region.' },
+  { href: '/examples/variants/', title: 'Variants', body: 'Four dice-roll takes and the no-repeat, shuffle-bag and random pickers.' },
+  { href: '/examples/stream/', title: 'StreamSound', body: 'A 68-second rain bed through an audio element: play, pause, seek, fade.' },
+  { href: '/examples/spatializer/', title: 'Spatializer', body: 'A fire moved around the listener in 3D, with rolloff and occlusion.' },
+];
 
 const examples: Example[] = [
   {
@@ -61,6 +71,15 @@ const examples: Example[] = [
   description="Deployable demos. Each one shows one cluster of the engine that's hard to explain in isolation."
   eyebrow="Examples"
 >
+  <h2>Copy-paste examples</h2>
+  <p>
+    Each of these is two short files, <code>index.html</code> and
+    <code>main.ts</code>, that run as they are under any bundler that
+    resolves npm packages.
+  </p>
+  <CardGrid cards={standalone} />
+
+  <h2>Apps in the repo</h2>
   <p>
     Each example is a zero-build app (an <code>index.html</code> plus a small
     TypeScript module) sitting under <code>examples/</code> in the repo.
@@ -69,9 +88,9 @@ const examples: Example[] = [
     The full vanilla source is on GitHub.
   </p>
 
-  <div class="not-prose mt-6 grid gap-3 sm:grid-cols-2">
+  <div class="card-grid">
     {examples.map(({ slug, label, blurb, live, source }) => (
-      <div class="group flex flex-col gap-2 rounded-xl border border-border bg-card/30 p-4 transition-colors hover:border-primary/40 hover:bg-card/50">
+      <div class="flex flex-col gap-2 rounded-lg border border-border bg-card px-5 py-4">
         <div class="flex items-center justify-between gap-2">
           <div class="font-semibold">{label}</div>
           {live && (

@@ -1,0 +1,102 @@
+---
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const html = `<!doctype html>
+<meta charset="utf-8" />
+<title>zvuk · stream</title>
+<button id="play">Play</button>
+<button id="pause">Pause</button>
+<button id="fade">Fade out</button>
+<input id="seek" type="range" min="0" max="1" step="0.001" value="0" />
+<script type="module" src="./main.ts"></script>`;
+
+const main = `import { createEngine, type StreamSound } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { ambience: { level: 0.6 } } });
+const $ = (id: string) => document.getElementById(id)!;
+const seek = $('seek') as HTMLInputElement;
+
+let rain: StreamSound | null = null;
+
+$('play').onclick = async () => {
+  await engine.unlock();
+  // Not decoded: an <audio> element reads it progressively and its output is
+  // routed into the ambience bus, so bus level, FX and ducking still apply.
+  rain ??= engine.loadStream('rain', ['/audio/rain.webm', '/audio/rain.m4a'], { bus: 'ambience' });
+  rain.setVolume(1);
+  // v2: play() says whether the browser let it start.
+  const started = await rain.play({ loop: true });
+  if (!started) {
+    $('play').textContent = 'Tap to play'; // autoplay refused: retry from this gesture
+    return;
+  }
+  console.log('streaming', rain.url); // the ladder entry actually in use
+  rain.ended.then(() => console.log('rain stopped'));
+};
+
+$('pause').onclick = () => rain?.pause();
+
+$('fade').onclick = async () => {
+  if (!rain) return;
+  await rain.fade({ to: 0, duration: 2 });
+  rain.stop();
+};
+
+seek.oninput = () => {
+  if (rain && rain.duration) rain.seek(Number(seek.value) * rain.duration);
+};
+
+setInterval(() => {
+  if (rain && rain.duration && !rain.paused) seek.value = String(rain.currentTime / rain.duration);
+}, 250);`;
+---
+<Docs
+  title="StreamSound"
+  description="A long ambience or music track played through an audio element instead of being decoded into memory. Two files to copy."
+  eyebrow="Example"
+>
+  <p>
+    The rain bed on this site is 68 seconds long. Decoded, that is about
+    26 MB of PCM sitting in memory for a sound that never needs sample
+    accuracy, and on iOS the decode itself stalls the page.
+  </p>
+  <p>
+    <code>engine.loadStream</code> returns a <code>StreamSound</code> right
+    away, without fetching. The first <code>play()</code> builds an
+    <code>&lt;audio&gt;</code> element and a
+    <code>MediaElementAudioSourceNode</code>, and routes it into the bus.
+  </p>
+  <p>
+    Three things changed in v2 <Since v="2.0" />. <code>play()</code>
+    resolves <code>true</code> when the element is playing and
+    <code>false</code> when the browser refused (autoplay before a gesture,
+    or no playable source); 1.x resolved nothing either way. The URL ladder
+    is ordered by <code>pickSourceOrder</code> and the element falls through
+    to the next URL on a media error, with <code>url</code> saying which one
+    it is on. And <code>ended</code> resolves when playback ends, because the file
+    ran out (never, while looping), <code>stop()</code> ran, or the stream
+    was disposed.
+  </p>
+
+  <h2>index.html</h2>
+  <Snippet code={html} lang="html" title="index.html" />
+
+  <h2>main.ts</h2>
+  <Snippet code={main} lang="ts" title="main.ts" />
+
+  <h2>Notes</h2>
+  <ul>
+    <li>A stream can't be pitched, offset into a sprite region, or limited per voice; it has one playhead. Use <code>loadSound</code> for anything short.</li>
+    <li><code>resolveAsset</code> doesn't apply to streams, which always read from the URL.</li>
+    <li>The element is created on first play and can't move to another bus afterwards. <code>dispose()</code> releases it, and so do <code>engine.unload(name)</code> and loading another stream under the same name.</li>
+  </ul>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/guides/loading/">Loading sounds</a> on when to stream and when to decode.</li>
+    <li><a href="/examples/music/">Music</a> for looped tracks with an intro and an outro.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

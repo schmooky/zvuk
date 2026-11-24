@@ -6,10 +6,11 @@ import { defineWorkspace } from 'vitest/config';
  * an illegal call or render a sample. These specs run in real browsers
  * against a real OfflineAudioContext and assert on rendered audio.
  *
- * Two engines, because they disagree on the parts that matter here —
- * Chromium has `cancelAndHoldAtTime`, WebKit does not.
+ * Three engines, because they disagree on the parts that matter here.
+ * Chromium and WebKit have `cancelAndHoldAtTime`; Firefox has none, which is
+ * the reason curve.ts keeps its plain-cancel fallback.
  */
-const browsers = ['chromium', 'webkit'] as const;
+const browsers = ['chromium', 'webkit', 'firefox'] as const;
 
 export default defineWorkspace(
   browsers.map((name) => ({

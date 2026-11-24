@@ -1,0 +1,215 @@
+---
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const hierarchy = `ZvukError                       extends Error
+├─ EngineClosedError            the engine was closed
+├─ BusNotFoundError             a bus name nobody declared
+├─ SoundNotFoundError           a sound, sprite, variant set, music or stream name
+├─ SpriteRegionNotFoundError    a region the sprite doesn't have      .sprite .region   (v2)
+├─ DecodeError                  one URL failed to fetch or decode
+│  └─ AggregateDecodeError      every URL in a codec ladder failed   .attempts
+└─ PreloadError                 one or more preload items failed     .failures`;
+
+const narrow = `import {
+  AggregateDecodeError,
+  SpriteRegionNotFoundError,
+  BusNotFoundError,
+  DecodeError,
+  PreloadError,
+  ZvukError,
+} from '@schmooky/zvuk';
+
+try {
+  await engine.loadSound('coin', ['/sfx/coin.webm', '/sfx/coin.m4a'], { bus: 'sfx' });
+} catch (e) {
+  if (e instanceof AggregateDecodeError) {
+    for (const { url, cause } of e.attempts) console.warn(url, cause);
+  } else if (e instanceof DecodeError) {
+    console.warn('one URL, and it failed:', e.cause);
+  } else if (e instanceof BusNotFoundError) {
+    throw e; // a typo in code, not a runtime condition
+  } else if ((e as Error).name === 'AbortError') {
+    // the signal you passed fired; nothing to report
+  } else {
+    throw e;
+  }
+}`;
+
+const preload = `try {
+  await engine.preload(manifest, { concurrency: 4, onProgress });
+} catch (e) {
+  if (!(e instanceof PreloadError)) throw e;
+  // Everything else in the batch loaded. Decide per item.
+  for (const { name, cause } of e.failures) {
+    report(name, cause);
+  }
+}`;
+
+const typo = `engine.bus('sxf');
+// BusNotFoundError: Bus "sxf" is not configured.
+// Declare it in createEngine({ buses: { ... } }). Did you mean "sfx"?`;
+
+const cause = `catch (e) {
+  if (e instanceof ZvukError) {
+    logger.error(e.message, { name: e.name, cause: e.cause });
+  }
+}`;
+---
+<Docs
+  title="Errors"
+  description="Which engine call throws which error class, what the message carries, and which ones are worth catching at runtime."
+  eyebrow="Guide"
+>
+  <p>
+    A loading screen that dies on the first missing file is worse than one
+    that shows a gap, and a typo in a bus name should fail loudly in
+    development instead of playing nothing in production. Telling those apart
+    needs typed errors.
+  </p>
+  <p>
+    Every error zvuk throws on purpose extends <a href="/api/ZvukError/"><code>ZvukError</code></a>,
+    so one <code>instanceof</code> separates them from everything else. The
+    original failure is kept on <code>cause</code> (since 1.14), so a logger
+    that walks the cause chain still gets the network or decoder stack.
+  </p>
+
+  <h2>The classes</h2>
+  <Snippet code={hierarchy} lang="plaintext" title="Hierarchy" hideBadge />
+
+  <h2>What throws what</h2>
+  <table>
+    <thead>
+      <tr><th>Call</th><th>Throws</th><th>When</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>engine.bus(name)</code></td>
+        <td><code>BusNotFoundError</code></td>
+        <td>The name isn't in <code>createEngine({'{'} buses {'}'})</code>. The message suggests the closest declared name.</td>
+      </tr>
+      <tr>
+        <td><code>engine.busGroup(name)</code></td>
+        <td><code>BusNotFoundError</code></td>
+        <td>Looking up a group that was never created with members.</td>
+      </tr>
+      <tr>
+        <td><code>loadSound</code>, <code>loadSprite</code>, <code>loadVariants</code>, <code>loadMusic</code>, <code>loadStream</code>, <code>createSound</code></td>
+        <td><code>BusNotFoundError</code></td>
+        <td><code>options.bus</code> names an undeclared bus. Checked when the sound is registered, after the fetch.</td>
+      </tr>
+      <tr>
+        <td><code>sound.play({'{'} bus {'}'})</code>, <code>play({'{'} duck: {'{'} bus {'}'} {'}'})</code></td>
+        <td><code>BusNotFoundError</code></td>
+        <td>A per-play bus override, or the bus to duck, names an undeclared bus.</td>
+      </tr>
+      <tr>
+        <td><code>engine.sound</code>, <code>sprite</code>, <code>variants</code>, <code>music</code>, <code>stream</code></td>
+        <td><code>SoundNotFoundError</code></td>
+        <td>Nothing is registered under that name in that registry. Each kind has its own registry, so <code>engine.sound('theme')</code> fails for a track loaded with <code>loadMusic</code>.</td>
+      </tr>
+      <tr>
+        <td><code>sprite.play(region)</code>, <code>sprite.region(name)</code></td>
+        <td><code>SpriteRegionNotFoundError</code> <Since v="2.0" /></td>
+        <td>The region isn't in the sprite map. The message lists the regions it does have; <code>sprite</code> and <code>region</code> are fields. In 1.x this was a <code>SoundNotFoundError</code> named <code>sprite#region</code>.</td>
+      </tr>
+      <tr>
+        <td><code>loadSprite</code></td>
+        <td><code>RangeError</code> <Since v="2.0" /></td>
+        <td>A region doesn't fit the decoded buffer: negative start, zero duration, or start plus duration past the end. Checked once at load, so a bad offset fails on the loading screen instead of playing silence later.</td>
+      </tr>
+      <tr>
+        <td><code>createEngine</code> (first graph build)</td>
+        <td><code>BusNotFoundError</code> <Since v="2.0" /></td>
+        <td>A bus's <code>sidechain.from</code> names no bus, or names itself.</td>
+      </tr>
+      <tr>
+        <td>Any load with a single URL</td>
+        <td><code>DecodeError</code></td>
+        <td>The fetch failed, the server answered with a non-2xx status, or <code>decodeAudioData</code> rejected the bytes.</td>
+      </tr>
+      <tr>
+        <td>Any load with a codec ladder</td>
+        <td><code>AggregateDecodeError</code></td>
+        <td>Every URL failed. <code>attempts</code> holds one <code>{'{'} url, cause {'}'}</code> per URL, in the order tried.</td>
+      </tr>
+      <tr>
+        <td><code>engine.preload(items)</code></td>
+        <td><code>PreloadError</code></td>
+        <td>At least one item failed. Thrown only after every item has settled; <code>failures</code> lists <code>{'{'} name, cause {'}'}</code>.</td>
+      </tr>
+      <tr>
+        <td><code>unlock</code>, every <code>load*</code>, <code>preload</code>, <code>createSound</code>, <code>engine.context</code></td>
+        <td><code>EngineClosedError</code></td>
+        <td><code>close()</code> already ran. Closing is terminal; build a new engine.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>
+    A voice refused by a concurrency or per-sound limit is not an error.
+    <code>play()</code> returns a voice with <code>rejected === true</code>
+    instead; see <a href="/concepts/concurrency/">Concurrency</a>.
+  </p>
+
+  <h3>Things that are not a ZvukError</h3>
+  <ul>
+    <li>
+      An abort. When the <code>signal</code> you passed fires, the load
+      rejects with the platform's <code>AbortError</code>, untouched, so the
+      usual <code>e.name === 'AbortError'</code> check works.
+    </li>
+    <li>
+      Programmer errors with no recovery, such as <code>loadVariants</code> with an
+      empty URL list, <code>pickSource([])</code>, and a missing
+      <code>AudioContext</code> constructor (server-side rendering, or Node
+      without a polyfill). These are plain <code>Error</code>s.
+    </li>
+  </ul>
+
+  <h2>Catching load failures</h2>
+  <p>
+    Check the subclass before the base class, since
+    <code>AggregateDecodeError</code> is also a <code>DecodeError</code>.
+    That ordering is deliberate, so code written before ladders existed still
+    catches both.
+  </p>
+  <Snippet code={narrow} lang="ts" />
+
+  <h3>A loading screen that keeps going</h3>
+  <p>
+    <code>preload</code> doesn't short-circuit. One bad file leaves the rest
+    of the batch loaded and registered, and the rejection tells you which
+    names are missing. I'd show the game and skip the missing sounds rather
+    than block on them. <a href="/guides/loading/">Loading sounds</a> covers
+    progress and concurrency.
+  </p>
+  <Snippet code={preload} lang="ts" />
+
+  <h2>Lookup errors are for development</h2>
+  <p>
+    A <code>BusNotFoundError</code> or <code>SoundNotFoundError</code> at
+    runtime means the code and the manifest disagree. Catching it hides the
+    bug. The message names the closest match by edit distance, which is
+    usually the typo:
+  </p>
+  <Snippet code={typo} lang="ts" />
+  <p>
+    If the set of sounds really is dynamic, ask first with
+    <code>engine.hasSound(name)</code> (and <code>hasSprite</code>,
+    <code>hasVariants</code>, <code>hasMusic</code>, <code>hasStream</code>).
+    For sound names known at build time, <a href="/reference/cli/"><code>zvuk gen</code></a>
+    turns the manifest into a union type so the typo never compiles.
+  </p>
+
+  <h2>Logging</h2>
+  <Snippet code={cause} lang="ts" />
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/engine/">Engine</a> covers lifecycle and <code>close()</code>.</li>
+    <li><a href="/guides/asset-formats/">Asset formats</a> explains the codec ladder behind <code>AggregateDecodeError</code>.</li>
+    <li><a href="/api/">API reference</a> has each class.</li>
+  </ul>
+</Docs>

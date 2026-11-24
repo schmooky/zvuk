@@ -75,8 +75,10 @@ describe('Master', () => {
 
   it('ramps headroom rather than stepping', async () => {
     const ctx = offline(0.2);
+    // Master wires itself to ctx.destination. Connecting input there by hand
+    // as well used to be a harmless duplicate edge; since v2 input also feeds
+    // the master fader, so the signal would reach the output twice.
     const master = new Master(ctx as unknown as AudioContext);
-    master.input.connect(ctx.destination);
     const src = dc(ctx, 0.2);
     src.connect(master.input);
     src.start(0);

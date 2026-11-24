@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SITE } from '../lib/seo';
+import { V2_NEW, V2_RELEASE } from '../content/v2';
 
 interface Item {
   title: string;
@@ -77,6 +78,16 @@ const tier2: Item[] = [];
 
 const tier3: Item[] = [
   {
+    title: 'Sample-accurate sidechain',
+    why: 'BusConfig.sidechain follows the key bus on the main thread at frame rate. An AudioWorklet follower would duck on the sample, like play({ duck }) already does for single voices.',
+    size: 'M',
+  },
+  {
+    title: 'Vertical music layers',
+    why: 'Stems of one cue that fade in and out against a Parameter (calm, tense, bonus), locked to the v2 tempo grid.',
+    size: 'L',
+  },
+  {
     title: 'Per-voice FX',
     why: 'FX inserts are bus-level today. No way to put a flanger on one voice without dedicating a bus to it.',
     size: 'L',
@@ -111,8 +122,8 @@ const sections = [
 ---
 <Base title={`Roadmap · ${SITE.name}`} description="What's next in zvuk. Public, prioritised, sized.">
   <div class="container py-12 max-w-4xl">
-    <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Public roadmap</div>
-    <h1 class="mb-3 text-4xl font-semibold tracking-tight">What's next</h1>
+    <p class="eyebrow">Public roadmap</p>
+    <h1 class="display-3 mt-3 mb-4">What's next</h1>
     <p class="mb-8 text-lg text-muted-foreground max-w-2xl">
       An honest punch list of what would make zvuk better, ordered by impact.
       No promises on dates. This is intent, not a release schedule. PRs welcome
@@ -120,7 +131,7 @@ const sections = [
     </p>
 
     <div class="mb-10 rounded-xl border border-border bg-card/40 p-5">
-      <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Status</div>
+      <div class="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-text">Status</div>
       <div class="grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <div class="font-semibold">Shipped in v{SITE.version}</div>
@@ -135,7 +146,26 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.1 → v1.12</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v{V2_RELEASE}</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Version 2</h2>
+      </div>
+      <p class="mb-5 text-sm text-muted-foreground">
+        A major release: new scheduling, ducking and music features, about twenty fixes,
+        and a short list of breaking changes in the <a href="/guides/migrating-to-v2/" class="text-foreground underline underline-offset-4">migration guide</a>.
+      </p>
+      <ol class="grid gap-3 sm:grid-cols-2">
+        {V2_NEW.map((item) => (
+          <li class="rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+            <a href={item.href} class="font-semibold hover:text-brand-text">{item.title}</a>
+            <p class="mt-1 text-sm text-muted-foreground">{item.body}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="mb-12">
+      <div class="mb-1 flex items-baseline gap-3">
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v1.1 → v1.14</div>
         <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">Roughly one feature per minor release. Most recent first.</p>
@@ -167,7 +197,7 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">v1.0.0</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v1.0.0</div>
         <h2 class="text-2xl font-semibold tracking-tight">First stable release</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">The headline change was a unit normalization across the public API.</p>
@@ -199,7 +229,7 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">Shipped</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">Shipped</div>
         <h2 class="text-2xl font-semibold tracking-tight">Roadmap tier sweep</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">A roadmap-tier sweep covering every actionable item from Tiers 1 through 4, end to end. Framework adapters remain out of scope.</p>
@@ -232,7 +262,7 @@ const sections = [
     {sections.map(({ tier, title, subtitle, items }) => (
       <section class="mb-12">
         <div class="mb-1 flex items-baseline gap-3">
-          <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-primary">Tier {tier}</div>
+          <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">Tier {tier}</div>
           <h2 class="text-2xl font-semibold tracking-tight">{title}</h2>
         </div>
         <p class="mb-5 text-sm text-muted-foreground">{subtitle}</p>
@@ -267,7 +297,7 @@ const sections = [
     ))}
 
     <div class="mt-16 rounded-xl border border-primary/30 bg-primary/[0.04] p-6">
-      <div class="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary mb-2">Contribute</div>
+      <div class="font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-brand-text mb-2">Contribute</div>
       <h3 class="text-lg font-semibold mb-2">Pick one and PR it</h3>
       <p class="text-sm text-muted-foreground mb-3">
         Items sized <span class="font-mono text-primary">small</span> are usually a single

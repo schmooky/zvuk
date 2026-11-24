@@ -9,8 +9,8 @@ import type { Bus } from './bus';
  * voice = dialogue + effort sounds; etc.
  *
  * Construct via `engine.busGroup(name, members)`; look up via
- * `engine.busGroup(name)`. Snapshots and parameters can target a group
- * instead of repeating bus names.
+ * `engine.busGroup(name)`. Snapshots address buses, not groups: a snapshot
+ * of a mix with a group in it records each member bus.
  */
 export class BusGroup {
   readonly name: string;

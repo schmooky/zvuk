@@ -21,6 +21,7 @@
     "test",
     "bench",
     "conformance",
+    "examples",
     "tsup.config.ts",
     "vitest.config.ts",
     "vitest.bench.config.ts",

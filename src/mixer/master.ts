@@ -1,9 +1,11 @@
-import type { AudioLevel, MasterConfig, MasterLimiterConfig } from '../types';
+import { waitAudio } from '../runtime/wait';
+import type { AudioLevel, FadeCurve, MasterConfig, MasterLimiterConfig } from '../types';
 import { applyRamp } from './curve';
 
 /**
- * The Master stage. Headroom-aware gain into an optional soft limiter, then to
- * destination. Buses connect their output to master.input.
+ * The Master stage: headroom gain, then the master fader (volume and mute),
+ * then an optional soft limiter, then the destination. Buses connect their
+ * output to master.input. Reach it with `engine.master`.
  *
  * Headroom is a static gain offset; the limiter is a fast-attack
  * DynamicsCompressorNode that catches most peaks the headroom can't tame when
@@ -13,6 +15,10 @@ import { applyRamp } from './curve';
  */
 export class Master {
   readonly input: GainNode;
+  /** Master fader: volume × mute. Sits after headroom, before the limiter. */
+  private fader: GainNode;
+  private _volume: number;
+  private _muted: boolean;
   private headroomDb: number;
   private ctx: AudioContext;
   private limiterNode: DynamicsCompressorNode | null = null;
@@ -26,9 +32,46 @@ export class Master {
     this.input = ctx.createGain();
     this.headroomDb = config.headroom ?? 0;
     this.input.gain.value = dbToLinear(this.headroomDb);
+    this.fader = ctx.createGain();
+    this._volume = clamp01(config.volume ?? 1);
+    this._muted = config.mute ?? false;
+    this.fader.gain.value = this._muted ? 0 : this._volume;
+    this.input.connect(this.fader);
     this.destination = ctx.destination;
     this.limiterCfg = config.limiter ?? null;
     this.rewire();
+  }
+
+  /** Master volume (0..1). The setter ramps over 10 ms. */
+  get volume(): number {
+    return this._volume;
+  }
+
+  set volume(v: number) {
+    this._volume = clamp01(v);
+    if (!this._muted) applyRamp(this.fader.gain, this.ctx.currentTime, this._volume, 0.01, 'linear');
+  }
+
+  /** Mute everything. Volume is kept and comes back on unmute. */
+  get muted(): boolean {
+    return this._muted;
+  }
+
+  set muted(v: boolean) {
+    if (this._muted === v) return;
+    this._muted = v;
+    applyRamp(this.fader.gain, this.ctx.currentTime, v ? 0 : this._volume, 0.01, 'linear');
+  }
+
+  /**
+   * Fade the master volume to `target` over `duration` seconds. While muted
+   * the target is stored and applied on unmute.
+   */
+  fadeTo(target: number, duration: number, curve: FadeCurve = 'linear'): Promise<void> {
+    this._volume = clamp01(target);
+    if (this._muted) return waitAudio(this.ctx, duration);
+    applyRamp(this.fader.gain, this.ctx.currentTime, this._volume, duration, curve);
+    return waitAudio(this.ctx, duration);
   }
 
   setHeadroom(db: number): void {
@@ -83,12 +126,12 @@ export class Master {
   }
 
   dispose(): void {
-    try {
-      this.input.disconnect();
-      this.limiterNode?.disconnect();
-      this._meterAnalyser?.disconnect();
-    } catch {
-      /* already disconnected */
+    for (const n of [this.input, this.fader, this.limiterNode, this._meterAnalyser]) {
+      try {
+        n?.disconnect();
+      } catch {
+        /* already disconnected */
+      }
     }
     this.limiterNode = null;
     this._meterAnalyser = null;
@@ -97,7 +140,11 @@ export class Master {
 
   private rewire(): void {
     try {
-      this.input.disconnect();
+      this.fader.disconnect();
+    } catch {
+      /* fresh */
+    }
+    try {
       this.limiterNode?.disconnect();
     } catch {
       /* fresh */
@@ -111,19 +158,20 @@ export class Master {
       limiter.ratio.value = Math.max(20, cfg.ratio ?? 20);
       limiter.attack.value = cfg.attack ?? 0.001;
       limiter.release.value = cfg.release ?? 0.05;
-      this.input.connect(limiter);
+      this.fader.connect(limiter);
       limiter.connect(this.destination);
       this.limiterNode = limiter;
     } else {
-      this.input.connect(this.destination);
+      this.fader.connect(this.destination);
     }
-    // input.disconnect() above drops every outgoing edge, the passive meter
-    // tap included. Without this, meter() reads zero forever after the first
-    // setLimiter() call.
-    if (this._meterAnalyser) this.input.connect(this._meterAnalyser);
   }
 }
 
 function dbToLinear(db: number): number {
   return 10 ** (db / 20);
+}
+
+function clamp01(v: number): number {
+  if (Number.isNaN(v)) return 0;
+  return Math.min(1, Math.max(0, v));
 }

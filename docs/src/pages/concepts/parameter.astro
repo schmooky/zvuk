@@ -2,6 +2,7 @@
 import ParameterModulator from '../../components/demos/ParameterModulator.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import ParameterDiagram from '../../components/diagrams/ParameterDiagram.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -15,6 +16,14 @@ const bind = `intensity.bindTo((v) => engine.bus('music').level = v, {
 intensity.bindTo((v) => filter.setFrequency(v), {
   from: 800, to: 12000, curve: 'easeIn',
 });`;
+
+const ramp = `// Build tension over four seconds. Everything bound to 'intensity'
+// (bus levels, a filter cutoff, occlusion) follows on every frame.
+await intensity.rampTo(1, 4, 'easeIn');
+
+// A new target interrupts the running glide; the old promise resolves.
+void intensity.rampTo(0.2, 1.5);
+intensity.gliding; // true until it lands`;
 
 const subscribe = `const off = intensity.subscribe((v) => console.log('intensity:', v));
 // later: off();`;
@@ -49,7 +58,9 @@ const subscribe = `const off = intensity.subscribe((v) => console.log('intensity
 class Parameter {
   readonly name: string;
   readonly value: number;
-  set(v: number): void;
+  readonly gliding: boolean;                    // v2: a rampTo is running
+  set(v: number): void;                         // also cancels a running rampTo
+  rampTo(value: number, seconds: number, curve?: FadeCurve): Promise<void>;   // v2
   subscribe(fn: (v: number) => void): () => void;
   bindTo(setter: (mapped: number) => void, opts?: {
     from?: number;        // default 0
@@ -72,6 +83,19 @@ class Parameter {
 
   <h3>Subscribe for UI updates</h3>
   <Snippet code={subscribe} lang="ts" />
+
+  <h3>Glide with rampTo <Since v="2.0" /></h3>
+  <p>
+    <code>set()</code> jumps, and every binding jumps with it. Without
+    <code>rampTo</code>, a smooth change meant each binding scheduling its
+    own fade. <code>rampTo(value, seconds, curve)</code> moves the parameter
+    itself, calling subscribers once per animation frame, and resolves when
+    it lands or when <code>set()</code> or another <code>rampTo</code>
+    interrupts it. The glide runs on wall time, so in a hidden tab it still
+    lands on time, in coarser steps. <code>snapshot.apply({'{'} fade {'}'})</code>
+    uses it, so parameters glide alongside bus levels.
+  </p>
+  <Snippet code={ramp} lang="ts" />
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

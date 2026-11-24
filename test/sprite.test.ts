@@ -11,7 +11,7 @@ describe('Sprite', () => {
       {
         small: { start: 0, duration: 0.2 },
         medium: { start: 0.25, duration: 0.4 },
-        big: { start: 0.7, duration: 0.6 },
+        big: { start: 0.7, duration: 0.3 },
       },
       { bus: 'sfx' },
     );

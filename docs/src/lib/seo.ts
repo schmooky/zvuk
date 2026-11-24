@@ -10,6 +10,9 @@ export const SITE = {
     'zvuk — a Wwise-grade audio engine for the web: lazy AudioContext, mixer buses, sidechain ducking, snapshots, sprites, and codec-aware loading. Tiny, ESM-only, type-safe.',
   url: 'https://zvuk.schmooky.dev',
   github: 'https://github.com/schmooky/zvuk',
+  /** Branch the "Edit this page" links point at. */
+  editBranch: 'main',
+  author: 'schmooky',
   /** npm package name (`@schmooky/zvuk`). */
   npmName: pkg.name,
   /** Current package version, populated by `changeset version`. */

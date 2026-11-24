@@ -1,59 +1,79 @@
 ---
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Code } from 'astro:components';
 import { SITE } from '../lib/seo';
-const tags = [
-  'lazy AudioContext', 'mixer buses', 'sidechain ducking', 'snapshots',
-  'parameters', 'audio sprites', 'voice limits', 'spatializer',
-  'webm/opus first', 'iOS Safari ready', '17 kB min+gzip',
-  'ESM-only', 'zero dependencies', 'TypeScript-strict',
-];
+import CopyCommand from './CopyCommand.astro';
+
+/*
+  The landing hero in the pixi-reels shape, but following the theme (light in
+  light mode, dark in dark mode) rather than ink in both: an eyebrow with the version, a two-line display headline
+  whose second line carries the one hue, a lead, two actions and the install
+  pill. The right column is the marrow move: the code that makes the sound,
+  rather than a picture of it.
+*/
+// Lines stay under ~54 columns so the panel never scrolls sideways.
+const sample = `import { createEngine } from '@schmooky/zvuk';
+
+const engine = createEngine({
+  buses: { music: {}, sfx: {}, voice: {} },
+});
+
+button.onclick = async () => {
+  await engine.unlock(); // the gesture iOS wants
+
+  await engine.loadSound('coin', [
+    '/sfx/coin.webm',
+    '/sfx/coin.m4a', // Safari fallback
+  ], { bus: 'sfx', limit: { max: 3 } });
+
+  // The music dips while the coin rings.
+  engine.sound('coin').play({
+    duck: { bus: 'music', amount: 0.4 },
+  });
+};`;
 ---
-<section class="relative overflow-hidden border-b border-border/60 pb-16 pt-24">
-  <div class="grid-bg absolute inset-0 opacity-50 pointer-events-none"></div>
-  <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"></div>
+<section class="relative overflow-hidden border-b border-border">
+  <div class="grid-bg pointer-events-none absolute inset-0 opacity-60" aria-hidden="true"></div>
+  <div class="container relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14 lg:py-24">
+    <div class="flex min-w-0 flex-col items-start">
+      <p class="eyebrow">Web Audio engine for games</p>
 
-  <div class="container relative">
-    <div class="mx-auto max-w-3xl text-center">
-      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur-sm">
-        <span class="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse-slow"></span>
-        v{SITE.version} · MIT · Web Audio API · ESM
-      </div>
-
-      <h1 class="text-balance text-5xl font-semibold tracking-tight sm:text-6xl md:text-7xl">
-        Audio Engine <br />
-        <span class="gradient-text">for the Web.</span>
+      <h1 class="display-1 mt-5">
+        <span class="block">Audio engine</span>
+        <span class="block text-primary">for the web.</span>
       </h1>
 
-      <p class="mx-auto mt-6 max-w-2xl text-balance text-lg text-muted-foreground">
-        Wwise-grade routing, sprite-loading and sidechain ducking, in a tiny ESM package.
-        Lazy <code class="text-primary font-mono text-base">AudioContext</code>, mixer buses, snapshots, parameters,
-        and codec-aware loading. Built for slot games. Useful everywhere sound matters.
+      <p class="mt-7 max-w-[34rem] text-pretty text-lg leading-relaxed text-muted-foreground sm:text-xl">
+        Buses, FX, ducking, snapshots and music on a beat grid, with a codec
+        ladder that survives Safari. Typed, ESM-only, no dependencies.
       </p>
 
-      <div class="mt-8 flex items-center justify-center gap-3 flex-wrap">
+      <div class="mt-9 flex flex-wrap items-center gap-3">
         <a
           href="/docs/quickstart/"
-          class={cn(buttonVariants({ variant: 'brand', size: 'lg' }), 'h-11 px-6 font-mono')}
+          class="inline-flex h-12 items-center rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-[transform,filter] duration-150 hover:brightness-110 active:scale-[0.98]"
         >
-          pnpm add @schmooky/zvuk
+          Get started
         </a>
         <a
-          href="/concepts/engine/"
-          class={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'h-11 px-6 bg-card/50')}
+          href="/recipes/"
+          class="inline-flex h-12 items-center rounded-md border border-border px-6 text-[15px] font-semibold text-foreground transition-colors duration-150 hover:border-foreground/60 hover:bg-secondary/60"
         >
-          See the engine →
+          See the recipes
         </a>
+      </div>
+
+      <div class="mt-6 max-w-full">
+        <CopyCommand command={`pnpm add ${SITE.npmName}`} />
       </div>
     </div>
 
-    <div class="relative mt-14 overflow-hidden [mask-image:linear-gradient(90deg,transparent,black_10%,black_90%,transparent)]">
-      <div class="inline-flex items-center gap-8 whitespace-nowrap animate-marquee py-2">
-        {[...tags, ...tags].map((t) => (
-          <span class="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground/70">
-            <span class="text-primary/80">◆</span>{t}
-          </span>
-        ))}
+    <div class="min-w-0 overflow-hidden rounded-lg border border-code-border bg-code-bg shadow-[0_30px_80px_-30px_rgb(0_0_0/0.25)] dark:shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)]">
+      <div class="flex items-center justify-between border-b border-code-border px-4 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-code-muted">
+        <span>main.ts</span>
+        <span>ts</span>
+      </div>
+      <div class="overflow-x-auto text-[12.5px] leading-[1.75] sm:text-[13px] [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:px-5 [&_pre]:py-4">
+        <Code code={sample} lang="ts" themes={{ light: 'github-light', dark: 'github-dark' }} />
       </div>
     </div>
   </div>

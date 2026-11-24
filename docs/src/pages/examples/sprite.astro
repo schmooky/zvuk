@@ -1,0 +1,86 @@
+---
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const html = `<!doctype html>
+<meta charset="utf-8" />
+<title>zvuk · sprite</title>
+<div id="pads"></div>
+<script type="module" src="./main.ts"></script>`;
+
+const main = `import { createEngine } from '@schmooky/zvuk';
+
+const engine = createEngine({ buses: { ui: { level: 0.8 } } });
+
+// Offsets in seconds into one file. One fetch, one decode.
+const REGIONS = {
+  hover:  { start: 0.0, duration: 0.12 },
+  click:  { start: 0.2, duration: 0.15 },
+  open:   { start: 0.5, duration: 0.6 },
+  close:  { start: 1.2, duration: 0.5 },
+  error:  { start: 1.8, duration: 0.4 },
+  ticker: { start: 2.4, duration: 0.8, loop: true },
+};
+
+const pads = document.getElementById('pads')!;
+let loaded = false;
+
+for (const region of Object.keys(REGIONS)) {
+  const b = document.createElement('button');
+  b.textContent = region;
+  b.onclick = async () => {
+    if (!loaded) {
+      await engine.unlock();
+      // v2: throws RangeError here if a region doesn't fit the file.
+      await engine.loadSprite('ui', ['/sfx/ui-sprite.webm', '/sfx/ui-sprite.m4a'], REGIONS, {
+        bus: 'ui',
+        limit: { max: 4, cooldown: 0.03 }, // hover spam stays sane
+      });
+      loaded = true;
+    }
+    const voice = engine.sprite('ui').play(region, { pitch: { jitter: 0.03 } });
+    // A looping region keeps going until you stop it.
+    if (region === 'ticker') setTimeout(() => voice.stop({ fade: 0.1 }), 2000);
+  };
+  pads.append(b);
+}`;
+---
+<Docs
+  title="Sprite"
+  description="Many short sounds cut from one file, with one request, one decode and voices bound to named regions. Two files to copy."
+  eyebrow="Example"
+>
+  <p>
+    Twenty UI blips as twenty files is twenty requests on a cold cache and
+    twenty decodes before the menu sounds right. A sprite packs them into one
+    file and names the regions.
+  </p>
+  <p>
+    <code>engine.loadSprite(name, url, regions)</code> decodes the file once
+    and returns a <code>Sprite</code>. <code>sprite.play(region)</code>
+    starts a voice at the region's offset and stops it after its duration,
+    or loops the region when it says <code>loop: true</code>.
+  </p>
+
+  <h2>index.html</h2>
+  <Snippet code={html} lang="html" title="index.html" />
+
+  <h2>main.ts</h2>
+  <Snippet code={main} lang="ts" title="main.ts" />
+
+  <h2>Notes</h2>
+  <ul>
+    <li>Leave a few milliseconds of silence between regions so a region's tail never picks up the start of the next one.</li>
+    <li><code>sprite.list()</code> and <code>sprite.has(name)</code> read the region map. An unknown region throws <a href="/guides/errors/"><code>SpriteRegionNotFoundError</code></a> <Since v="2.0" />, which lists the regions the sprite has.</li>
+    <li>Regions are checked against the decoded buffer at load <Since v="2.0" />: one that starts before 0, has no duration or runs past the end throws <code>RangeError</code>, instead of playing silence or the wrong sound later.</li>
+    <li><code>sprite.duration</code> is the whole file's length, and <code>sprite.setLimit()</code> caps voices across all regions <Since v="2.0" />.</li>
+  </ul>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/concepts/sound/">Sound</a>, the buffer underneath a sprite.</li>
+    <li><a href="/examples/variants/">Variants</a> when the takes are separate files.</li>
+    <li><a href="/examples/">All examples</a></li>
+  </ul>
+</Docs>

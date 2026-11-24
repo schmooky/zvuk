@@ -1,0 +1,183 @@
+---
+import DuckerDemo from '../../components/demos/DuckerDemo.tsx';
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import Docs from '../../layouts/Docs.astro';
+
+const surface = `class Ducker implements FxInsert {
+  constructor(ctx: AudioContext, sourceBus: Bus, config?: DuckerConfig);
+
+  readonly input: GainNode;
+  readonly output: GainNode;
+  bypassed: boolean;               // ramps back to unity, stops the follower
+
+  setAmount(a: number): void;      // clamped to 0..1
+  setThreshold(t: number): void;   // linear RMS, >= 0
+  dispose(): void;                 // disconnects from the source bus
+}
+
+interface DuckerConfig {
+  amount?: number;     // 0..1, default 0.5 (about -6 dB at full duck)
+  attack?: number;     // seconds, default 0.08
+  release?: number;    // seconds, default 0.4
+  threshold?: number;  // linear RMS on the source bus, default 0.05
+}`;
+
+const insert = `import { Ducker } from '@schmooky/zvuk';
+
+// Key: the voice bus. Target: the music bus (where the insert goes).
+const ducker = new Ducker(engine.context, engine.bus('voice'), {
+  amount: 0.6,
+  attack: 0.08,
+  release: 0.4,
+  threshold: 0.05,
+});
+engine.bus('music').addFx(ducker);
+
+// Later
+ducker.setAmount(0.8);        // the boss talks over everything
+ducker.bypassed = true;       // cutscene with its own mix
+engine.bus('music').removeFx(ducker);
+ducker.dispose();`;
+
+const declarative = `const engine = createEngine({
+  buses: {
+    voice: {},
+    music: {
+      level: 0.8,
+      // The engine inserts a Ducker at the end of music's FX chain,
+      // keyed from the voice bus, when the graph is built.
+      sidechain: { from: 'voice', amount: 0.6, attack: 0.08, release: 0.4, threshold: 0.05 },
+    },
+  },
+});`;
+
+const perVoice = `// The big-win stinger pulls the music down for exactly as long as it plays.
+engine.sound('big-win').play({
+  duck: { bus: 'music', amount: 0.7, attack: 0.02, release: 0.5 },
+});
+
+// Scheduled starts duck on their first sample, not when play() was called.
+engine.sound('stinger').play({ at: musicVoice.nextBar(), duck: { bus: 'music' } });
+
+// The same thing by hand, for audio zvuk doesn't play.
+const release = engine.bus('music').duck({ amount: 0.5 }, engine.now + 0.1);
+video.onended = release;`;
+
+---
+<Docs
+  title="Ducker"
+  description="A sidechain ducker as a bus FX insert. It sits on the bus being ducked and listens to the level of another bus."
+  eyebrow="FX"
+>
+  <p>
+    Dialogue over a music bed loses every time the bed gets loud, and riding
+    the music fader by hand around every line doesn't survive a second
+    writer. A ducker makes the rule structural. When the voice bus has
+    signal, the music bus steps down, and it comes back when the voice stops.
+  </p>
+  <p>
+    <a href="/api/Ducker/"><code>Ducker</code></a> is an envelope follower on
+    the source bus's RMS driving a gain stage spliced into the target bus's
+    FX chain. It has the same <code>input</code>/<code>output</code>/<code>bypassed</code>/<code>dispose()</code>
+    contract as the other inserts, so it stacks with a compressor or filter
+    on the same bus.
+  </p>
+
+  <h2>API surface</h2>
+  <Snippet code={surface} lang="ts" title="Ducker + DuckerConfig" />
+
+  <h2>Live demo</h2>
+  <p>
+    A looped bed on <code>music</code>, a five-hit phrase on <code>voice</code>.
+    Press Talk and the music meter drops under the voice meter, then swells
+    back over 400 ms of release. Raise the threshold until the quieter hits
+    stop triggering it.
+  </p>
+  <DuckerDemo client:visible />
+
+  <h2>Wiring it by hand</h2>
+  <Snippet code={insert} lang="ts" />
+
+  <h2>Or declare it on the bus <Since v="2.0" /></h2>
+  <p>
+    <code>BusConfig.sidechain</code> builds the same insert when the graph
+    is created. It was accepted by the types in 1.x and ignored by the
+    engine; v2 wires it up and adds <code>threshold</code>. A
+    <code>from</code> that names no bus (or the bus itself) throws
+    <code>BusNotFoundError</code>. I'd use this form for a ducking rule
+    that holds for the whole session, and the class for one you add and
+    remove at runtime.
+  </p>
+  <Snippet code={declarative} lang="ts" />
+
+  <h2>Per-voice ducking with play(&#123; duck &#125;) <Since v="2.0" /></h2>
+  <p>
+    A Ducker listens. It needs signal on the key bus before it reacts, then
+    smooths over a frame or two, so the first syllable is always a little
+    late. When you know the duck should start because you are about to play
+    something, say so instead. <code>play({'{'} duck {'}'})</code> stamps the
+    attack on the audio clock at the voice's own start time and releases when
+    the voice ends. No analyser, no frame loop, and a scheduled
+    <code>at</code> start ducks on its first sample.
+  </p>
+  <p>
+    Overlapping ducks on one bus don't stack. The deepest one wins and the
+    bus comes back only when the last one has ended.
+    <code>bus.duck(opts, at)</code> is the primitive underneath; it returns
+    an idempotent release function. <code>bus.duckLevel</code> reads the
+    current duck gain (1 means not ducked).
+  </p>
+  <Snippet code={perVoice} lang="ts" />
+
+  <h3>Which one to use</h3>
+  <table>
+    <thead><tr><th></th><th><code>sidechain</code> / <code>Ducker</code></th><th><code>play({'{'} duck {'}'})</code> / <code>bus.duck()</code></th></tr></thead>
+    <tbody>
+      <tr><td>Reacts to</td><td>Measured level on another bus</td><td>A voice starting and ending</td></tr>
+      <tr><td>Timing</td><td>Main thread, about one frame behind</td><td>Audio clock, on the voice's first sample</td></tr>
+      <tr><td>Good for</td><td>Dialogue over music, anything with gaps you can't predict</td><td>Stingers, win jingles, UI cues, scheduled hits</td></tr>
+      <tr><td>Cost</td><td>An analyser and a frame loop per ducker</td><td>A gain automation per duck</td></tr>
+    </tbody>
+  </table>
+
+  <h2>How it behaves</h2>
+  <ul>
+    <li>
+      The follower runs on the main thread, once per animation frame, and
+      scales its smoothing by the real frame time. That is fine for speech,
+      where a syllable lasts about 100 ms. It is not sample-accurate, so it
+      can't duck a kick under a snare.
+    </li>
+    <li>
+      It starts at unity. Before 1.14 a fresh ducker began fully ducked and
+      swelled in, which sounded like the music bus fading up on insertion.
+    </li>
+    <li>
+      Bypass ramps back to unity and pauses the follower. Un-bypassing resets
+      the envelope, so there is no stale half-duck.
+    </li>
+    <li>
+      In a hidden tab the frame loop stops; the envelope resets to unity when
+      the tab comes back instead of resuming mid-duck.
+    </li>
+  </ul>
+
+  <h2>Pitfalls</h2>
+  <div class="pitfall">
+    <div class="pitfall-title">The key bus should carry only the trigger.</div>
+    If the music also plays through the voice bus, the ducker hears itself
+    and pumps. Route dialogue, and nothing else, to the bus you key from.
+  </div>
+  <div class="pitfall">
+    <div class="pitfall-title">Attack under ~20 ms on speech pumps.</div>
+    Plosives are spiky. 80 ms is a sensible default, 40 ms for urgent VO.
+  </div>
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/guides/ducking/">Sidechain ducking</a> is the walkthrough, with tuning advice.</li>
+    <li><a href="/fx/compressor/">Compressor</a> compresses on its own input; the ducker keys from another bus.</li>
+    <li><a href="/concepts/bus/">Bus</a> is where inserts live.</li>
+  </ul>
+</Docs>

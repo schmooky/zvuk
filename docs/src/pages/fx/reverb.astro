@@ -1,5 +1,6 @@
 ---
 import ReverbWet from '../../components/demos/ReverbWet.tsx';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -57,6 +58,11 @@ intensity.bindTo((v) => verb.setWet(v), { from: 0.1, to: 0.6 });`;
     space. Omit it and zvuk generates a synthetic exponential-decay noise
     impulse instead, which costs nothing to ship and carries far less
     character, but holds up fine as atmosphere.
+  </p>
+
+  <p>
+    Wet-mix changes and bypass glide over about 10 ms <Since v="2.0" />;
+    in 1.x they were instant steps that clicked.
   </p>
 
   <h2>API surface</h2>

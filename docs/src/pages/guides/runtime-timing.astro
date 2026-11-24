@@ -1,4 +1,5 @@
 ---
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -117,7 +118,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
     </li>
   </ul>
 
-  <h2>Inject a host ticker for frame-aligned dispatch</h2>
+  <h2>Inject a host ticker for frame-aligned dispatch <Since v="1.2" /></h2>
   <p>
     If your host (Pixi, GSAP, a custom render loop) is already running an
     rAF on every frame, hand it to zvuk. The scheduler subscribes
@@ -140,7 +141,7 @@ createEngine({ buses: { music: {} }, autoPauseOnHidden: false });`;
     add a callback to and remove it from is a valid source.
   </p>
 
-  <h2>Pause on tab hide</h2>
+  <h2>Pause on tab hide <Since v="1.2" /></h2>
   <p>
     By default, zvuk listens for <code>visibilitychange</code> and suspends
     the AudioContext while the tab is hidden, then resumes automatically on

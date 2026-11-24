@@ -40,6 +40,7 @@ const SECTIONS = [
   { id: 'guides', label: 'Guides', match: (p) => p === 'guides' || p.startsWith('guides/') },
   { id: 'recipes', label: 'Recipes', match: (p) => p === 'recipes' || p.startsWith('recipes/') },
   { id: 'examples', label: 'Examples', match: (p) => p === 'examples' || p.startsWith('examples/') },
+  { id: 'reference', label: 'Reference', match: (p) => p === 'reference' || p.startsWith('reference/') },
   { id: 'playground', label: 'Playground', match: (p) => p === 'playground' || p.startsWith('playground/') },
   { id: 'project', label: 'Project', match: (p) => p === 'roadmap' || p === 'changelog' },
 ];

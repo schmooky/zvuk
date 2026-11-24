@@ -1,0 +1,27 @@
+---
+/**
+ * Index-page cards in marrow's card-link shape: a mono label, a title, a
+ * line. Pass `label` to override the default (the href).
+ */
+interface Card {
+  href: string;
+  title: string;
+  body: string;
+  label?: string;
+  /** "Since"/"New in" version, shown in the label row. */
+  since?: string;
+}
+interface Props {
+  cards: Card[];
+}
+const { cards } = Astro.props as Props;
+---
+<div class="card-grid">
+  {cards.map((c) => (
+    <a href={c.href} class="card-link">
+      <span class="card-label">{c.label ?? c.href}{c.since && ` · since v${c.since}`}</span>
+      <strong class="mt-1.5">{c.title}</strong>
+      <span>{c.body}</span>
+    </a>
+  ))}
+</div>

@@ -46,6 +46,12 @@ export class AudioContextHost {
   private _unlocking: Promise<void> | null = null;
   private _listeners = new Set<StateListener>();
   private opts: AudioContextHostOptions;
+  /**
+   * The app suspended on purpose (a pause menu). Auto-resume on tab return
+   * and after an iOS interruption leave such a context alone; only
+   * `resume()` or `unlock()` brings it back.
+   */
+  private _userSuspended = false;
 
   constructor(opts: AudioContextHostOptions = {}) {
     this.opts = opts;
@@ -74,9 +80,33 @@ export class AudioContextHost {
     return this._ctx;
   }
 
+  /** True while the app holds the context suspended via `suspend()`. */
+  get userSuspended(): boolean {
+    return this._userSuspended;
+  }
+
+  /**
+   * Suspend the context on the app's behalf. Unlike the automatic suspend on
+   * tab hide, this one sticks: returning to the tab doesn't undo it.
+   */
+  async suspend(): Promise<void> {
+    if (this._state === 'closed') throw new EngineClosedError();
+    this._userSuspended = true;
+    const ctx = this._ctx;
+    if (!ctx || ctx.state === 'closed') return;
+    if (ctx.state === 'running') await ctx.suspend().catch(() => void 0);
+    if (this._state === 'live' || this._state === 'unlocking') this.setState('suspended');
+  }
+
+  /** Clear an app suspend and resume. Same as `unlock()`. */
+  async resume(): Promise<void> {
+    return this.unlock();
+  }
+
   /** Resume the context. Safe to call from any handler; promise resolves to live state. */
   async unlock(): Promise<void> {
     if (this._state === 'closed') throw new EngineClosedError();
+    this._userSuspended = false;
     if (this._unlocking) return this._unlocking;
     // Check the context itself, not the cached enum. A context suspended
     // behind our back (autoPauseOnHidden, an OS policy) with the enum still
@@ -146,7 +176,11 @@ export class AudioContextHost {
     if (visible) {
       // iOS Safari needs a beat before resume() takes hold reliably.
       setTimeout(() => {
-        if (document.visibilityState === 'visible' && this._ctx?.state === 'suspended') {
+        if (
+          document.visibilityState === 'visible' &&
+          !this._userSuspended &&
+          this._ctx?.state === 'suspended'
+        ) {
           void this._ctx.resume().catch(() => void 0);
         }
       }, 200);
@@ -178,7 +212,7 @@ export class AudioContextHost {
         // Same 200ms beat as the visibility path — iOS rejects an immediate
         // resume() right after the state flip.
         setTimeout(() => {
-          if (this._ctx === ctx && ctx.state === 'suspended') {
+          if (this._ctx === ctx && ctx.state === 'suspended' && !this._userSuspended) {
             void ctx.resume().catch(() => void 0);
           }
         }, 200);

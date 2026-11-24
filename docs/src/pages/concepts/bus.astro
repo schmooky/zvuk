@@ -2,6 +2,7 @@
 import BusFader from '../../components/demos/BusFader.tsx';
 import Frame from '../../components/diagrams/Frame.astro';
 import SignalFlowDiagram from '../../components/diagrams/SignalFlowDiagram.astro';
+import Since from '../../components/Since.astro';
 import Snippet from '../../components/Snippet.astro';
 import Docs from '../../layouts/Docs.astro';
 
@@ -22,7 +23,7 @@ const surface = `class Bus {
   setConcurrency(c: ConcurrencyConfig | null): void;
 
   addFx(fx: FxInsert): void;
-  removeFx(fx: FxInsert): void;
+  removeFx(fx: FxInsert): void;          // v2: disconnects, so the insert can move buses
   fx(): readonly FxInsert[];
 
   meter(): { rms: number; peak: number };  // live amplitude readout (lazy analyser tap)
@@ -34,6 +35,9 @@ const surface = `class Bus {
   solo(on?: boolean): void;                // engine coordinates "any soloed → mute the rest"
   unsolo(): void;
   readonly soloed: boolean;
+
+  duck(opts: { amount?: number; attack?: number; release?: number }, at?: number): () => void;  // v2
+  readonly duckLevel: number;            // v2: 1 = not ducked
 }`;
 
 const meter = `// Drive a VU bar from bus.meter() inside your render loop.
@@ -142,7 +146,7 @@ engine.busGroup('combat').level = 1;`;
   <h3>Enumerate active voices on a bus</h3>
   <Snippet code={enumerate} lang="ts" />
 
-  <h3>Live VU meter via <code>bus.meter()</code></h3>
+  <h3>Live VU meter via <code>bus.meter()</code> <Since v="1.7" /></h3>
   <p>
     Returns <code>{ '{ rms, peak }' }</code> as linear values in <code>[0..1]</code>.
     The first call attaches a passive AnalyserNode tap. Nothing is allocated
@@ -152,7 +156,7 @@ engine.busGroup('combat').level = 1;`;
   </p>
   <Snippet code={meter} lang="ts" />
 
-  <h3>Sends: route a copy of one bus into another</h3>
+  <h3>Sends: route a copy of one bus into another <Since v="1.9" /></h3>
   <p>
     A send routes a configurable share of one bus's signal into another,
     instead of inserting an effect directly on the source. It is the Wwise
@@ -161,7 +165,7 @@ engine.busGroup('combat').level = 1;`;
   </p>
   <Snippet code={sends} lang="ts" />
 
-  <h3>Solo: A/B one bus without disturbing the rest</h3>
+  <h3>Solo: A/B one bus without disturbing the rest <Since v="1.9" /></h3>
   <p>
     The engine coordinates the global rule. While any bus is in the solo set,
     every non-soloed bus is muted through the same 10 ms ramp, and when the
@@ -171,7 +175,7 @@ engine.busGroup('combat').level = 1;`;
   </p>
   <Snippet code={solo} lang="ts" />
 
-  <h3>Bus groups: address several buses at once</h3>
+  <h3>Bus groups: address several buses at once <Since v="1.9" /></h3>
   <p>
     A <a href="/api/BusGroup/"><code>BusGroup</code></a> is a logical handle
     rather than an audio node. It applies <code>level</code>,
@@ -181,6 +185,15 @@ engine.busGroup('combat').level = 1;`;
     usually dialogue plus effort sounds.
   </p>
   <Snippet code={groups} lang="ts" />
+
+  <h3>Duck a bus from code <Since v="2.0" /></h3>
+  <p>
+    <code>bus.duck(opts, at)</code> pulls the bus down from audio time
+    <code>at</code> and returns a release function. Overlapping ducks keep
+    the deepest; the bus comes back when the last one releases. It is what
+    <code>play({'{'} duck {'}'})</code> uses, and the
+    <a href="/fx/ducker/">Ducker page</a> explains when to use which.
+  </p>
 
   <h2>Pitfalls</h2>
   <div class="pitfall">

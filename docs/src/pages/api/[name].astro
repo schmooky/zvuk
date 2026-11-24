@@ -29,12 +29,12 @@ const summary = entry.comment?.summary?.map((s) => s.text).filter(Boolean).join(
 ---
 <Base title={`${entry.name} · API · ${SITE.name}`} description={summary || `Reference for ${entry.name}.`}>
   <div class="container py-12 max-w-3xl">
-    <a href="/api/" class="text-[11px] font-mono uppercase tracking-[0.14em] text-primary hover:underline">← API</a>
-    <div class="mt-2 mb-2 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground">{kindLabel(entry, 'Symbol')}</div>
-    <h1 class="mb-3 text-3xl font-semibold tracking-tight font-mono">{entry.name}</h1>
+    <a href="/api/" class="eyebrow hover:underline underline-offset-4" data-pagefind-ignore>← API reference</a>
+    <div class="mt-2 mb-2 text-xs font-mono uppercase tracking-[0.14em] text-muted-foreground" data-pagefind-ignore>{kindLabel(entry, 'Symbol')}</div>
+    <h1 class="display-3 mb-4 font-mono !tracking-tight">{entry.name}</h1>
 
     {summary && (
-      <p class="mb-8 text-base text-muted-foreground whitespace-pre-line">{summary}</p>
+      <p class="lead mb-8 whitespace-pre-line">{summary}</p>
     )}
 
     {entry.signatures && entry.signatures.length > 0 && (

@@ -1,3 +1,4 @@
+import { glideTo } from '../mixer/curve';
 import type { DistanceModel, SpatialOptions } from '../types';
 
 const DEFAULT_REF_DISTANCE = 1;
@@ -13,6 +14,7 @@ const OCCLUSION_MUFFLED_HZ = 500;
 // At full occlusion we also drop the spatializer's own gain a bit. Real
 // "behind a wall" attenuation is more than just frequency loss.
 const OCCLUSION_MAX_GAIN_DROP_DB = 6;
+const DEFAULT_GLIDE = 0.02;
 
 /**
  * PannerNode + occlusion biquad wrapper. Inserted between a Voice and
@@ -32,6 +34,7 @@ const OCCLUSION_MAX_GAIN_DROP_DB = 6;
 export class Spatializer {
   private ctx: AudioContext;
   private kind: '2d' | '3d';
+  private glide: number;
   private input: AudioNode; // what the Voice connects into
   private output: AudioNode; // what we connect to the Bus
 
@@ -44,15 +47,16 @@ export class Spatializer {
 
   constructor(ctx: AudioContext, opts: SpatialOptions) {
     this.ctx = ctx;
+    this.glide = Math.max(0, opts.glide ?? DEFAULT_GLIDE);
     if (opts.position) {
       const panner = ctx.createPanner();
-      panner.panningModel = 'HRTF';
+      panner.panningModel = opts.panningModel ?? 'HRTF';
       panner.distanceModel = opts.distanceModel ?? DEFAULT_DISTANCE_MODEL;
       panner.refDistance = opts.refDistance ?? DEFAULT_REF_DISTANCE;
       panner.maxDistance = opts.maxDistance ?? DEFAULT_MAX_DISTANCE;
       panner.rolloffFactor = opts.rolloffFactor ?? DEFAULT_ROLLOFF;
       const [x, y, z] = opts.position;
-      this.setPanner3D(panner, x, y, z);
+      this.setPanner3D(panner, x, y, z, 0);
 
       // Occlusion chain: panner → biquad → gain → out. The biquad and
       // gain are always on but transparent at occlusion = 0 (cutoff at
@@ -72,7 +76,7 @@ export class Spatializer {
       this.output = gain;
       this.kind = '3d';
 
-      if (opts.occlusion != null) this.setOcclusion(opts.occlusion);
+      if (opts.occlusion != null) this.applyOcclusion(opts.occlusion, 0);
     } else {
       const sp = ctx.createStereoPanner();
       sp.pan.value = clampPan(opts.pan ?? 0);
@@ -83,14 +87,26 @@ export class Spatializer {
     }
   }
 
+  /** 2D pan (-1..1). Glides over the `glide` time constant. */
   setPan(pan: number): void {
     if (this.kind !== '2d' || !this.stereoPan) return;
-    this.stereoPan.pan.value = clampPan(pan);
+    glideTo(this.stereoPan.pan, clampPan(pan), this.ctx.currentTime, this.glide);
   }
 
+  /** 3D position. Glides over the `glide` time constant. */
   setPosition(x: number, y: number, z: number): void {
     if (this.kind !== '3d' || !this.panner) return;
-    this.setPanner3D(this.panner, x, y, z);
+    this.setPanner3D(this.panner, x, y, z, this.glide);
+  }
+
+  /** Change the glide time constant for later moves. 0 jumps. */
+  setGlide(seconds: number): void {
+    this.glide = Math.max(0, seconds);
+  }
+
+  /** Switch the 3D panning algorithm live. No-op on 2D spatializers. */
+  setPanningModel(model: PanningModelType): void {
+    if (this.panner) this.panner.panningModel = model;
   }
 
   setRefDistance(d: number): void {
@@ -119,14 +135,18 @@ export class Spatializer {
    * No-op on 2D spatializers.
    */
   setOcclusion(amount: number): void {
+    this.applyOcclusion(amount, this.glide);
+  }
+
+  private applyOcclusion(amount: number, glide: number): void {
     if (!this.occlusionFilter || !this.occlusionGain) return;
     const a = clamp01(amount);
     // Logarithmic interp on cutoff so the perceived sweep is even.
     const cutoff = OCCLUSION_OPEN_HZ * (OCCLUSION_MUFFLED_HZ / OCCLUSION_OPEN_HZ) ** a;
     const now = this.ctx.currentTime;
-    this.occlusionFilter.frequency.setValueAtTime(cutoff, now);
+    glideTo(this.occlusionFilter.frequency, cutoff, now, glide);
     const gainLin = 10 ** ((-OCCLUSION_MAX_GAIN_DROP_DB * a) / 20);
-    this.occlusionGain.gain.setValueAtTime(gainLin, now);
+    glideTo(this.occlusionGain.gain, gainLin, now, glide);
   }
 
   /** Connects the spatializer's output into `dest` and returns the input the Voice should use. */
@@ -145,12 +165,12 @@ export class Spatializer {
     }
   }
 
-  private setPanner3D(p: PannerNode, x: number, y: number, z: number): void {
+  private setPanner3D(p: PannerNode, x: number, y: number, z: number, glide: number): void {
     if (typeof p.positionX?.setValueAtTime === 'function') {
       const now = this.ctx.currentTime;
-      p.positionX.setValueAtTime(x, now);
-      p.positionY.setValueAtTime(y, now);
-      p.positionZ.setValueAtTime(z, now);
+      glideTo(p.positionX, x, now, glide);
+      glideTo(p.positionY, y, now, glide);
+      glideTo(p.positionZ, z, now, glide);
     } else {
       // Older browsers (Safari < 14.5) — setPosition is deprecated but the only API.
       const legacy = p as unknown as { setPosition?: (x: number, y: number, z: number) => void };

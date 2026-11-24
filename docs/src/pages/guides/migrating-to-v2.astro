@@ -1,0 +1,223 @@
+---
+import CardGrid from '../../components/CardGrid.astro';
+import CopyCommand from '../../components/CopyCommand.astro';
+import Since from '../../components/Since.astro';
+import Snippet from '../../components/Snippet.astro';
+import { V2_NEW } from '../../content/v2';
+import Docs from '../../layouts/Docs.astro';
+import { SITE } from '../../lib/seo';
+
+const resolver = `// v1: internal keys leaked through for anything but a plain sound
+resolveAsset: ({ name }) => {
+  // name was 'coin', '__sprite:ui', '__variant:roll:2', '__music:theme:loop'
+  return manifest[name];
+}
+
+// v2: the public name, plus which loader and which part
+resolveAsset: ({ name, kind, part }) => {
+  // name 'roll', kind 'variants', part 2
+  // name 'theme', kind 'music', part 'loop'
+  return manifest[part === undefined ? name : name + '#' + part];
+}`;
+
+const stream = `// v1: resolved void, blocked or not
+await engine.stream('bgm').play({ loop: true });
+
+// v2: false means the browser refused (autoplay, or no playable source)
+if (!(await engine.stream('bgm').play({ loop: true }))) showTapToStart();`;
+
+const rejected = `const v = engine.sound('coin').play();
+
+// v1: a rejected voice emitted 'started', sounded for ~8 ms, then stopped.
+// v2: decided before it starts.
+if (v.rejected) {
+  // never sounded; v.isDone === true; cues() yields only 'ended'
+}`;
+
+const sprite = `import { SpriteRegionNotFoundError, ZvukError } from '@schmooky/zvuk';
+
+try {
+  engine.sprite('ui').play(regionFromData);
+} catch (e) {
+  // v1 threw SoundNotFoundError here; v2 throws SpriteRegionNotFoundError.
+  // Both extend ZvukError, so this catches either:
+  if (e instanceof ZvukError) report(e);
+}`;
+
+const meter = `// v1 (still works in 2.0, deprecated)
+engine.masterMeter();
+
+// v2
+engine.master.meter();`;
+
+const gen = `// v1 bank.gen.ts
+loadBank(engine, { normalize: true });   // LoadSoundOptions, Promise.all inside
+BANK[0].options.loop                      // loop was a load option (and ignored)
+
+// v2 bank.gen.ts: re-run \`zvuk gen\`
+loadBank(engine, { concurrency: 4, onProgress });  // PreloadOptions, engine.preload inside
+BANK[0].loop                                        // loop is data on the entry`;
+---
+<Docs
+  title="Migrating to v2"
+  description="Everything in 2.0.0 that can change the behaviour of 1.x code, what to do about each item, and what's new."
+  eyebrow="Guide"
+>
+  <p>
+    A major version is a promise that some existing code breaks. Most of
+    these items only bite an app that leaned on a 1.x bug, and for most apps
+    the upgrade is a version bump. Read the list; if nothing applies to your
+    code, you are done.
+  </p>
+  <CopyCommand command={`pnpm add ${SITE.npmName}@^2`} />
+  <p>
+    The repository's <a href={`${SITE.github}/blob/main/MIGRATION.md`}>MIGRATION.md</a>
+    covers the same ground for readers on GitHub or npm. This page stands on
+    its own.
+  </p>
+
+  <h2>Breaking changes</h2>
+
+  <h3>1. The asset resolver gets the public name <Since v="2.0" /></h3>
+  <p>
+    <code>ResolveAssetContext.name</code> is now the name you loaded under.
+    Two fields are new: <code>kind</code>
+    (<code>'sound' | 'sprite' | 'variants' | 'music'</code>) and
+    <code>part</code> (the variant index, or
+    <code>'intro' | 'loop' | 'outro'</code>). A resolver that parsed
+    <code>__sprite:</code>, <code>__variant:</code> or <code>__music:</code>
+    prefixes has to switch to these, and one that keyed a cache on
+    <code>name</code> alone now sees every variant of a bundle under one
+    name. See <a href="/guides/asset-resolution/">Asset resolution</a>.
+  </p>
+  <Snippet code={resolver} lang="ts" />
+
+  <h3>2. StreamSound.play() resolves a boolean <Since v="2.0" /></h3>
+  <p>
+    <code>true</code> once playing, <code>false</code> when the browser
+    refused. Nothing changes unless you typed the result as
+    <code>Promise&lt;void&gt;</code>. Streams also take a URL ladder, fall
+    back to the next URL on a media error, and expose <code>ended</code> and
+    <code>url</code>.
+  </p>
+  <Snippet code={stream} lang="ts" />
+
+  <h3>3. Rejected voices never start <Since v="2.0" /></h3>
+  <p>
+    Concurrency is decided before a voice starts. A voice a bus or
+    per-sound limit refuses has <code>rejected === true</code>, makes no
+    sound, emits no <code>'started'</code> cue, and isn't counted on its
+    bus. Code that counted <code>'started'</code> cues to detect plays
+    should read <code>voice.rejected</code>.
+  </p>
+  <Snippet code={rejected} lang="ts" />
+
+  <h3>4. 'lowest-priority' can reject the newcomer <Since v="2.0" /></h3>
+  <p>
+    1.x always stole the lowest-priority playing voice, so a priority-0
+    coin could cut off a priority-10 jackpot. Now a newcomer that ranks
+    below every playing voice is rejected. Ties still go to the newcomer.
+  </p>
+
+  <h3>5. Sprite regions are validated <Since v="2.0" /></h3>
+  <p>
+    <code>loadSprite</code> throws a <code>RangeError</code> when a region
+    doesn't fit the decoded buffer, such as a negative start, a duration of zero or
+    less, or an end more than 50 ms past the end of the file. 1.x played
+    silence or a cut tail without saying why.
+  </p>
+
+  <h3>6. A missing region throws SpriteRegionNotFoundError <Since v="2.0" /></h3>
+  <p>
+    It lists the regions the sprite does have. 1.x threw
+    <code>SoundNotFoundError</code>. Both extend <code>ZvukError</code>; see
+    <a href="/guides/errors/">Errors</a>.
+  </p>
+  <Snippet code={sprite} lang="ts" />
+
+  <h3>7. Reloading a name replaces the old asset <Since v="2.0" /></h3>
+  <p>
+    Loading a stream, music, sprite or variants bundle under a name already
+    in use replaces it. A replaced stream is disposed, so its
+    <code>&lt;audio&gt;</code> element stops; a replaced music asset stops
+    its live voices; voices of sprites and variants play out. In 1.x the
+    old asset stayed connected with no handle left to stop it.
+  </p>
+
+  <h3>8. Bus.applyConcurrencyOnSpawn is removed <Since v="2.0" /></h3>
+  <p>
+    It was engine-internal despite being public. The replacement,
+    <code>bus.planConcurrency()</code>, is internal too, and only decides; it
+    stops nothing. Nothing outside the engine should call either.
+  </p>
+
+  <h3>9. zvuk gen output changed <Since v="2.0" /></h3>
+  <p>
+    <code>loadBank(engine, options)</code> loads through
+    <code>engine.preload</code> and takes <code>PreloadOptions</code>.
+    <code>loop</code> is data on each <code>BANK</code> entry. An empty bank
+    yields <code>type SoundName = never</code>; duplicate names and entries
+    without a URL are errors. Re-run <code>zvuk gen</code>, and if you
+    passed load options to <code>loadBank</code>, pass them per entry or call
+    <code>engine.preload</code> yourself. The <a href="/reference/cli/">CLI page</a>
+    shows the new module.
+  </p>
+  <Snippet code={gen} lang="ts" />
+
+  <h3>10. The CLI is stricter <Since v="2.0" /></h3>
+  <p>
+    <code>zvuk transcode --formats</code> with an unknown or empty list, and
+    any unknown option, exit with an error. Inputs from several folders keep
+    their layout under <code>--out</code> instead of overwriting each other;
+    inputs from one folder are written flat as before.
+    <code>zvuk --version</code> (<code>-v</code>) is new.
+  </p>
+
+  <h3>11. Packaging <Since v="2.0" /></h3>
+  <p>
+    The tarball ships no source maps, and
+    <code>@schmooky/zvuk/package.json</code> is now an export, for tools that
+    read the installed version.
+  </p>
+
+  <h2>Deprecated</h2>
+  <h3>engine.masterMeter() <Since v="2.0" /></h3>
+  <p>
+    Use <code>engine.master.meter()</code>. The old method still works in
+    2.0. See <a href="/concepts/master/">Master bus</a>.
+  </p>
+  <Snippet code={meter} lang="ts" />
+
+  <h2>Fixes you might hear</h2>
+  <p>These need no code change, but they can change what a 1.x mix sounds like.</p>
+  <ul>
+    <li><code>BusConfig.sidechain</code> now ducks. It was accepted and ignored in 1.x; if you had it configured and like the mix as it is, remove it.</li>
+    <li>Filter and reverb parameter changes glide over about 10 ms, and filter and compressor bypass crossfade.</li>
+    <li>Spatializer <code>setPan</code>, <code>setPosition</code> and <code>setOcclusion</code> glide with a 20 ms time constant. <code>glide: 0</code> brings back the 1.x jumps.</li>
+    <li>Returning to the tab no longer resumes a context the app suspended on purpose; use <code>engine.suspend()</code> and <code>resume()</code>.</li>
+    <li><code>bus.removeFx()</code> disconnects the insert, so a reverb tail stops and the insert can move to another bus.</li>
+    <li><code>'no-repeat'</code> variants can pick the first take first.</li>
+    <li><code>snapshot.apply({'{'} fade {'}'})</code> glides parameters along with bus levels, and snapshots restore sends, FX bypass and solo.</li>
+  </ul>
+
+  <h2>New exports</h2>
+  <p>
+    <code>Listener</code>, <code>SpriteRegionNotFoundError</code>, and the
+    types <code>CacheConfig</code>, <code>VoiceCue</code>,
+    <code>SoundLimit</code>, <code>StealStrategy</code>,
+    <code>DuckOptions</code>, <code>AssetKind</code>, <code>BeatEvent</code>,
+    <code>MusicGrid</code>, <code>PreloadBytesEvent</code>,
+    <code>PreloadSoundItem</code>, <code>PreloadSpriteItem</code>,
+    <code>PreloadVariantsItem</code> and <code>PreloadMusicItem</code>.
+    <code>PreloadItem</code> is now the union of the four item types.
+  </p>
+
+  <h2>What's new</h2>
+  <CardGrid cards={V2_NEW.map((i) => ({ href: i.href, title: i.title, body: i.body, label: 'New in v2' }))} />
+
+  <h2>Related</h2>
+  <ul>
+    <li><a href="/changelog/">Changelog</a> has every release note.</li>
+    <li><a href="/guides/migration/">Migrating from Howler</a> if you are coming from outside zvuk.</li>
+  </ul>
+</Docs>

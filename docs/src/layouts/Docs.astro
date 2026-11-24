@@ -1,6 +1,9 @@
 ---
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import DocsSidebar from '../components/DocsSidebar.astro';
-import { DOCS_NAV } from '../content/nav';
+import { DOCS_NAV, DOCS_ORDER, sectionOf } from '../content/nav';
 import { type FaqEntry, SITE } from '../lib/seo';
 import Base from './Base.astro';
 
@@ -10,7 +13,7 @@ interface Props {
   eyebrow?: string;
   /** Question/answer pairs to publish as FAQPage structured data. */
   faq?: FaqEntry[];
-  /** ISO date this page's content last changed. */
+  /** ISO date this page's content last changed. Defaults to the source file's last commit. */
   modified?: string;
 }
 const {
@@ -21,19 +24,151 @@ const {
   modified,
 } = Astro.props as Props;
 const pathname = Astro.url.pathname;
+const here = pathname.endsWith('/') ? pathname : `${pathname}/`;
+
+// Reading order, previous and next (marrow's pager).
+const index = DOCS_ORDER.findIndex((item) => item.href === here);
+const previous = index > 0 ? DOCS_ORDER[index - 1] : undefined;
+const next = index >= 0 ? DOCS_ORDER[index + 1] : undefined;
+const section = sectionOf(here);
+
+// The source file behind this route, for "Edit this page" and the date.
+// Docs pages are static .astro files, so it's one of two shapes.
+// Astro builds from the docs/ directory, as astro.config.mjs assumes too.
+const PAGES_DIR = path.join(process.cwd(), 'src', 'pages') + path.sep;
+const rel = here.replace(/^\/|\/$/g, '');
+const candidates = rel ? [`${rel}.astro`, `${rel}/index.astro`] : ['index.astro'];
+const source = candidates.find((c) => existsSync(PAGES_DIR + c));
+const editHref = source
+  ? `${SITE.github}/edit/${SITE.editBranch}/docs/src/pages/${source}`
+  : undefined;
+
+let lastCommit: string | undefined;
+if (source && !modified) {
+  try {
+    lastCommit =
+      execFileSync('git', ['log', '-1', '--format=%cI', '--', PAGES_DIR + source], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim() || undefined;
+  } catch {
+    /* not a git checkout */
+  }
+}
+const updated = modified ?? lastCommit;
+const updatedLabel = updated
+  ? new Date(updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  : undefined;
+const markdownHref = `${here.replace(/\/$/, '')}.md`;
+const label = eyebrow ?? section?.title ?? 'Docs';
 ---
-<Base title={`${title} · ${SITE.name}`} description={description} faq={faq} modified={modified}>
-  <div class="container grid gap-10 py-12 md:grid-cols-[240px_minmax(0,1fr)]">
-    <DocsSidebar nav={DOCS_NAV} pathname={pathname} />
-    <article class="prose-docs min-w-0 max-w-3xl animate-fade-in">
-      {eyebrow && (
-        <div class="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
-          {eyebrow}
-        </div>
+<Base
+  title={`${title} · ${SITE.name}`}
+  description={description}
+  faq={faq}
+  modified={updated}
+  type="article"
+  section={section?.title}
+  searchBody={false}
+>
+  <div class="container docs-grid">
+    <aside class="docs-side" aria-label="Docs sections">
+      <DocsSidebar nav={DOCS_NAV} pathname={pathname} />
+    </aside>
+
+    <article class="docs-article" data-pagefind-body>
+      <header class="mb-8">
+        <p class="eyebrow my-0" data-pagefind-ignore>{label}</p>
+        <h1 class="display-3 mt-3 mb-0">{title}</h1>
+        {description && <p class="lead mt-4 mb-0">{description}</p>}
+        {/* Phones: the article comes first; the section list folds in here. */}
+        <details class="docs-part" data-pagefind-ignore>
+          <summary>{section ? `${section.title}: ${section.items.length} pages · all docs` : 'All docs pages'}</summary>
+          <DocsSidebar nav={DOCS_NAV} pathname={pathname} label="Docs (menu)" />
+        </details>
+      </header>
+
+      <div class="prose-docs">
+        <slot />
+      </div>
+
+      {(previous || next) && (
+        <nav aria-label="Previous and next page" class="pager" data-pagefind-ignore>
+          {previous && (
+            <a href={previous.href} rel="prev" class="card-link">
+              <span class="card-label">Previous</span>
+              <strong>{previous.label}</strong>
+            </a>
+          )}
+          {next && (
+            <a href={next.href} rel="next" class="card-link">
+              <span class="card-label">Next</span>
+              <strong>{next.label}</strong>
+            </a>
+          )}
+        </nav>
       )}
-      <h1 class="mb-6 text-4xl font-semibold tracking-tight">{title}</h1>
-      {description && <p class="mb-8 text-lg text-muted-foreground">{description}</p>}
-      <slot />
+
+      <footer class="docs-updated" data-pagefind-ignore>
+        {updatedLabel ? (
+          <span>Last updated <time datetime={updated}>{updatedLabel}</time></span>
+        ) : <span />}
+        <span class="flex flex-wrap gap-x-5 gap-y-1">
+          {editHref && <a href={editHref} target="_blank" rel="noopener">Edit this page on GitHub</a>}
+          <a href={markdownHref}>This page as Markdown</a>
+        </span>
+      </footer>
     </article>
+
+    {/* Filled from the article's h2s by the script below; hidden when empty. */}
+    <aside class="docs-toc" aria-label="On this page"></aside>
   </div>
 </Base>
+
+<script>
+  // On-this-page list (marrow's third column), built from the h2s so the
+  // hand-written .astro pages don't each have to declare their headings.
+  const article = document.querySelector<HTMLElement>('.docs-article > .prose-docs');
+  const toc = document.querySelector<HTMLElement>('.docs-toc');
+  if (article && toc) {
+    const slug = (t: string) =>
+      t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'section';
+    const used = new Set<string>();
+    const heads = [...article.querySelectorAll<HTMLHeadingElement>(':scope > h2, :scope > h3')];
+    const tocHeads = heads.filter((h) => h.tagName === 'H2');
+    // Heading text without the "Since vX.Y" marker, so anchors stay stable
+    // when a badge is added (the roadmap links into these).
+    const textOf = (h: HTMLElement) => {
+      const copy = h.cloneNode(true) as HTMLElement;
+      copy.querySelectorAll('.since').forEach((n) => n.remove());
+      return (copy.textContent ?? '').trim();
+    };
+    for (const h of heads) {
+      if (!h.id) {
+        let id = slug(textOf(h));
+        while (used.has(id) || document.getElementById(id)) id += '-x';
+        h.id = id;
+      }
+      used.add(h.id);
+    }
+    if (tocHeads.length > 1) {
+      const label = document.createElement('div');
+      label.className = 'card-label';
+      label.textContent = 'On this page';
+      const ul = document.createElement('ul');
+      ul.className = 'mt-3 border-l border-border text-[13px]';
+      for (const h of tocHeads) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = `#${h.id}`;
+        a.textContent = textOf(h);
+        a.className = 'block py-1 pl-3 leading-snug text-muted-foreground hover:text-foreground';
+        li.append(a);
+        ul.append(li);
+      }
+      toc.append(label, ul);
+    }
+  }
+  // A long sidebar scrolls by itself, so bring the open page into view.
+  document.querySelector('.docs-side [aria-current="page"]')?.scrollIntoView({ block: 'nearest' });
+</script>
