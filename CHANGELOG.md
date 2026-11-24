@@ -1,5 +1,63 @@
 # @schmooky/zvuk
 
+## 2.0.0
+
+### Major Changes
+
+- [#99](https://github.com/schmooky/zvuk/pull/99) [`2599cb5`](https://github.com/schmooky/zvuk/commit/2599cb5d9455cc61a4823b0715ab973663ea7fbc) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - zvuk 2.0. See MIGRATION.md for the full list; most apps upgrade without changes.
+
+  Breaking:
+
+  - `resolveAsset` receives the public asset name plus `kind` (`'sound' | 'sprite' | 'variants' | 'music'`) and `part` (variant index or music part) instead of internal keys such as `__sprite:ui`.
+  - `StreamSound.play()` resolves `true` when playing and `false` when the browser refused, instead of `void`.
+  - A voice a concurrency limit rejects never starts: it has `rejected === true`, emits only `'ended'`, and makes no sound. v1 played it for the length of the stop fade.
+  - `'lowest-priority'` stealing rejects a new voice whose priority is lower than every playing voice's.
+  - `loadSprite` validates regions against the buffer and throws `RangeError` for one that doesn't fit; a missing region throws the new `SpriteRegionNotFoundError`.
+  - Reloading a stream or music name disposes the stream it replaces or stops the music's live instances.
+  - `Bus.applyConcurrencyOnSpawn` is removed (it was engine-internal).
+  - `zvuk gen` emits a `loadBank(engine, PreloadOptions)` that loads through `engine.preload`; `loop` is entry data, not a load option.
+  - The CLI rejects unknown options and invalid `--formats`, and keeps folder layout under `--out`.
+  - The tarball no longer ships source maps.
+
+  Deprecated: `engine.masterMeter()`, use `engine.master.meter()`.
+
+### Minor Changes
+
+- [#99](https://github.com/schmooky/zvuk/pull/99) [`2599cb5`](https://github.com/schmooky/zvuk/commit/2599cb5d9455cc61a4823b0715ab973663ea7fbc) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - New in 2.0:
+
+  - `engine.master`: `volume`, `muted`, `fadeTo()`, `headroom`, `setLimiter()`, `reduction`, `meter()`. `MasterConfig` takes `volume` and `mute`.
+  - `engine.listener` for the 3D scene, `panningModel` and `glide` spatializer options.
+  - `engine.suspend()` / `engine.resume()`: an app-initiated suspend that a tab switch does not undo.
+  - `engine.unload(name)` removes any kind of asset and evicts its buffers.
+  - `play({ at })` schedules a start on the audio clock, on sounds, sprites, variants and music.
+  - `play({ duck })` ducks a bus for exactly the life of a voice; `bus.duck()` underneath it.
+  - Per-sound limits: `limit: { max, steal, cooldown }` on load options and `setLimit()` on sounds, sprites and variants. A variants bundle shares one limit.
+  - Weighted variants: `weights` option and `setWeights()`.
+  - Music: `pause()` / `resume()` on `MusicVoice`, and a tempo grid with `bpm`, `nextBeat()`, `nextBar()`, `beatAt()`, `onBeat()` and `skipToOutro({ at: 'bar' | 'beat' })`.
+  - `Parameter.rampTo()` glides; `snapshot.apply({ fade })` glides parameters too.
+  - Snapshots capture and restore sends, FX bypass and solo.
+  - `LoadSoundOptions.onProgress` and `PreloadOptions.onBytes` for byte-level progress; preload items take `kind: 'sprite' | 'variants' | 'music'`.
+  - Streams take a URL ladder, fall back on media errors and expose `ended`.
+  - `zvuk --version`.
+  - Newly exported types: `CacheConfig`, `VoiceCue`, `SoundLimit`, `StealStrategy`, `DuckOptions`, `AssetKind`, `BeatEvent`, `MusicGrid`, `PreloadBytesEvent`, the `Preload*Item` types, and the `Listener` class.
+
+### Patch Changes
+
+- [#99](https://github.com/schmooky/zvuk/pull/99) [`2599cb5`](https://github.com/schmooky/zvuk/commit/2599cb5d9455cc61a4823b0715ab973663ea7fbc) Thanks [@igaming-bulochka](https://github.com/igaming-bulochka)! - Fixes:
+
+  - `BusConfig.sidechain` was accepted and ignored; it now inserts a `Ducker` keyed on the `from` bus.
+  - Loop crossfade at pitch other than 1 sized its envelope and seams in buffer seconds and left a gap on every lap; a rate change now re-seams the chain.
+  - Pause and resume on a looping region wrapped by the buffer length and resumed outside the region.
+  - `'no-repeat'` variants could never pick the first take first; one-take bundles never set `lastPick`.
+  - Aborting a load and reloading the same URL at once joined the aborted fetch and failed.
+  - `bus.removeFx()` left the insert's output connected.
+  - A voice kept its abort listener on `play({ signal })` after it ended; preload left listeners on a batch signal.
+  - Returning to the tab resumed a context the app had suspended.
+  - `voice.fade()` after `stop()` overrode the stop ramp and clicked.
+  - Filter and reverb parameter changes and filter/compressor bypass clicked; they now glide or crossfade.
+  - Spatializer moves jumped and crackled; they now glide.
+  - The `BusGroup` doc claimed snapshots could target groups.
+
 ## 1.14.1
 
 ### Patch Changes
