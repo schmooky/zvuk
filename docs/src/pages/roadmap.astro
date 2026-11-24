@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { SITE } from '../lib/seo';
+import { V2_NEW, V2_RELEASE } from '../content/v2';
 
 interface Item {
   title: string;
@@ -77,6 +78,16 @@ const tier2: Item[] = [];
 
 const tier3: Item[] = [
   {
+    title: 'Sample-accurate sidechain',
+    why: 'BusConfig.sidechain follows the key bus on the main thread at frame rate. An AudioWorklet follower would duck on the sample, like play({ duck }) already does for single voices.',
+    size: 'M',
+  },
+  {
+    title: 'Vertical music layers',
+    why: 'Stems of one cue that fade in and out against a Parameter (calm, tense, bonus), locked to the v2 tempo grid.',
+    size: 'L',
+  },
+  {
     title: 'Per-voice FX',
     why: 'FX inserts are bus-level today. No way to put a flanger on one voice without dedicating a bus to it.',
     size: 'L',
@@ -135,7 +146,26 @@ const sections = [
 
     <section class="mb-12">
       <div class="mb-1 flex items-baseline gap-3">
-        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v1.1 → v1.12</div>
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v{V2_RELEASE}</div>
+        <h2 class="text-2xl font-semibold tracking-tight">Version 2</h2>
+      </div>
+      <p class="mb-5 text-sm text-muted-foreground">
+        A major release: new scheduling, ducking and music features, about twenty fixes,
+        and a short list of breaking changes in the <a href="/guides/migrating-to-v2/" class="text-foreground underline underline-offset-4">migration guide</a>.
+      </p>
+      <ol class="grid gap-3 sm:grid-cols-2">
+        {V2_NEW.map((item) => (
+          <li class="rounded-xl border border-primary/30 bg-primary/[0.04] p-4">
+            <a href={item.href} class="font-semibold hover:text-brand-text">{item.title}</a>
+            <p class="mt-1 text-sm text-muted-foreground">{item.body}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="mb-12">
+      <div class="mb-1 flex items-baseline gap-3">
+        <div class="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-text">v1.1 → v1.14</div>
         <h2 class="text-2xl font-semibold tracking-tight">Recently shipped</h2>
       </div>
       <p class="mb-5 text-sm text-muted-foreground">Roughly one feature per minor release. Most recent first.</p>

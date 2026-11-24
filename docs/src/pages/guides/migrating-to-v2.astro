@@ -67,10 +67,9 @@ BANK[0].loop                                        // loop is data on the entry
     A major version is a promise that some existing code breaks. Most of
     these items only bite an app that leaned on a 1.x bug, and for most apps
     the upgrade is a version bump. Read the list; if nothing applies to your
-    code, you are done. 2.0 ships first as a <code>next</code>
-    pre-release.
+    code, you are done.
   </p>
-  <CopyCommand command={`pnpm add ${SITE.npmName}@next`} />
+  <CopyCommand command={`pnpm add ${SITE.npmName}@^2`} />
   <p>
     The repository's <a href={`${SITE.github}/blob/main/MIGRATION.md`}>MIGRATION.md</a>
     covers the same ground for readers on GitHub or npm. This page stands on

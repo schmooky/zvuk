@@ -263,7 +263,7 @@ Releases run on [Changesets](https://github.com/changesets/changesets):
 3. On merge to `main`, the workflow opens/updates a **Version Packages** PR that bumps the version and regenerates `CHANGELOG.md`.
 4. Merging it publishes to npm **with provenance** via **OIDC trusted publishing** (no `NPM_TOKEN`), and cuts a GitHub Release.
 
-v2 starts in Changesets **pre-release mode** (`.changeset/pre.json`, tag `next`). While that file exists, every release from `main` is a `2.0.0-next.N` on the `next` dist-tag, and `latest` stays on 1.x. Run `pnpm changeset pre exit` and merge the next Version Packages PR to publish `2.0.0` as `latest`.
+For a pre-release line (`3.0.0-next.N` on the `next` dist-tag), run `pnpm changeset pre enter next` and merge to `main`; `pnpm changeset pre exit` ends it. Branch snapshots keep working in pre mode (`scripts/snapshot-pre-guard.mjs`).
 
 Pushing any non-`main` branch, or running `release.yml` via `workflow_dispatch`, snapshot-publishes the pending changesets under a branch dist-tag. Install one with `pnpm add @schmooky/zvuk@<branch>`.
 

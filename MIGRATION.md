@@ -3,7 +3,7 @@
 Most apps upgrade without code changes. Read the list below. If none of the items applies to your code, the upgrade is a version bump.
 
 ```bash
-pnpm add @schmooky/zvuk@next   # 2.0 pre-releases
+pnpm add @schmooky/zvuk@^2
 ```
 
 ## Breaking changes
