@@ -89,12 +89,12 @@
   --chart-4: oklch(0.62 0.17 145);
   --chart-5: oklch(0.62 0.22 12);
 
-  /* One dark surface for every code-ish element, in both themes (Shiki uses
-     github-dark). Neutral, no warmth. */
-  --code-bg: oklch(0.17 0.005 286);
-  --code-border: oklch(0.27 0.006 286);
-  --code-fg: oklch(0.93 0.002 286);
-  --code-muted: oklch(0.65 0.01 286);
+  /* Code surfaces follow the theme: light here (Shiki github-light), dark
+     under .dark (github-dark). Neutral, no warmth. */
+  --code-bg: oklch(0.975 0.002 286);
+  --code-border: oklch(0.91 0.004 286);
+  --code-fg: oklch(0.21 0.006 286);
+  --code-muted: oklch(0.5 0.012 286);
 
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
@@ -164,9 +164,11 @@
   --sidebar-ring: oklch(0.66 0.19 285);
 }
 
-/* A block that is ink in BOTH themes (the landing hero), ported from
-   pixi-reels: it re-declares the dark token set, so every token-driven class
-   inside renders dark without a `dark:` variant. */
+/* A block that is ink in BOTH themes, ported from pixi-reels. It re-declares
+   the dark token set, so every token-driven class inside renders dark without
+   a `dark:` variant. Unused on purpose: the site keeps light mode light and
+   dark mode dark everywhere, the landing hero included. Kept for demos that
+   draw on a canvas and genuinely need a fixed dark ground. */
 .theme-ink {
   color-scheme: dark;
   --background: oklch(0.141 0.005 285.823);
@@ -496,8 +498,17 @@
   .prose-docs td { @apply px-3 py-2 text-left align-top; }
   .prose-docs tbody tr { border-bottom: 1px solid color-mix(in oklab, var(--color-border) 70%, transparent); }
 
-  /* Shiki writes its theme background inline; the site token wins. */
+  /* Shiki writes its theme background inline; the site token wins. Code is
+     rendered with both github-light and github-dark; the light colours are
+     inline, the dark ones arrive as --shiki-dark and take over under .dark. */
   .astro-code { background-color: var(--color-code-bg) !important; }
+  .dark .astro-code,
+  .dark .astro-code span {
+    color: var(--shiki-dark) !important;
+    font-style: var(--shiki-dark-font-style) !important;
+    font-weight: var(--shiki-dark-font-weight) !important;
+    text-decoration: var(--shiki-dark-text-decoration) !important;
+  }
 
   /* --------------------------------------------------------------- callouts */
   .pitfall, .note {

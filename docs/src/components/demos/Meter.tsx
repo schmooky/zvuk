@@ -92,7 +92,9 @@ export default function Meter({ read, height = 44, className, label, readout = t
       const ink = style.getPropertyValue('--meter-color').trim() || '#8a7bff';
       const hot = style.getPropertyValue('--meter-hot').trim() || '#f5b301';
       const over = style.getPropertyValue('--meter-clip').trim() || '#ef4444';
-      const dim = style.getPropertyValue('--meter-track').trim() || 'rgba(255,255,255,0.08)';
+      // The track follows the theme: a faint white on dark, a faint black on light.
+      const darkTheme = document.documentElement.classList.contains('dark');
+      const dim = darkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(9,9,11,0.08)';
 
       c2d.fillStyle = dim;
       c2d.fillRect(0, barY, w, barH);
@@ -187,7 +189,6 @@ export default function Meter({ read, height = 44, className, label, readout = t
             '--meter-color': 'oklch(0.62 0.19 275)',
             '--meter-hot': 'oklch(0.80 0.15 85)',
             '--meter-clip': 'oklch(0.63 0.22 25)',
-            '--meter-track': 'rgba(255,255,255,0.07)',
           } as React.CSSProperties
         }
         className="rounded-md border border-border/60 bg-background/40"

@@ -4,8 +4,8 @@ import { SITE } from '../lib/seo';
 import CopyCommand from './CopyCommand.astro';
 
 /*
-  The landing hero in the pixi-reels shape: ink in both themes
-  (`.theme-ink`), an eyebrow with the version, a two-line display headline
+  The landing hero in the pixi-reels shape, but following the theme (light in
+  light mode, dark in dark mode) rather than ink in both: an eyebrow with the version, a two-line display headline
   whose second line carries the one hue, a lead, two actions and the install
   pill. The right column is the marrow move: the code that makes the sound,
   rather than a picture of it.
@@ -32,7 +32,7 @@ button.onclick = async () => {
   engine.sound('coin').play({ duck: { bus: 'music', amount: 0.4 } });
 };`;
 ---
-<section class="theme-ink relative overflow-hidden border-b border-border">
+<section class="relative overflow-hidden border-b border-border">
   <div class="grid-bg pointer-events-none absolute inset-0 opacity-60" aria-hidden="true"></div>
   <div class="container relative grid items-center gap-12 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14 lg:py-24">
     <div class="flex min-w-0 flex-col items-start">
@@ -75,13 +75,13 @@ button.onclick = async () => {
       </div>
     </div>
 
-    <div class="min-w-0 overflow-hidden rounded-lg border border-code-border bg-code-bg shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)]">
+    <div class="min-w-0 overflow-hidden rounded-lg border border-code-border bg-code-bg shadow-[0_30px_80px_-30px_rgb(0_0_0/0.25)] dark:shadow-[0_30px_80px_-30px_rgb(0_0_0/0.8)]">
       <div class="flex items-center justify-between border-b border-code-border px-4 py-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-code-muted">
         <span>main.ts</span>
         <span>ts</span>
       </div>
       <div class="overflow-x-auto text-[12.5px] leading-[1.7] sm:text-[13px] [&_pre]:!m-0 [&_pre]:!bg-transparent [&_pre]:px-5 [&_pre]:py-4">
-        <Code code={sample} lang="ts" theme="github-dark" />
+        <Code code={sample} lang="ts" themes={{ light: 'github-light', dark: 'github-dark' }} />
       </div>
     </div>
   </div>
