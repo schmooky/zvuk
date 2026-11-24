@@ -72,8 +72,17 @@ function cancelAndPin(param: AudioParam, now: number, from: number): void {
   try {
     param.setValueAtTime(from, now);
   } catch {
-    // `now` sits inside a curve window we couldn't truncate. The running
-    // curve's own value is the starting point instead.
+    // `now` sits inside a curve window we couldn't truncate. Firefox is the
+    // engine that lands here: it has no cancelAndHoldAtTime, and a plain
+    // cancel from `now` leaves a curve that started earlier in place. Clear
+    // the whole timeline instead and pin the value we read a moment ago, so
+    // the next ramp starts where the old one was rather than being refused.
+    try {
+      param.cancelScheduledValues(0);
+      param.setValueAtTime(from, now);
+    } catch {
+      /* the next ramp falls back to schedule()'s direct write */
+    }
   }
 }
 
@@ -86,7 +95,14 @@ function schedule(param: AudioParam, to: number, fn: () => void): void {
   try {
     fn();
   } catch {
-    param.value = to;
+    // Firefox refuses even a direct write while a curve is running
+    // ("Can't add events during a curve event"). Nothing left to try then,
+    // and throwing out of a fade is worse than the fade not happening.
+    try {
+      param.value = to;
+    } catch {
+      /* curve still owns the param */
+    }
   }
 }
 

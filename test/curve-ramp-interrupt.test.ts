@@ -61,3 +61,40 @@ describe('applyRamp interrupting an in-flight curve', () => {
     await engine.close();
   });
 });
+
+describe('applyRamp on an engine without cancelAndHoldAtTime (Firefox)', () => {
+  it('clears a running curve instead of throwing when the pin is refused', async () => {
+    const calls: string[] = [];
+    let curveUntil = -1;
+    // Firefox's rules: no cancelAndHoldAtTime; cancelScheduledValues(t) keeps
+    // a curve that started before t; any event or value write inside it throws.
+    const refuse = (t: number) => {
+      if (t <= curveUntil)
+        throw new DOMException("Can't add events during a curve event", 'NotSupportedError');
+    };
+    const param = {
+      value: 1,
+      cancelScheduledValues(t: number) {
+        calls.push(`cancel(${t})`);
+        if (t === 0) curveUntil = -1;
+      },
+      setValueAtTime(_v: number, t: number) {
+        refuse(t);
+        calls.push(`set(${t})`);
+      },
+      setValueCurveAtTime(_c: Float32Array, t: number, d: number) {
+        refuse(t);
+        curveUntil = t + d;
+        calls.push(`curve(${t})`);
+      },
+      linearRampToValueAtTime(_v: number, t: number) {
+        refuse(t);
+      },
+    } as unknown as AudioParam;
+
+    applyRamp(param, 0, 0, 0.5, 'equal-power');
+    expect(() => applyRamp(param, 0.2, 1, 0.3, 'equal-power')).not.toThrow();
+    expect(calls).toContain('cancel(0)');
+    expect(calls.at(-1)).toBe('curve(0.2)');
+  });
+});

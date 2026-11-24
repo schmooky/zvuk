@@ -3,6 +3,13 @@ import { scheduleSegmentEnvelope } from '../src/mixer/curve';
 import { offline } from './render';
 
 const CROSSFADE = 0.1;
+
+/**
+ * These two specs pause the render mid-way with OfflineAudioContext.suspend()
+ * to stand in for a stalled main thread. Firefox's OfflineAudioContext has
+ * no suspend(), so it can't stage the stall; the seam spec below still runs.
+ */
+const canSuspend = typeof OfflineAudioContext.prototype.suspend === 'function';
 const SEGMENT = 0.75;
 
 /**
@@ -18,7 +25,7 @@ const SEGMENT = 0.75;
  * silent for the rest of the voice's life.
  */
 describe('loop-crossfade envelope against a stale deadline', () => {
-  it('past-dated legs collapse onto one instant and are refused (the bug)', async () => {
+  it.skipIf(!canSuspend)('past-dated legs collapse onto one instant and are refused (the bug)', async () => {
     const ctx = offline(2);
     let refused: string | null = null;
 
@@ -43,7 +50,7 @@ describe('loop-crossfade envelope against a stale deadline', () => {
     expect(refused).toBe('NotSupportedError');
   });
 
-  it('scheduleSegmentEnvelope rebased onto the clock is accepted', async () => {
+  it.skipIf(!canSuspend)('scheduleSegmentEnvelope rebased onto the clock is accepted', async () => {
     const ctx = offline(2);
     let threw: Error | null = null;
 

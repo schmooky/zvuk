@@ -78,7 +78,8 @@ describe('loop crossfade at pitch 2', () => {
     // so the source stopped at 0.5 s with the gain still at 1: a hard cut.
     sound(dcBuffer(ctx, 1), 'music').play({ loop: true, loopCrossfade: 0.05, pitch: 2 });
     const out = (await ctx.startRendering()).getChannelData(0);
-    expect(sampleAt(out, 0.3)).toBeCloseTo(1, 3);
+    // Firefox's resampler overshoots a DC signal at rate 2 by ~0.0007.
+    expect(sampleAt(out, 0.3)).toBeCloseTo(1, 2);
     expect(sampleAt(out, 0.475)).toBeLessThan(0.9);
     expect(sampleAt(out, 0.475)).toBeGreaterThan(0.1);
     expect(maxStep(out, Math.round(0.4 * ctx.sampleRate), Math.round(0.55 * ctx.sampleRate))).toBeLessThan(
