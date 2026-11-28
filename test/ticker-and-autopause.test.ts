@@ -150,4 +150,41 @@ describe('autoPauseOnHidden', () => {
     expect(visibilityListeners.length).toBe(0);
     await engine.close();
   });
+
+  describe('in a tab that starts hidden', () => {
+    // A background tab where autoplay is allowed: the context starts without
+    // the tab ever having been seen, so no visibilitychange has fired yet.
+    let visibility: DocumentVisibilityState = 'hidden';
+
+    beforeEach(() => {
+      visibility = 'hidden';
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+    });
+
+    afterEach(() => {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    });
+
+    it('keeps the context suspended until the tab shows', async () => {
+      const engine = createEngine({ buses: { sfx: {} } });
+      await engine.unlock();
+      expect(engine.context.state).toBe('suspended');
+      expect(engine.state).toBe('suspended');
+
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      await new Promise((r) => setTimeout(r, 250));
+      expect(engine.context.state).toBe('running');
+      expect(engine.state).toBe('live');
+      await engine.close();
+    });
+
+    it('leaves it running when autoPauseOnHidden: false', async () => {
+      const engine = createEngine({ buses: { sfx: {} }, autoPauseOnHidden: false });
+      await engine.unlock();
+      expect(engine.context.state).toBe('running');
+      expect(engine.state).toBe('live');
+      await engine.close();
+    });
+  });
 });
