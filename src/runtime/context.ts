@@ -71,6 +71,7 @@ export class AudioContextHost {
       this._ctx = new Ctor(opts);
       this.attachVisibilityHandler();
       this.attachStateChangeHandler(this._ctx);
+      void this.pauseIfHidden(this._ctx);
     }
     return this._ctx;
   }
@@ -121,6 +122,7 @@ export class AudioContextHost {
       try {
         if (ctx.state === 'suspended') await ctx.resume();
         this.setState('live');
+        await this.pauseIfHidden(ctx);
       } catch (e) {
         this.setState('cold');
         throw e;
@@ -168,6 +170,16 @@ export class AudioContextHost {
     if (this.opts.autoPauseOnHidden === false) return;
     if (typeof document === 'undefined') return;
     document.addEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  // The visibility handler only hears a tab change. A context that starts in
+  // a tab nobody has looked at yet (a background tab where autoplay is
+  // allowed) would play unseen until the tab was shown and hidden again, so
+  // it is paused here as a hide would pause it, and the tab's return resumes it.
+  private async pauseIfHidden(ctx: AudioContext): Promise<void> {
+    if (this.opts.autoPauseOnHidden === false) return;
+    if (typeof document === 'undefined' || document.visibilityState !== 'hidden') return;
+    if (ctx.state === 'running') await ctx.suspend().catch(() => void 0);
   }
 
   private handleVisibility = (): void => {
